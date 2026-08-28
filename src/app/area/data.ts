@@ -4,8 +4,8 @@ import type { ClassType, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass
 type DB = SupabaseClient;
 
 export async function fetchClassTypes(supabase: DB): Promise<ClassType[]> {
-  const { data } = await supabase.from("class_types").select("id, name, color").order("created_at");
-  return data ?? [];
+  const { data } = await supabase.from("class_types").select("id, name, color, description").order("created_at");
+  return (data ?? []).map((t) => ({ id: t.id, name: t.name, color: t.color, description: t.description ?? "" }));
 }
 
 export async function fetchLevels(supabase: DB): Promise<Level[]> {
@@ -29,7 +29,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       type_id: string;
       level_id: string;
       capacity: number;
-      notes: string | null;
+      description: string | null;
       bookings_open: boolean;
       booked_count: number;
       waitlist_count: number;
@@ -41,7 +41,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       typeId: r.type_id,
       levelId: r.level_id,
       capacity: r.capacity,
-      notes: r.notes ?? "",
+      description: r.description ?? "",
       bookingsOpen: r.bookings_open,
       bookedCount: Number(r.booked_count),
       waitlistCount: Number(r.waitlist_count),

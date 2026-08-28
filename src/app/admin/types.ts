@@ -15,6 +15,7 @@ export type ClassItem = {
   levelId: string;
   capacity: number;
   notes: string;
+  description: string;
   bookingsOpen: boolean;
   clientIds: string[];
   waitlistIds: string[];
@@ -34,6 +35,7 @@ export type ClassType = {
   color: string;
   packageEligible: boolean;
   defaultCapacity: number | null;
+  description: string;
 };
 
 export type Level = {

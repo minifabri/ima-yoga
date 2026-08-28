@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, ClipboardPaste, LayoutGrid, List, Lock, GripVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, ClipboardPaste, LayoutGrid, List, Lock, GripVertical, CalendarClock } from "lucide-react";
 import { IconButton, CapacityBar } from "./ui";
 import { COLORS } from "./colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "./utils";
@@ -42,6 +42,7 @@ export function CalendarView({
   onOpenClass,
   onMoveClass,
   onPasteClass,
+  onGoToNextClass,
 }: {
   viewDate: Date;
   setViewDate: (d: Date) => void;
@@ -53,6 +54,7 @@ export function CalendarView({
   onOpenClass: (classItem: ClassItem) => void;
   onMoveClass: (id: string, targetDate: string) => void;
   onPasteClass: (dateStr: string) => void;
+  onGoToNextClass: () => void;
 }) {
   const days = getCalendarDays(viewDate);
   const today = new Date();
@@ -84,10 +86,17 @@ export function CalendarView({
         <div className="flex items-center gap-1">
           <button
             onClick={() => setViewDate(new Date())}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium mr-1"
+            className="px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium"
             style={{ border: `1px solid ${COLORS.border}` }}
           >
             Oggi
+          </button>
+          <button
+            onClick={onGoToNextClass}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium mr-1"
+            style={{ border: `1px solid ${COLORS.border}` }}
+          >
+            <CalendarClock size={13} /> <span className="hidden sm:inline">Prossima lezione</span>
           </button>
           <IconButton onClick={() => shiftMonth(-1)} style={{ border: `1px solid ${COLORS.border}` }}>
             <ChevronLeft size={17} />

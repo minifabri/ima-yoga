@@ -25,7 +25,7 @@ import type {
   Settings,
 } from "./types";
 
-type ClassClipboard = { typeId: string; levelId: string; time: string; capacity: number; notes: string; bookingsOpen: boolean };
+type ClassClipboard = { typeId: string; levelId: string; time: string; capacity: number; notes: string; description: string; bookingsOpen: boolean };
 type ClassModalState = { mode: "new"; date: Date } | { mode: "edit"; classItem: ClassItem } | null;
 type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 
@@ -120,6 +120,16 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     setClasses((cur) => cur.map((c) => (c.id === id ? { ...c, date: targetDate } : c)));
     db.moveClass(supabase, id, targetDate).catch(() => showToast("Lo spostamento non è riuscito."));
   }
+  function goToNextClass() {
+    const todayStr = dateKey(new Date());
+    const upcoming = [...classes].filter((c) => c.date >= todayStr).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    if (upcoming.length === 0) {
+      showToast("Nessuna lezione futura in programma.");
+      return;
+    }
+    const [y, m] = upcoming[0].date.split("-").map(Number);
+    setViewDate(new Date(y, m - 1, 1));
+  }
   function copyClass(item: ClassClipboard) {
     setClipboard(item);
     showToast("Classe copiata. Scegli un giorno vuoto e incolla.");
@@ -176,7 +186,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
       showToast("Errore nella creazione della tipologia.");
     }
   }
-  async function updateClassType(id: string, patch: Partial<Pick<ClassType, "color" | "packageEligible" | "defaultCapacity">>) {
+  async function updateClassType(id: string, patch: Partial<Pick<ClassType, "color" | "packageEligible" | "defaultCapacity" | "description">>) {
     setClassTypes((cur) => cur.map((t) => (t.id === id ? { ...t, ...patch } : t)));
     try {
       await db.updateClassType(supabase, id, patch);
@@ -377,6 +387,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             typeById={typeById}
             levelById={levelById}
             clipboard={clipboard}
+            onGoToNextClass={goToNextClass}
             onAddClass={(date) => setClassModal({ mode: "new", date })}
             onOpenClass={(classItem) => setClassModal({ mode: "edit", classItem })}
             onMoveClass={moveClass}

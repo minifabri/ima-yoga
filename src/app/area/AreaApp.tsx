@@ -15,6 +15,8 @@ import {
   CheckSquare,
   Square,
   CalendarClock,
+  ChevronDown,
+  History,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
@@ -74,6 +76,7 @@ export function AreaApp({ fullName }: { fullName: string }) {
   const [myLedger, setMyLedger] = useState<MyLedgerEntry[]>([]);
   const [selected, setSelected] = useState<PublicClass | null>(null);
   const [pending, setPending] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [toast, setToast] = useState("");
 
   function showToast(msg: string) {
@@ -537,7 +540,7 @@ export function AreaApp({ fullName }: { fullName: string }) {
                         <div style={{ fontSize: 13.5, fontWeight: 600 }} className="mb-1">
                           {p.used}/{p.size} lezioni svolte · {p.remaining} disponibili
                         </div>
-                        <div style={{ fontSize: 12, color: COLORS.inkSoft }}>Acquistato il {p.date}</div>
+                        <div style={{ fontSize: 12, color: COLORS.inkSoft }}>Assegnato il {p.date}</div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: debt > 0 ? COLORS.danger : COLORS.success }} className="mt-1">
                           {debt > 0 ? `Da saldare ${formatLune(debt)} di ${formatLune(p.price)}` : `Saldato · ${formatLune(p.price)}`}
                         </div>
@@ -558,10 +561,42 @@ export function AreaApp({ fullName }: { fullName: string }) {
                   {totalOwed > 0 ? `Da saldare: ${formatLune(totalOwed)}` : "Nessun saldo in sospeso"}
                 </span>
               </div>
-              {pastBookings.length > 0 && (
-                <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>{pastBookings.length} classi svolte finora.</div>
-              )}
             </div>
+
+            {pastBookings.length > 0 && (
+              <div className="mt-6">
+                <button
+                  onClick={() => setHistoryOpen((v) => !v)}
+                  className="flex items-center gap-2 w-full text-left"
+                  style={{ color: COLORS.heading }}
+                >
+                  <History size={16} />
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 600 }}>Storico classi svolte</span>
+                  <span style={{ fontSize: 12, color: COLORS.inkSoft }}>({pastBookings.length})</span>
+                  <ChevronDown
+                    size={16}
+                    color={COLORS.inkSoft}
+                    style={{ marginLeft: "auto", transform: historyOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}
+                  />
+                </button>
+                {historyOpen && (
+                  <div className="flex flex-col gap-1.5 mt-2">
+                    {pastBookings.map((b) => {
+                      const type = typeById[b.typeId];
+                      const level = levelById[b.levelId];
+                      return (
+                        <div key={b.id} className="p-2.5 rounded-lg" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 600 }}>
+                            {b.date} · {b.time} — {type?.name || "Classe"}
+                          </div>
+                          <div style={{ fontSize: 11, color: COLORS.inkSoft }}>{level?.name}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -580,9 +615,17 @@ export function AreaApp({ fullName }: { fullName: string }) {
             <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-1">
               {selected.date} · {selected.time}
             </div>
-            <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-4">
+            <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-3">
               {levelById[selected.levelId]?.name}
             </div>
+            {(typeById[selected.typeId]?.description || selected.description) && (
+              <div className="mb-3 p-2.5 rounded-lg" style={{ background: COLORS.subtle, fontSize: 12.5, color: COLORS.ink, lineHeight: 1.4 }}>
+                {typeById[selected.typeId]?.description && <div>{typeById[selected.typeId]?.description}</div>}
+                {selected.description && (
+                  <div className={typeById[selected.typeId]?.description ? "mt-1.5" : ""}>{selected.description}</div>
+                )}
+              </div>
+            )}
             <div className="mb-4" style={{ fontSize: 12.5, fontWeight: 600, color: availabilityLabel(selected).color }}>
               {availabilityLabel(selected).text}
             </div>

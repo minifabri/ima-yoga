@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X, Plus, Trash2, Search, Check, ListPlus, CheckSquare, Square, Copy, Lock, LockOpen } from "lucide-react";
+import { X, Plus, Trash2, Search, Check, ListPlus, CheckSquare, Square, Copy, Lock, LockOpen, Eye, EyeOff } from "lucide-react";
 import { Modal, Field, CapacityBar, inputStyle } from "./ui";
 import { COLORS } from "./colors";
 import { genId, dateKey } from "./utils";
@@ -15,6 +15,7 @@ type ClassClipboard = {
   time: string;
   capacity: number;
   notes: string;
+  description: string;
   bookingsOpen: boolean;
 };
 
@@ -73,6 +74,7 @@ export function ClassFormModal({
   const [levelId, setLevelId] = useState(editing ? base!.levelId : levels[0]?.id || "");
   const [capacity, setCapacity] = useState<number | string>(editing ? base!.capacity ?? defaultCapacity : defaultCapacity);
   const [notes, setNotes] = useState(editing ? base!.notes || "" : "");
+  const [description, setDescription] = useState(editing ? base!.description || "" : "");
   const [bookingsOpen, setBookingsOpen] = useState(editing ? base!.bookingsOpen : true);
   const [clientIds, setClientIds] = useState<string[]>(editing ? base!.clientIds || [] : []);
   const [waitlistIds, setWaitlistIds] = useState<string[]>(editing ? base!.waitlistIds || [] : []);
@@ -224,6 +226,7 @@ export function ClassFormModal({
       levelId,
       capacity: capNum,
       notes: notes.trim(),
+      description: description.trim(),
       bookingsOpen,
       clientIds,
       waitlistIds,
@@ -231,7 +234,7 @@ export function ClassFormModal({
     });
   }
   function handleCopy() {
-    onCopy({ typeId, levelId, time, capacity: capNum, notes: notes.trim(), bookingsOpen });
+    onCopy({ typeId, levelId, time, capacity: capNum, notes: notes.trim(), description: description.trim(), bookingsOpen });
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
@@ -327,6 +330,25 @@ export function ClassFormModal({
         <Field label="Note">
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Facoltativo" style={{ ...inputStyle, resize: "vertical" }} />
         </Field>
+        <div className="flex items-center gap-1" style={{ fontSize: 10.5, color: COLORS.inkSoft, marginTop: -4, marginBottom: 12 }}>
+          <EyeOff size={11} /> Solo per te — i clienti non la vedono.
+        </div>
+
+        <div className="p-2.5 rounded-lg mb-3" style={{ background: COLORS.subtle, border: `1px solid ${COLORS.border}` }}>
+          <div className="flex items-center gap-1.5 mb-1.5" style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.primaryDark }}>
+            <Eye size={13} /> Descrizione per i clienti
+          </div>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            placeholder="Facoltativa — si aggiunge a quella della tipologia, se presente"
+            style={{ ...inputStyle, resize: "vertical", background: "#fff" }}
+          />
+          <div className="flex items-center gap-1 mt-1" style={{ fontSize: 10.5, color: COLORS.primaryDark }}>
+            <Eye size={11} /> I clienti la vedranno aprendo questa classe.
+          </div>
+        </div>
 
         <button
           type="button"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Plus, Trash2 } from "lucide-react";
+import { X, Plus, Trash2, Eye } from "lucide-react";
 import { Modal, Field, IconButton, inputStyle } from "./ui";
 import { COLORS } from "./colors";
 import { PALETTE } from "./utils";
@@ -26,7 +26,7 @@ export function SettingsModal({
   defaults: Settings;
   onClose: () => void;
   onAddType: (name: string, color: string) => Promise<void>;
-  onUpdateType: (id: string, patch: Partial<Pick<ClassType, "color" | "packageEligible" | "defaultCapacity">>) => Promise<void>;
+  onUpdateType: (id: string, patch: Partial<Pick<ClassType, "color" | "packageEligible" | "defaultCapacity" | "description">>) => Promise<void>;
   onRemoveType: (id: string) => Promise<void>;
   onAddLevel: (name: string) => Promise<void>;
   onRemoveLevel: (id: string) => Promise<void>;
@@ -212,6 +212,19 @@ export function SettingsModal({
                           <input type="checkbox" checked={!!t.packageEligible} onChange={(e) => onUpdateType(t.id, { packageEligible: e.target.checked })} />
                           Idonea al pacchetto
                         </label>
+                      </div>
+                      <div className="mt-2 p-2 rounded-lg" style={{ background: "#fff", border: `1px solid ${COLORS.border}` }}>
+                        <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 11, fontWeight: 600, color: COLORS.primaryDark }}>
+                          <Eye size={12} /> Descrizione per i clienti
+                        </div>
+                        <textarea
+                          key={t.id}
+                          defaultValue={t.description}
+                          onBlur={(e) => onUpdateType(t.id, { description: e.target.value })}
+                          rows={2}
+                          placeholder="Facoltativa — es. cos'è questa tipologia di classe"
+                          style={{ ...inputStyle, fontSize: 12, resize: "vertical" }}
+                        />
                       </div>
                     </div>
                   )}

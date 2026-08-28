@@ -26,6 +26,7 @@ function mapClassType(row: {
   color: string;
   package_eligible: boolean;
   default_capacity: number | null;
+  description: string | null;
 }): ClassType {
   return {
     id: row.id,
@@ -33,6 +34,7 @@ function mapClassType(row: {
     color: row.color,
     packageEligible: row.package_eligible,
     defaultCapacity: row.default_capacity,
+    description: row.description ?? "",
   };
 }
 
@@ -92,6 +94,7 @@ function mapClass(row: {
   level_id: string;
   capacity: number;
   notes: string | null;
+  description: string | null;
   bookings_open: boolean;
   bookings: BookingRow[];
 }): ClassItem {
@@ -115,6 +118,7 @@ function mapClass(row: {
     levelId: row.level_id,
     capacity: row.capacity,
     notes: row.notes ?? "",
+    description: row.description ?? "",
     bookingsOpen: row.bookings_open,
     clientIds: booked.map((b) => b.client_id),
     waitlistIds: waitlist.map((b) => b.client_id),
@@ -172,6 +176,7 @@ export async function saveClass(supabase: DB, item: ClassItem) {
     level_id: item.levelId || null,
     capacity: item.capacity,
     notes: item.notes || null,
+    description: item.description || null,
     bookings_open: item.bookingsOpen,
   });
   if (classErr) throw classErr;
@@ -260,13 +265,14 @@ export async function addClassType(supabase: DB, name: string, color: string): P
 export async function updateClassType(
   supabase: DB,
   id: string,
-  patch: Partial<{ name: string; color: string; packageEligible: boolean; defaultCapacity: number | null }>
+  patch: Partial<{ name: string; color: string; packageEligible: boolean; defaultCapacity: number | null; description: string }>
 ) {
   const dbPatch: Record<string, unknown> = {};
   if (patch.name !== undefined) dbPatch.name = patch.name;
   if (patch.color !== undefined) dbPatch.color = patch.color;
   if (patch.packageEligible !== undefined) dbPatch.package_eligible = patch.packageEligible;
   if (patch.defaultCapacity !== undefined) dbPatch.default_capacity = patch.defaultCapacity;
+  if (patch.description !== undefined) dbPatch.description = patch.description || null;
   const { error } = await supabase.from("class_types").update(dbPatch).eq("id", id);
   if (error) throw error;
 }

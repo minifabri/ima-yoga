@@ -2,6 +2,7 @@ export type ClassType = {
   id: string;
   name: string;
   color: string;
+  description: string;
 };
 
 export type Level = {
@@ -16,7 +17,7 @@ export type PublicClass = {
   typeId: string;
   levelId: string;
   capacity: number;
-  notes: string;
+  description: string;
   bookingsOpen: boolean;
   bookedCount: number;
   waitlistCount: number;
