@@ -323,58 +323,105 @@ export function AreaApp({ fullName }: { fullName: string }) {
                     return (
                       <div
                         key={i}
-                        className="flex flex-col"
+                        className="flex flex-col rounded-[10px] sm:rounded-xl p-1 sm:p-1.5 min-h-[56px] sm:min-h-[84px]"
                         style={{
-                          minHeight: 56,
-                          borderRadius: 10,
-                          padding: 4,
                           background: inMonth ? COLORS.card : "transparent",
                           border: `1.5px solid ${inMonth ? COLORS.border : "transparent"}`,
                           opacity: inMonth ? 1 : 0.4,
                         }}
                       >
-                        <span
-                          style={{
-                            fontSize: 10.5,
-                            fontWeight: isToday ? 700 : 500,
-                            color: isToday ? "#fff" : COLORS.ink,
-                            background: isToday ? COLORS.primary : "transparent",
-                            width: 16,
-                            height: 16,
-                            borderRadius: 999,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            marginBottom: 3,
-                          }}
-                        >
-                          {d.getDate()}
-                        </span>
-                        <div className="flex flex-col gap-1">
-                          {dayClasses.map((c) => {
-                            const type = typeById[c.typeId];
-                            const color = type?.color || COLORS.primary;
-                            const avail = availabilityLabel(c);
-                            return (
-                              <button
-                                key={c.id}
-                                onClick={() => setSelected(c)}
-                                title={`${c.time} · ${type?.name || "Classe"}`}
-                                className="flex flex-col items-center justify-center w-full"
-                                style={{
-                                  minHeight: 26,
-                                  padding: "3px 2px",
-                                  borderRadius: 5,
-                                  background: color + "1E",
-                                  borderLeft: `2.5px solid ${color}`,
-                                  gap: 2,
-                                }}
-                              >
-                                <span style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>{typeInitials(type?.name)}</span>
-                                <span style={{ width: 5, height: 5, borderRadius: 999, background: avail.color, flexShrink: 0 }} />
-                              </button>
-                            );
-                          })}
+                        {/* Mobile: card minimale */}
+                        <div className="sm:hidden flex flex-col flex-1">
+                          <span
+                            style={{
+                              fontSize: 10.5,
+                              fontWeight: isToday ? 700 : 500,
+                              color: isToday ? "#fff" : COLORS.ink,
+                              background: isToday ? COLORS.primary : "transparent",
+                              width: 16,
+                              height: 16,
+                              borderRadius: 999,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              marginBottom: 3,
+                            }}
+                          >
+                            {d.getDate()}
+                          </span>
+                          <div className="flex flex-col gap-1">
+                            {dayClasses.map((c) => {
+                              const type = typeById[c.typeId];
+                              const color = type?.color || COLORS.primary;
+                              const avail = availabilityLabel(c);
+                              return (
+                                <button
+                                  key={c.id}
+                                  onClick={() => setSelected(c)}
+                                  title={`${c.time} · ${type?.name || "Classe"}`}
+                                  className="flex flex-col items-center justify-center w-full"
+                                  style={{
+                                    minHeight: 26,
+                                    padding: "3px 2px",
+                                    borderRadius: 5,
+                                    background: color + "1E",
+                                    borderLeft: `2.5px solid ${color}`,
+                                    gap: 2,
+                                  }}
+                                >
+                                  <span style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>{typeInitials(type?.name)}</span>
+                                  <span style={{ width: 5, height: 5, borderRadius: 999, background: avail.color, flexShrink: 0 }} />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Desktop: card completa, come in origine */}
+                        <div className="hidden sm:flex sm:flex-col sm:flex-1">
+                          <span
+                            style={{
+                              fontSize: 11.5,
+                              fontWeight: isToday ? 700 : 500,
+                              color: isToday ? "#fff" : COLORS.ink,
+                              background: isToday ? COLORS.primary : "transparent",
+                              width: 19,
+                              height: 19,
+                              borderRadius: 999,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              marginBottom: 4,
+                            }}
+                          >
+                            {d.getDate()}
+                          </span>
+                          <div className="flex flex-col gap-1">
+                            {dayClasses.map((c) => {
+                              const type = typeById[c.typeId];
+                              const color = type?.color || COLORS.primary;
+                              const avail = availabilityLabel(c);
+                              return (
+                                <button
+                                  key={c.id}
+                                  onClick={() => setSelected(c)}
+                                  className="text-left truncate"
+                                  style={{
+                                    fontSize: 10.5,
+                                    padding: "3px 6px",
+                                    borderRadius: 6,
+                                    background: color + "1E",
+                                    borderLeft: `3px solid ${color}`,
+                                    color: COLORS.ink,
+                                  }}
+                                >
+                                  <div style={{ fontWeight: 700 }}>{c.time}</div>
+                                  <div>{type?.name || "Classe"}</div>
+                                  <div style={{ color: avail.color, fontWeight: 600 }}>{avail.text}</div>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                     );

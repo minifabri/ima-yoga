@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X, Plus, Trash2, Search, Check, ListPlus, CheckSquare, Square, Copy } from "lucide-react";
+import { X, Plus, Trash2, Search, Check, ListPlus, CheckSquare, Square, Copy, Lock, LockOpen } from "lucide-react";
 import { Modal, Field, CapacityBar, inputStyle } from "./ui";
 import { COLORS } from "./colors";
 import { genId, dateKey } from "./utils";
@@ -328,10 +328,19 @@ export function ClassFormModal({
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Facoltativo" style={{ ...inputStyle, resize: "vertical" }} />
         </Field>
 
-        <label className="flex items-center gap-1.5 mt-1" style={{ fontSize: 12.5, color: COLORS.ink }}>
-          <input type="checkbox" checked={bookingsOpen} onChange={(e) => setBookingsOpen(e.target.checked)} />
-          Iscrizioni aperte per questa classe
-        </label>
+        <button
+          type="button"
+          onClick={() => setBookingsOpen((v) => !v)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium mt-1"
+          style={{
+            border: `1px solid ${bookingsOpen ? COLORS.success : COLORS.danger}55`,
+            color: bookingsOpen ? COLORS.success : COLORS.danger,
+            background: bookingsOpen ? COLORS.success + "14" : COLORS.danger + "14",
+          }}
+        >
+          {bookingsOpen ? <LockOpen size={13} /> : <Lock size={13} />}
+          {bookingsOpen ? "Iscrizioni aperte per questa classe" : "Iscrizioni chiuse per questa classe"}
+        </button>
 
         <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${COLORS.border}` }}>
           <div style={{ fontSize: 13, fontWeight: 600 }} className="mb-2">

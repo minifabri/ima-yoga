@@ -309,35 +309,35 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
             <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
               <button
                 onClick={() => setView("calendar")}
-                className="px-3 py-2 text-sm font-medium flex items-center gap-1.5"
+                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
                 style={{ background: view === "calendar" ? COLORS.primary : "transparent", color: view === "calendar" ? "#fff" : COLORS.ink }}
               >
-                <CalendarIcon size={15} /> Calendario
+                <CalendarIcon size={15} /> <span className="hidden sm:inline">Calendario</span>
               </button>
               <button
                 onClick={() => setView("clients")}
-                className="px-3 py-2 text-sm font-medium flex items-center gap-1.5"
+                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
                 style={{ background: view === "clients" ? COLORS.primary : "transparent", color: view === "clients" ? "#fff" : COLORS.ink }}
               >
-                <Users size={15} /> Clienti
+                <Users size={15} /> <span className="hidden sm:inline">Clienti</span>
               </button>
               <button
                 onClick={() => setView("payments")}
-                className="px-3 py-2 text-sm font-medium flex items-center gap-1.5"
+                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
                 style={{ background: view === "payments" ? COLORS.primary : "transparent", color: view === "payments" ? "#fff" : COLORS.ink }}
               >
-                <Wallet size={15} /> Pagamenti
+                <Wallet size={15} /> <span className="hidden sm:inline">Pagamenti</span>
               </button>
             </div>
             <button
               onClick={toggleBookingsOpen}
               disabled={bookingsTogglePending}
               title={bookingsOpen ? "Le clienti possono prenotare — clicca per chiudere le iscrizioni" : "Iscrizioni chiuse — clicca per riaprirle"}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-60"
+              className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium disabled:opacity-60"
               style={{
                 border: `1px solid ${bookingsOpen ? COLORS.success : COLORS.danger}55`,
                 color: bookingsOpen ? COLORS.success : COLORS.danger,
@@ -345,13 +345,13 @@ export function AdminApp({ initial }: { initial: AdminData }) {
               }}
             >
               {bookingsOpen ? <LockOpen size={15} /> : <Lock size={15} />}
-              {bookingsOpen ? "Iscrizioni aperte" : "Iscrizioni chiuse"}
+              <span className="hidden sm:inline">{bookingsOpen ? "Iscrizioni aperte" : "Iscrizioni chiuse"}</span>
             </button>
             <IconButton title="Impostazioni classi" onClick={() => setSettingsOpen(true)} style={{ border: `1px solid ${COLORS.border}` }}>
               <SettingsIcon size={17} />
             </IconButton>
             <form action={logout}>
-              <button type="submit" className="text-sm font-medium px-2" style={{ color: COLORS.inkSoft }}>
+              <button type="submit" className="text-sm font-medium px-1.5" style={{ color: COLORS.inkSoft }}>
                 Esci
               </button>
             </form>

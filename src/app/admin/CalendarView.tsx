@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, ClipboardPaste, LayoutGrid, List, Lock } from "lucide-react";
-import { IconButton } from "./ui";
+import { ChevronLeft, ChevronRight, Plus, ClipboardPaste, LayoutGrid, List, Lock, GripVertical } from "lucide-react";
+import { IconButton, CapacityBar } from "./ui";
 import { COLORS } from "./colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "./utils";
 import type { ClassItem, ClassType, Level } from "./types";
@@ -145,6 +145,8 @@ export function CalendarView({
               const inMonth = d.getMonth() === viewDate.getMonth();
               const key = dateKey(d);
               const dayClasses = classesByDay[key] || [];
+              const mainClass = dayClasses[0];
+              const extraClasses = dayClasses.slice(1);
               const isToday = isSameDay(d, today);
               const isDragOver = dragOverKey === key;
               const canDrop = inMonth && (dayClasses.length === 0 || (draggingId != null && dayClasses.some((c) => c.id === draggingId)));
@@ -152,11 +154,8 @@ export function CalendarView({
               return (
                 <div
                   key={i}
-                  className="group relative flex flex-col"
+                  className="group relative flex flex-col rounded-[10px] sm:rounded-xl p-[5px] sm:p-2 min-h-[58px] sm:min-h-[148px]"
                   style={{
-                    minHeight: 58,
-                    borderRadius: 10,
-                    padding: 5,
                     background: inMonth ? COLORS.card : "transparent",
                     border: `1.5px solid ${isDragOver && canDrop ? COLORS.primary : inMonth ? COLORS.border : "transparent"}`,
                     opacity: inMonth ? 1 : 0.4,
@@ -175,83 +174,180 @@ export function CalendarView({
                     if (id) onMoveClass(id, key);
                   }}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: isToday ? 700 : 500,
-                        color: isToday ? "#fff" : COLORS.ink,
-                        background: isToday ? COLORS.primary : "transparent",
-                        width: 17,
-                        height: 17,
-                        borderRadius: 999,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {d.getDate()}
-                    </span>
-                    {dayClasses.length === 0 && inMonth && (
-                      <button
-                        onClick={() => onAddClass(d)}
-                        className="opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
-                        style={{ width: 16, height: 16, borderRadius: 5, background: COLORS.subtle, color: COLORS.primaryDark }}
-                        title="Aggiungi classe"
+                  {/* Mobile: card minimale */}
+                  <div className="sm:hidden flex flex-col flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: isToday ? 700 : 500,
+                          color: isToday ? "#fff" : COLORS.ink,
+                          background: isToday ? COLORS.primary : "transparent",
+                          width: 17,
+                          height: 17,
+                          borderRadius: 999,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
                       >
-                        <Plus size={11} />
+                        {d.getDate()}
+                      </span>
+                      {dayClasses.length === 0 && inMonth && (
+                        <button
+                          onClick={() => onAddClass(d)}
+                          className="opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
+                          style={{ width: 16, height: 16, borderRadius: 5, background: COLORS.subtle, color: COLORS.primaryDark }}
+                          title="Aggiungi classe"
+                        >
+                          <Plus size={11} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-0.5">
+                      {dayClasses.map((c) => {
+                        const type = typeById[c.typeId];
+                        const color = type?.color || COLORS.primary;
+                        const dot = availabilityDot(c);
+                        return (
+                          <button
+                            key={c.id}
+                            draggable
+                            onDragStart={(e) => {
+                              setDraggingId(c.id);
+                              e.dataTransfer.setData("text/plain", c.id);
+                              e.dataTransfer.effectAllowed = "move";
+                            }}
+                            onDragEnd={() => setDraggingId(null)}
+                            onClick={() => onOpenClass(c)}
+                            className="flex flex-col items-center justify-center w-full"
+                            style={{
+                              cursor: "grab",
+                              minHeight: 26,
+                              padding: "3px 2px",
+                              borderRadius: 5,
+                              background: color + "1E",
+                              borderLeft: `2.5px solid ${color}`,
+                              gap: 2,
+                            }}
+                            title={`${c.time || "—"} · Trascina per spostare in un altro giorno`}
+                          >
+                            <span className="flex items-center gap-0.5" style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>
+                              {!c.bookingsOpen && <Lock size={8} color={COLORS.inkSoft} />}
+                              {typeInitials(type?.name)}
+                            </span>
+                            <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {dayClasses.length === 0 && inMonth && clipboard && (
+                      <button
+                        onClick={() => onPasteClass(key)}
+                        className="flex items-center gap-1 text-left mt-0.5"
+                        style={{ fontSize: 9, color: COLORS.primaryDark, fontWeight: 600 }}
+                        title="Incolla la classe copiata"
+                      >
+                        <ClipboardPaste size={9} /> incolla
                       </button>
                     )}
                   </div>
 
-                  <div className="flex flex-col gap-0.5">
-                    {dayClasses.map((c) => {
-                      const type = typeById[c.typeId];
-                      const color = type?.color || COLORS.primary;
-                      const dot = availabilityDot(c);
-                      return (
+                  {/* Desktop: card completa, come in origine */}
+                  <div className="hidden sm:flex sm:flex-col sm:flex-1">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: isToday ? 700 : 500,
+                          color: isToday ? "#fff" : COLORS.ink,
+                          background: isToday ? COLORS.primary : "transparent",
+                          width: 20,
+                          height: 20,
+                          borderRadius: 999,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {d.getDate()}
+                      </span>
+                      {!mainClass && inMonth && (
                         <button
-                          key={c.id}
-                          draggable
-                          onDragStart={(e) => {
-                            setDraggingId(c.id);
-                            e.dataTransfer.setData("text/plain", c.id);
-                            e.dataTransfer.effectAllowed = "move";
-                          }}
-                          onDragEnd={() => setDraggingId(null)}
-                          onClick={() => onOpenClass(c)}
-                          className="flex flex-col items-center justify-center w-full"
-                          style={{
-                            cursor: "grab",
-                            minHeight: 26,
-                            padding: "3px 2px",
-                            borderRadius: 5,
-                            background: color + "1E",
-                            borderLeft: `2.5px solid ${color}`,
-                            gap: 2,
-                          }}
-                          title={`${c.time || "—"} · Trascina per spostare in un altro giorno`}
+                          onClick={() => onAddClass(d)}
+                          className="opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
+                          style={{ width: 18, height: 18, borderRadius: 6, background: COLORS.subtle, color: COLORS.primaryDark }}
+                          title="Aggiungi classe"
                         >
-                          <span className="flex items-center gap-0.5" style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>
-                            {!c.bookingsOpen && <Lock size={8} color={COLORS.inkSoft} />}
-                            {typeInitials(type?.name)}
-                          </span>
-                          <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
+                          <Plus size={12} />
                         </button>
-                      );
-                    })}
-                  </div>
+                      )}
+                    </div>
 
-                  {dayClasses.length === 0 && inMonth && clipboard && (
-                    <button
-                      onClick={() => onPasteClass(key)}
-                      className="flex items-center gap-1 text-left mt-0.5"
-                      style={{ fontSize: 9, color: COLORS.primaryDark, fontWeight: 600 }}
-                      title="Incolla la classe copiata"
-                    >
-                      <ClipboardPaste size={9} /> incolla
-                    </button>
-                  )}
+                    {mainClass ? (
+                      <ClassCard
+                        classItem={mainClass}
+                        type={typeById[mainClass.typeId]}
+                        level={levelById[mainClass.levelId]}
+                        onOpen={() => onOpenClass(mainClass)}
+                        onDragStart={(e) => {
+                          setDraggingId(mainClass.id);
+                          e.dataTransfer.setData("text/plain", mainClass.id);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragEnd={() => setDraggingId(null)}
+                      />
+                    ) : inMonth ? (
+                      <div className="flex flex-col items-start gap-1 flex-1 justify-center">
+                        <button
+                          onClick={() => onAddClass(d)}
+                          className="opacity-0 group-hover:opacity-100 transition text-left"
+                          style={{ fontSize: 10.5, color: COLORS.inkSoft, paddingLeft: 2 }}
+                        >
+                          + aggiungi classe
+                        </button>
+                        {clipboard && (
+                          <button
+                            onClick={() => onPasteClass(key)}
+                            className="flex items-center gap-1 text-left"
+                            style={{ fontSize: 10.5, color: COLORS.primaryDark, fontWeight: 600, paddingLeft: 2 }}
+                            title="Incolla la classe copiata"
+                          >
+                            <ClipboardPaste size={11} /> incolla
+                          </button>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {extraClasses.length > 0 && (
+                      <div className="flex flex-col gap-1 mt-1">
+                        {extraClasses.map((c) => {
+                          const type = typeById[c.typeId];
+                          return (
+                            <button
+                              key={c.id}
+                              onClick={() => onOpenClass(c)}
+                              className="text-left truncate flex items-center gap-1"
+                              style={{
+                                fontSize: 10.5,
+                                padding: "2px 6px",
+                                borderRadius: 6,
+                                background: (type?.color || COLORS.primary) + "1E",
+                                borderLeft: `3px solid ${type?.color || COLORS.primary}`,
+                                color: COLORS.ink,
+                              }}
+                            >
+                              {!c.bookingsOpen && <Lock size={9} color={COLORS.inkSoft} />}
+                              {c.time ? `${c.time} · ` : ""}
+                              {type?.name || "Classe"}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -314,5 +410,73 @@ export function CalendarView({
         </div>
       )}
     </div>
+  );
+}
+
+function ClassCard({
+  classItem,
+  type,
+  level,
+  onOpen,
+  onDragStart,
+  onDragEnd,
+}: {
+  classItem: ClassItem;
+  type?: ClassType;
+  level?: Level;
+  onOpen: () => void;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
+}) {
+  const c = classItem;
+  const color = type?.color || COLORS.primary;
+  const booked = c.clientIds.length;
+  const waiting = c.waitlistIds.length;
+
+  return (
+    <button
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onClick={onOpen}
+      className="text-left flex-1 flex flex-col"
+      style={{
+        cursor: "grab",
+        borderRadius: 10,
+        padding: "8px 9px",
+        background: color + "16",
+        borderLeft: `3px solid ${color}`,
+        gap: 4,
+      }}
+      title="Trascina per spostare in un altro giorno"
+    >
+      <div className="flex items-center justify-between">
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.ink }}>{c.time || "—"}</span>
+        <span className="flex items-center gap-1">
+          {!c.bookingsOpen && <Lock size={11} color={COLORS.inkSoft} />}
+          <GripVertical size={12} color={COLORS.inkSoft} style={{ opacity: 0.6 }} />
+        </span>
+      </div>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.ink, lineHeight: 1.2 }}>{type?.name || "Classe"}</div>
+      {level && (
+        <span
+          className="self-start"
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: COLORS.primaryDark,
+            background: "#fff",
+            borderRadius: 999,
+            padding: "1px 7px",
+            border: `1px solid ${color}55`,
+          }}
+        >
+          {level.name}
+        </span>
+      )}
+      <div className="mt-auto pt-1.5">
+        <CapacityBar booked={booked} capacity={c.capacity} waiting={waiting} />
+      </div>
+    </button>
   );
 }
