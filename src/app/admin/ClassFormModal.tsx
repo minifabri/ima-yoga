@@ -15,6 +15,7 @@ type ClassClipboard = {
   time: string;
   capacity: number;
   notes: string;
+  bookingsOpen: boolean;
 };
 
 function paymentMeta(status: PaymentStatus) {
@@ -72,6 +73,7 @@ export function ClassFormModal({
   const [levelId, setLevelId] = useState(editing ? base!.levelId : levels[0]?.id || "");
   const [capacity, setCapacity] = useState<number | string>(editing ? base!.capacity ?? defaultCapacity : defaultCapacity);
   const [notes, setNotes] = useState(editing ? base!.notes || "" : "");
+  const [bookingsOpen, setBookingsOpen] = useState(editing ? base!.bookingsOpen : true);
   const [clientIds, setClientIds] = useState<string[]>(editing ? base!.clientIds || [] : []);
   const [waitlistIds, setWaitlistIds] = useState<string[]>(editing ? base!.waitlistIds || [] : []);
   const [payments, setPayments] = useState<Record<string, Payment>>(editing ? base!.payments || {} : {});
@@ -222,13 +224,14 @@ export function ClassFormModal({
       levelId,
       capacity: capNum,
       notes: notes.trim(),
+      bookingsOpen,
       clientIds,
       waitlistIds,
       payments,
     });
   }
   function handleCopy() {
-    onCopy({ typeId, levelId, time, capacity: capNum, notes: notes.trim() });
+    onCopy({ typeId, levelId, time, capacity: capNum, notes: notes.trim(), bookingsOpen });
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
@@ -324,6 +327,11 @@ export function ClassFormModal({
         <Field label="Note">
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Facoltativo" style={{ ...inputStyle, resize: "vertical" }} />
         </Field>
+
+        <label className="flex items-center gap-1.5 mt-1" style={{ fontSize: 12.5, color: COLORS.ink }}>
+          <input type="checkbox" checked={bookingsOpen} onChange={(e) => setBookingsOpen(e.target.checked)} />
+          Iscrizioni aperte per questa classe
+        </label>
 
         <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${COLORS.border}` }}>
           <div style={{ fontSize: 13, fontWeight: 600 }} className="mb-2">

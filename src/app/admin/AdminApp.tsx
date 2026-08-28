@@ -25,7 +25,7 @@ import type {
   Settings,
 } from "./types";
 
-type ClassClipboard = { typeId: string; levelId: string; time: string; capacity: number; notes: string };
+type ClassClipboard = { typeId: string; levelId: string; time: string; capacity: number; notes: string; bookingsOpen: boolean };
 type ClassModalState = { mode: "new"; date: Date } | { mode: "edit"; classItem: ClassItem } | null;
 type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 

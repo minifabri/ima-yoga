@@ -30,6 +30,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       level_id: string;
       capacity: number;
       notes: string | null;
+      bookings_open: boolean;
       booked_count: number;
       waitlist_count: number;
       my_status: "booked" | "waitlist" | null;
@@ -41,6 +42,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       levelId: r.level_id,
       capacity: r.capacity,
       notes: r.notes ?? "",
+      bookingsOpen: r.bookings_open,
       bookedCount: Number(r.booked_count),
       waitlistCount: Number(r.waitlist_count),
       myStatus: r.my_status,

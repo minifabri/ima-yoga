@@ -17,6 +17,7 @@ export type PublicClass = {
   levelId: string;
   capacity: number;
   notes: string;
+  bookingsOpen: boolean;
   bookedCount: number;
   waitlistCount: number;
   myStatus: "booked" | "waitlist" | null;

@@ -32,11 +32,19 @@ function formatLune(amount: number): string {
 function availabilityLabel(c: PublicClass): { text: string; color: string } {
   if (c.myStatus === "booked") return { text: "Prenotata", color: COLORS.primaryDark };
   if (c.myStatus === "waitlist") return { text: "In lista d'attesa", color: COLORS.primaryDark };
+  if (!c.bookingsOpen) return { text: "Iscrizioni chiuse", color: COLORS.inkSoft };
   if (c.capacity <= 0) return { text: "Posti liberi", color: COLORS.success };
   const remaining = c.capacity - c.bookedCount;
   if (remaining <= 0) return { text: "Al completo", color: COLORS.danger };
   if (remaining === 1) return { text: "Ultimo posto libero", color: COLORS.gold };
   return { text: "Posti liberi", color: COLORS.success };
+}
+
+function typeInitials(name?: string): string {
+  if (!name) return "?";
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
 }
 
 function canStillCancel(dateStr: string, timeStr: string): boolean {
@@ -342,7 +350,7 @@ export function AreaApp({ fullName }: { fullName: string }) {
                         >
                           {d.getDate()}
                         </span>
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-1">
                           {dayClasses.map((c) => {
                             const type = typeById[c.typeId];
                             const color = type?.color || COLORS.primary;
@@ -351,16 +359,18 @@ export function AreaApp({ fullName }: { fullName: string }) {
                               <button
                                 key={c.id}
                                 onClick={() => setSelected(c)}
-                                className="flex items-center justify-between gap-1 w-full text-left"
+                                title={`${c.time} · ${type?.name || "Classe"}`}
+                                className="flex flex-col items-center justify-center w-full"
                                 style={{
-                                  fontSize: 9.5,
-                                  padding: "2px 4px",
+                                  minHeight: 26,
+                                  padding: "3px 2px",
                                   borderRadius: 5,
                                   background: color + "1E",
                                   borderLeft: `2.5px solid ${color}`,
+                                  gap: 2,
                                 }}
                               >
-                                <span style={{ fontWeight: 700, color: COLORS.ink }}>{c.time}</span>
+                                <span style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>{typeInitials(type?.name)}</span>
                                 <span style={{ width: 5, height: 5, borderRadius: 999, background: avail.color, flexShrink: 0 }} />
                               </button>
                             );
@@ -548,6 +558,10 @@ export function AreaApp({ fullName }: { fullName: string }) {
             ) : !bookingsOpen ? (
               <div style={{ fontSize: 12.5, color: COLORS.gold, fontWeight: 600 }} className="text-center">
                 Le iscrizioni non sono ancora aperte.
+              </div>
+            ) : !selected.bookingsOpen ? (
+              <div style={{ fontSize: 12.5, color: COLORS.inkSoft, fontWeight: 600 }} className="text-center">
+                Le iscrizioni per questa classe non sono aperte.
               </div>
             ) : (
               <button

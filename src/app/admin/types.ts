@@ -15,6 +15,7 @@ export type ClassItem = {
   levelId: string;
   capacity: number;
   notes: string;
+  bookingsOpen: boolean;
   clientIds: string[];
   waitlistIds: string[];
   payments: Record<string, Payment>;

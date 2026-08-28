@@ -92,6 +92,7 @@ function mapClass(row: {
   level_id: string;
   capacity: number;
   notes: string | null;
+  bookings_open: boolean;
   bookings: BookingRow[];
 }): ClassItem {
   const bookings = row.bookings ?? [];
@@ -114,6 +115,7 @@ function mapClass(row: {
     levelId: row.level_id,
     capacity: row.capacity,
     notes: row.notes ?? "",
+    bookingsOpen: row.bookings_open,
     clientIds: booked.map((b) => b.client_id),
     waitlistIds: waitlist.map((b) => b.client_id),
     payments,
@@ -170,6 +172,7 @@ export async function saveClass(supabase: DB, item: ClassItem) {
     level_id: item.levelId || null,
     capacity: item.capacity,
     notes: item.notes || null,
+    bookings_open: item.bookingsOpen,
   });
   if (classErr) throw classErr;
 
