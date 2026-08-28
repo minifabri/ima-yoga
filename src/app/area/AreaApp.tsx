@@ -1,7 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Check, Clock, X, Wallet, PackagePlus } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Clock,
+  X,
+  Moon,
+  PackagePlus,
+  Lock,
+  LayoutGrid,
+  List,
+  CheckSquare,
+  Square,
+  CalendarClock,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "@/app/admin/colors";
@@ -9,13 +23,44 @@ import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/adm
 import * as db from "./data";
 import type { ClassType, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
 
+function formatLune(amount: number): string {
+  const rounded = Math.round(amount * 100) / 100;
+  const label = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+  return `${label} lune`;
+}
+
+function availabilityLabel(c: PublicClass): { text: string; color: string } {
+  if (c.myStatus === "booked") return { text: "Prenotata", color: COLORS.primaryDark };
+  if (c.myStatus === "waitlist") return { text: "In lista d'attesa", color: COLORS.primaryDark };
+  if (c.capacity <= 0) return { text: "Posti liberi", color: COLORS.success };
+  const remaining = c.capacity - c.bookedCount;
+  if (remaining <= 0) return { text: "Al completo", color: COLORS.danger };
+  if (remaining === 1) return { text: "Ultimo posto libero", color: COLORS.gold };
+  return { text: "Posti liberi", color: COLORS.success };
+}
+
+function canStillCancel(dateStr: string, timeStr: string): boolean {
+  const dt = new Date(`${dateStr}T${(timeStr || "00:00").padEnd(5, "0")}:00`);
+  return dt.getTime() - Date.now() >= 24 * 60 * 60 * 1000;
+}
+
+function errorMessage(err: unknown): string | null {
+  if (err && typeof err === "object" && "message" in err && typeof (err as { message: unknown }).message === "string") {
+    return (err as { message: string }).message;
+  }
+  return null;
+}
+
 export function AreaApp({ fullName }: { fullName: string }) {
   const supabase = useMemo(() => createClient(), []);
   const [view, setView] = useState<"calendar" | "mine">("calendar");
   const [viewDate, setViewDate] = useState(new Date());
+  const [calendarMode, setCalendarMode] = useState<"grid" | "list">("grid");
+  const [onlyMine, setOnlyMine] = useState(false);
   const [classTypes, setClassTypes] = useState<ClassType[]>([]);
   const [levels, setLevels] = useState<Level[]>([]);
   const [classes, setClasses] = useState<PublicClass[]>([]);
+  const [bookingsOpen, setBookingsOpen] = useState(true);
   const [myBookings, setMyBookings] = useState<MyBooking[]>([]);
   const [myPackages, setMyPackages] = useState<MyPackage[]>([]);
   const [myLedger, setMyLedger] = useState<MyLedgerEntry[]>([]);
@@ -30,9 +75,14 @@ export function AreaApp({ fullName }: { fullName: string }) {
 
   useEffect(() => {
     (async () => {
-      const [types, lvls] = await Promise.all([db.fetchClassTypes(supabase), db.fetchLevels(supabase)]);
+      const [types, lvls, open] = await Promise.all([
+        db.fetchClassTypes(supabase),
+        db.fetchLevels(supabase),
+        db.fetchBookingsOpen(supabase),
+      ]);
       setClassTypes(types);
       setLevels(lvls);
+      setBookingsOpen(open);
     })();
   }, [supabase]);
 
@@ -68,12 +118,31 @@ export function AreaApp({ fullName }: { fullName: string }) {
 
   const typeById = useMemo(() => Object.fromEntries(classTypes.map((t) => [t.id, t])), [classTypes]);
   const levelById = useMemo(() => Object.fromEntries(levels.map((l) => [l.id, l])), [levels]);
+  const visibleClasses = useMemo(() => (onlyMine ? classes.filter((c) => c.myStatus) : classes), [classes, onlyMine]);
   const classesByDay = useMemo(() => {
     const map: Record<string, PublicClass[]> = {};
-    for (const c of classes) (map[c.date] = map[c.date] || []).push(c);
+    for (const c of visibleClasses) (map[c.date] = map[c.date] || []).push(c);
     Object.values(map).forEach((list) => list.sort((a, b) => a.time.localeCompare(b.time)));
     return map;
-  }, [classes]);
+  }, [visibleClasses]);
+  const listDays = useMemo(() => days.filter((d) => (classesByDay[dateKey(d)] || []).length > 0), [days, classesByDay]);
+
+  async function goToNextClass() {
+    const todayStr = dateKey(new Date());
+    const { data, error } = await supabase
+      .from("classes")
+      .select("class_date")
+      .gte("class_date", todayStr)
+      .order("class_date")
+      .order("class_time")
+      .limit(1);
+    if (error || !data || data.length === 0) {
+      showToast("Nessuna lezione futura in programma.");
+      return;
+    }
+    const [y, m] = data[0].class_date.split("-").map(Number);
+    setViewDate(new Date(y, m - 1, 1));
+  }
 
   async function refreshClasses() {
     const from = dateKey(days[0]);
@@ -91,8 +160,8 @@ export function AreaApp({ fullName }: { fullName: string }) {
       const next = await refreshClasses();
       setSelected(next.find((x) => x.id === c.id) || null);
       await refreshMine();
-    } catch {
-      showToast("Non è stato possibile completare la prenotazione.");
+    } catch (err) {
+      showToast(errorMessage(err) || "Non è stato possibile completare la prenotazione.");
     } finally {
       setPending(false);
     }
@@ -106,8 +175,8 @@ export function AreaApp({ fullName }: { fullName: string }) {
       const next = await refreshClasses();
       setSelected((cur) => (cur ? next.find((x) => x.id === cur.id) || null : null));
       await refreshMine();
-    } catch {
-      showToast("Non è stato possibile cancellare la prenotazione.");
+    } catch (err) {
+      showToast(errorMessage(err) || "Non è stato possibile cancellare la prenotazione.");
     } finally {
       setPending(false);
     }
@@ -164,111 +233,192 @@ export function AreaApp({ fullName }: { fullName: string }) {
 
         {view === "calendar" ? (
           <div>
-            <div className="flex items-center justify-between mb-4">
+            {!bookingsOpen && (
+              <div className="mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2" style={{ background: "#FBF3E3", color: COLORS.gold }}>
+                <Lock size={15} /> Le iscrizioni non sono ancora aperte.
+              </div>
+            )}
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 600, textTransform: "capitalize", color: COLORS.heading }}>
                 {MONTHS[viewDate.getMonth()]} {viewDate.getFullYear()}
               </div>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setViewDate(new Date())}
-                  className="px-3 py-1.5 rounded-lg text-sm font-medium mr-1"
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium"
                   style={{ border: `1px solid ${COLORS.border}` }}
                 >
                   Oggi
                 </button>
                 <button
+                  onClick={goToNextClass}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium mr-1"
+                  style={{ border: `1px solid ${COLORS.border}` }}
+                >
+                  <CalendarClock size={13} /> Prossima lezione
+                </button>
+                <button
                   onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
                   className="flex items-center justify-center rounded-lg"
-                  style={{ width: 36, height: 36, border: `1px solid ${COLORS.border}` }}
+                  style={{ width: 34, height: 34, border: `1px solid ${COLORS.border}` }}
                 >
-                  <ChevronLeft size={17} />
+                  <ChevronLeft size={16} />
                 </button>
                 <button
                   onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
                   className="flex items-center justify-center rounded-lg"
-                  style={{ width: 36, height: 36, border: `1px solid ${COLORS.border}` }}
+                  style={{ width: 34, height: 34, border: `1px solid ${COLORS.border}` }}
                 >
-                  <ChevronRight size={17} />
+                  <ChevronRight size={16} />
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-7 mb-1">
-              {WEEKDAYS.map((w) => (
-                <div key={w} className="text-center py-2" style={{ fontSize: 11, fontWeight: 600, color: COLORS.inkSoft, textTransform: "uppercase" }}>
-                  {w}
-                </div>
-              ))}
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
+                <button
+                  onClick={() => setCalendarMode("grid")}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium"
+                  style={{ background: calendarMode === "grid" ? COLORS.primary : "transparent", color: calendarMode === "grid" ? "#fff" : COLORS.ink }}
+                >
+                  <LayoutGrid size={13} /> Calendario
+                </button>
+                <button
+                  onClick={() => setCalendarMode("list")}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium"
+                  style={{ background: calendarMode === "list" ? COLORS.primary : "transparent", color: calendarMode === "list" ? "#fff" : COLORS.ink }}
+                >
+                  <List size={13} /> Elenco
+                </button>
+              </div>
+              <button onClick={() => setOnlyMine((v) => !v)} className="flex items-center gap-1.5 text-xs font-medium" style={{ color: onlyMine ? COLORS.primaryDark : COLORS.inkSoft }}>
+                {onlyMine ? <CheckSquare size={15} color={COLORS.primary} /> : <Square size={15} />} Solo le mie prenotazioni
+              </button>
             </div>
 
-            <div className="grid grid-cols-7 gap-1.5">
-              {days.map((d, i) => {
-                const inMonth = d.getMonth() === viewDate.getMonth();
-                const key = dateKey(d);
-                const dayClasses = classesByDay[key] || [];
-                const isToday = isSameDay(d, new Date());
-                return (
-                  <div
-                    key={i}
-                    className="flex flex-col"
-                    style={{
-                      minHeight: 84,
-                      borderRadius: 12,
-                      padding: 6,
-                      background: inMonth ? COLORS.card : "transparent",
-                      border: `1.5px solid ${inMonth ? COLORS.border : "transparent"}`,
-                      opacity: inMonth ? 1 : 0.4,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 11.5,
-                        fontWeight: isToday ? 700 : 500,
-                        color: isToday ? "#fff" : COLORS.ink,
-                        background: isToday ? COLORS.primary : "transparent",
-                        width: 19,
-                        height: 19,
-                        borderRadius: 999,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginBottom: 4,
-                      }}
-                    >
-                      {d.getDate()}
-                    </span>
-                    <div className="flex flex-col gap-1">
-                      {dayClasses.map((c) => {
-                        const type = typeById[c.typeId];
-                        const color = type?.color || COLORS.primary;
-                        const full = c.capacity > 0 && c.bookedCount >= c.capacity;
-                        return (
-                          <button
-                            key={c.id}
-                            onClick={() => setSelected(c)}
-                            className="text-left truncate"
-                            style={{
-                              fontSize: 10.5,
-                              padding: "3px 6px",
-                              borderRadius: 6,
-                              background: color + "1E",
-                              borderLeft: `3px solid ${color}`,
-                              color: COLORS.ink,
-                            }}
-                          >
-                            <div style={{ fontWeight: 700 }}>{c.time}</div>
-                            <div>{type?.name || "Classe"}</div>
-                            <div style={{ color: c.myStatus ? COLORS.primaryDark : full ? COLORS.danger : COLORS.success, fontWeight: 600 }}>
-                              {c.myStatus === "booked" ? "Prenotata" : c.myStatus === "waitlist" ? "In lista d'attesa" : full ? "Al completo" : "Posti liberi"}
-                            </div>
-                          </button>
-                        );
-                      })}
+            {calendarMode === "grid" ? (
+              <>
+                <div className="grid grid-cols-7 mb-1">
+                  {WEEKDAYS.map((w) => (
+                    <div key={w} className="text-center py-2" style={{ fontSize: 11, fontWeight: 600, color: COLORS.inkSoft, textTransform: "uppercase" }}>
+                      {w}
                     </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-1.5">
+                  {days.map((d, i) => {
+                    const inMonth = d.getMonth() === viewDate.getMonth();
+                    const key = dateKey(d);
+                    const dayClasses = classesByDay[key] || [];
+                    const isToday = isSameDay(d, new Date());
+                    return (
+                      <div
+                        key={i}
+                        className="flex flex-col"
+                        style={{
+                          minHeight: 56,
+                          borderRadius: 10,
+                          padding: 4,
+                          background: inMonth ? COLORS.card : "transparent",
+                          border: `1.5px solid ${inMonth ? COLORS.border : "transparent"}`,
+                          opacity: inMonth ? 1 : 0.4,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: isToday ? 700 : 500,
+                            color: isToday ? "#fff" : COLORS.ink,
+                            background: isToday ? COLORS.primary : "transparent",
+                            width: 16,
+                            height: 16,
+                            borderRadius: 999,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            marginBottom: 3,
+                          }}
+                        >
+                          {d.getDate()}
+                        </span>
+                        <div className="flex flex-col gap-0.5">
+                          {dayClasses.map((c) => {
+                            const type = typeById[c.typeId];
+                            const color = type?.color || COLORS.primary;
+                            const avail = availabilityLabel(c);
+                            return (
+                              <button
+                                key={c.id}
+                                onClick={() => setSelected(c)}
+                                className="flex items-center justify-between gap-1 w-full text-left"
+                                style={{
+                                  fontSize: 9.5,
+                                  padding: "2px 4px",
+                                  borderRadius: 5,
+                                  background: color + "1E",
+                                  borderLeft: `2.5px solid ${color}`,
+                                }}
+                              >
+                                <span style={{ fontWeight: 700, color: COLORS.ink }}>{c.time}</span>
+                                <span style={{ width: 5, height: 5, borderRadius: 999, background: avail.color, flexShrink: 0 }} />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {listDays.length === 0 && (
+                  <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="px-1">
+                    Nessuna lezione in programma questo mese.
                   </div>
-                );
-              })}
-            </div>
+                )}
+                {listDays.map((d) => {
+                  const key = dateKey(d);
+                  const dayClasses = classesByDay[key] || [];
+                  const isToday = isSameDay(d, new Date());
+                  return (
+                    <div key={key}>
+                      <div
+                        style={{ fontSize: 11.5, fontWeight: 700, color: isToday ? COLORS.primary : COLORS.inkSoft, textTransform: "capitalize" }}
+                        className="mb-1.5"
+                      >
+                        {WEEKDAYS[(d.getDay() + 6) % 7]} {d.getDate()} {MONTHS[d.getMonth()].slice(0, 3)}
+                        {isToday && " · Oggi"}
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {dayClasses.map((c) => {
+                          const type = typeById[c.typeId];
+                          const color = type?.color || COLORS.primary;
+                          const avail = availabilityLabel(c);
+                          return (
+                            <button
+                              key={c.id}
+                              onClick={() => setSelected(c)}
+                              className="flex items-center justify-between text-left p-2.5 rounded-lg w-full gap-2"
+                              style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderLeft: `3px solid ${color}` }}
+                            >
+                              <div>
+                                <div style={{ fontSize: 12.5, fontWeight: 700 }}>
+                                  {c.time} · {type?.name || "Classe"}
+                                </div>
+                                <div style={{ fontSize: 11, color: COLORS.inkSoft }}>{levelById[c.levelId]?.name}</div>
+                              </div>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: avail.color, whiteSpace: "nowrap" }}>{avail.text}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : (
           <div>
@@ -284,6 +434,7 @@ export function AreaApp({ fullName }: { fullName: string }) {
                   {upcomingBookings.map((b) => {
                     const type = typeById[b.typeId];
                     const level = levelById[b.levelId];
+                    const cancellable = canStillCancel(b.date, b.time);
                     return (
                       <div key={b.id} className="flex items-center justify-between p-3 rounded-xl flex-wrap gap-2" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
                         <div>
@@ -294,14 +445,18 @@ export function AreaApp({ fullName }: { fullName: string }) {
                             {level?.name} {b.status === "waitlist" && <span style={{ color: COLORS.gold, fontWeight: 700 }}>· In lista d&apos;attesa</span>}
                           </div>
                         </div>
-                        <button
-                          disabled={pending}
-                          onClick={() => handleCancel(b.classId)}
-                          className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
-                          style={{ color: COLORS.danger, border: `1px solid ${COLORS.danger}55` }}
-                        >
-                          <X size={12} /> Cancella
-                        </button>
+                        {cancellable ? (
+                          <button
+                            disabled={pending}
+                            onClick={() => handleCancel(b.classId)}
+                            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
+                            style={{ color: COLORS.danger, border: `1px solid ${COLORS.danger}55` }}
+                          >
+                            <X size={12} /> Cancella
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: 11, color: COLORS.inkSoft, fontStyle: "italic" }}>Per cancellare ora, contattaci direttamente</span>
+                        )}
                       </div>
                     );
                   })}
@@ -327,7 +482,7 @@ export function AreaApp({ fullName }: { fullName: string }) {
                         </div>
                         <div style={{ fontSize: 12, color: COLORS.inkSoft }}>Acquistato il {p.date}</div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: debt > 0 ? COLORS.danger : COLORS.success }} className="mt-1">
-                          {debt > 0 ? `Da saldare €${debt.toFixed(2)} di €${p.price}` : `Saldato · €${p.price}`}
+                          {debt > 0 ? `Da saldare ${formatLune(debt)} di ${formatLune(p.price)}` : `Saldato · ${formatLune(p.price)}`}
                         </div>
                       </div>
                     );
@@ -338,12 +493,12 @@ export function AreaApp({ fullName }: { fullName: string }) {
 
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Wallet size={16} color={COLORS.heading} />
+                <Moon size={16} color={COLORS.heading} />
                 <div style={{ fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 600, color: COLORS.heading }}>Il tuo saldo</div>
               </div>
               <div className="p-3 rounded-xl mb-2" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: totalOwed > 0 ? COLORS.danger : COLORS.success }}>
-                  {totalOwed > 0 ? `Da saldare: €${totalOwed.toFixed(2)}` : "Nessun saldo in sospeso"}
+                  {totalOwed > 0 ? `Da saldare: ${formatLune(totalOwed)}` : "Nessun saldo in sospeso"}
                 </span>
               </div>
               {pastBookings.length > 0 && (
@@ -371,20 +526,29 @@ export function AreaApp({ fullName }: { fullName: string }) {
             <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-4">
               {levelById[selected.levelId]?.name}
             </div>
-            <div className="mb-4" style={{ fontSize: 12.5 }}>
-              {selected.capacity > 0 ? `${selected.bookedCount}/${selected.capacity} posti occupati` : `${selected.bookedCount} iscritti`}
-              {selected.waitlistCount > 0 && <span style={{ color: COLORS.gold, fontWeight: 700 }}> · {selected.waitlistCount} in lista d&apos;attesa</span>}
+            <div className="mb-4" style={{ fontSize: 12.5, fontWeight: 600, color: availabilityLabel(selected).color }}>
+              {availabilityLabel(selected).text}
             </div>
 
             {selected.myStatus ? (
-              <button
-                disabled={pending}
-                onClick={() => handleCancel(selected.id)}
-                className="w-full py-2.5 rounded-lg text-sm font-semibold"
-                style={{ color: COLORS.danger, border: `1px solid ${COLORS.danger}55` }}
-              >
-                {selected.myStatus === "waitlist" ? "Esci dalla lista d'attesa" : "Cancella prenotazione"}
-              </button>
+              canStillCancel(selected.date, selected.time) ? (
+                <button
+                  disabled={pending}
+                  onClick={() => handleCancel(selected.id)}
+                  className="w-full py-2.5 rounded-lg text-sm font-semibold"
+                  style={{ color: COLORS.danger, border: `1px solid ${COLORS.danger}55` }}
+                >
+                  {selected.myStatus === "waitlist" ? "Esci dalla lista d'attesa" : "Cancella prenotazione"}
+                </button>
+              ) : (
+                <div style={{ fontSize: 12.5, color: COLORS.inkSoft, fontStyle: "italic" }} className="text-center">
+                  Meno di 24 ore alla lezione: per cancellare, contattaci direttamente.
+                </div>
+              )
+            ) : !bookingsOpen ? (
+              <div style={{ fontSize: 12.5, color: COLORS.gold, fontWeight: 600 }} className="text-center">
+                Le iscrizioni non sono ancora aperte.
+              </div>
             ) : (
               <button
                 disabled={pending}

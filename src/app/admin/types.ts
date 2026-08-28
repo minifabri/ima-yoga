@@ -78,6 +78,7 @@ export type AdminData = {
   classTypes: ClassType[];
   levels: Level[];
   settings: Settings;
+  bookingsOpen: boolean;
   classes: ClassItem[];
   clients: ClientItem[];
   packages: PackageItem[];

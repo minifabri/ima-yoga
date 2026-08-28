@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, Settings as SettingsIcon, Check, AlertCircle } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
@@ -37,6 +37,8 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   const [classTypes, setClassTypes] = useState<ClassType[]>(initial.classTypes);
   const [levels, setLevels] = useState<Level[]>(initial.levels);
   const [settings, setSettings] = useState<Settings>(initial.settings);
+  const [bookingsOpen, setBookingsOpenState] = useState(initial.bookingsOpen);
+  const [bookingsTogglePending, setBookingsTogglePending] = useState(false);
   const [classes, setClasses] = useState<ClassItem[]>(initial.classes);
   const [clients, setClients] = useState<ClientItem[]>(initial.clients);
   const [packages, setPackages] = useState<PackageItem[]>(initial.packages);
@@ -215,6 +217,21 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     }
   }
 
+  async function toggleBookingsOpen() {
+    const next = !bookingsOpen;
+    setBookingsTogglePending(true);
+    setBookingsOpenState(next);
+    try {
+      await db.setBookingsOpen(supabase, next);
+      showToast(next ? "Iscrizioni aperte." : "Iscrizioni chiuse.");
+    } catch {
+      setBookingsOpenState(!next);
+      showToast("Errore nel cambiare lo stato delle iscrizioni.");
+    } finally {
+      setBookingsTogglePending(false);
+    }
+  }
+
   // ---- packages & ledger ----
   async function sellPackage({ clientId, paidAmount, linkClassIds }: { clientId: string; paidAmount: number; linkClassIds: string[] }) {
     try {
@@ -316,6 +333,20 @@ export function AdminApp({ initial }: { initial: AdminData }) {
                 <Wallet size={15} /> Pagamenti
               </button>
             </div>
+            <button
+              onClick={toggleBookingsOpen}
+              disabled={bookingsTogglePending}
+              title={bookingsOpen ? "Le clienti possono prenotare — clicca per chiudere le iscrizioni" : "Iscrizioni chiuse — clicca per riaprirle"}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-60"
+              style={{
+                border: `1px solid ${bookingsOpen ? COLORS.success : COLORS.danger}55`,
+                color: bookingsOpen ? COLORS.success : COLORS.danger,
+                background: bookingsOpen ? COLORS.success + "14" : COLORS.danger + "14",
+              }}
+            >
+              {bookingsOpen ? <LockOpen size={15} /> : <Lock size={15} />}
+              {bookingsOpen ? "Iscrizioni aperte" : "Iscrizioni chiuse"}
+            </button>
             <IconButton title="Impostazioni classi" onClick={() => setSettingsOpen(true)} style={{ border: `1px solid ${COLORS.border}` }}>
               <SettingsIcon size={17} />
             </IconButton>

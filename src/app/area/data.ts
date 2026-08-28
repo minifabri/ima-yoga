@@ -13,6 +13,11 @@ export async function fetchLevels(supabase: DB): Promise<Level[]> {
   return data ?? [];
 }
 
+export async function fetchBookingsOpen(supabase: DB): Promise<boolean> {
+  const { data } = await supabase.from("settings").select("bookings_open").eq("id", 1).maybeSingle();
+  return data?.bookings_open ?? true;
+}
+
 export async function fetchPublicClasses(supabase: DB, from: string, to: string): Promise<PublicClass[]> {
   const { data, error } = await supabase.rpc("public_classes", { p_from: from, p_to: to });
   if (error) throw error;

@@ -145,6 +145,7 @@ export async function fetchAdminData(supabase: DB): Promise<AdminData> {
     classTypes: (typesRes.data ?? []).map(mapClassType),
     levels: (levelsRes.data ?? []).map((l) => ({ id: l.id, name: l.name })),
     settings,
+    bookingsOpen: settingsRes.data?.bookings_open ?? true,
     classes: (classesRes.data ?? []).map(mapClass),
     clients: (clientsRes.data ?? []).map((p) => ({
       id: p.id,
@@ -294,6 +295,11 @@ export async function saveSettings(supabase: DB, s: Settings) {
       package_price: s.packagePrice,
     })
     .eq("id", 1);
+  if (error) throw error;
+}
+
+export async function setBookingsOpen(supabase: DB, open: boolean) {
+  const { error } = await supabase.from("settings").update({ bookings_open: open }).eq("id", 1);
   if (error) throw error;
 }
 
