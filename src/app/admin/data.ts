@@ -304,6 +304,11 @@ export async function deleteLevel(supabase: DB, id: string) {
   if (error) throw error;
 }
 
+export async function updateLevel(supabase: DB, id: string, name: string) {
+  const { error } = await supabase.from("levels").update({ name }).eq("id", id);
+  if (error) throw error;
+}
+
 export async function saveSettings(supabase: DB, s: Settings) {
   const { error } = await supabase
     .from("settings")

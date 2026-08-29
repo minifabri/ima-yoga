@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, ClipboardPaste, LayoutGrid, List, Lock, GripVertical, CalendarClock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, ClipboardPaste, LayoutGrid, List, Lock, GripVertical, CalendarClock, Download } from "lucide-react";
 import { IconButton, CapacityBar } from "./ui";
 import { COLORS } from "./colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "./utils";
+import { downloadIcsFile } from "@/lib/ics";
 import type { ClassItem, ClassType, Level } from "./types";
 
 type ClassClipboard = {
@@ -69,6 +70,24 @@ export function CalendarView({
 
   const listDays = days.filter((d) => (classesByDay[dateKey(d)] || []).length > 0);
 
+  function downloadMonth() {
+    const monthClasses = Object.values(classesByDay)
+      .flat()
+      .filter((c) => {
+        const [y, m] = c.date.split("-").map(Number);
+        return y === viewDate.getFullYear() && m === viewDate.getMonth() + 1;
+      });
+    downloadIcsFile(
+      `ima-yoga-${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, "0")}`,
+      monthClasses.map((c) => ({
+        date: c.date,
+        time: c.time,
+        title: typeById[c.typeId]?.name || "Classe",
+        description: [levelById[c.levelId]?.name, `${c.clientIds.length}/${c.capacity || "—"} iscritti`].filter(Boolean).join(" · "),
+      }))
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -124,15 +143,25 @@ export function CalendarView({
             <List size={13} /> Elenco
           </button>
         </div>
-        {mode === "list" && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => onAddClass(new Date())}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
-            style={{ background: COLORS.primary }}
+            onClick={downloadMonth}
+            title="Scarica tutte le classi del mese come file .ics"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+            style={{ border: `1px solid ${COLORS.border}`, color: COLORS.primaryDark }}
           >
-            <Plus size={13} /> Nuova classe
+            <Download size={13} /> <span className="hidden sm:inline">Scarica mese</span>
           </button>
-        )}
+          {mode === "list" && (
+            <button
+              onClick={() => onAddClass(new Date())}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+              style={{ background: COLORS.primary }}
+            >
+              <Plus size={13} /> Nuova classe
+            </button>
+          )}
+        </div>
       </div>
 
       {mode === "grid" ? (

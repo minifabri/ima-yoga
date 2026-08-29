@@ -18,13 +18,14 @@ import {
   ChevronDown,
   History,
   Download,
+  User,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "@/app/admin/colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/admin/utils";
 import * as db from "./data";
-import { downloadClassIcs } from "./ics";
+import { downloadIcsFile } from "@/lib/ics";
 import type { ClassType, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
 
 function formatLune(amount: number): string {
@@ -63,7 +64,7 @@ function errorMessage(err: unknown): string | null {
   return null;
 }
 
-export function AreaApp({ fullName }: { fullName: string }) {
+export function AreaApp({ fullName, email }: { fullName: string; email: string }) {
   const supabase = useMemo(() => createClient(), []);
   const [view, setView] = useState<"calendar" | "mine">("calendar");
   const [viewDate, setViewDate] = useState(new Date());
@@ -80,6 +81,7 @@ export function AreaApp({ fullName }: { fullName: string }) {
   const [pending, setPending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordPending, setPasswordPending] = useState(false);
@@ -253,14 +255,47 @@ export function AreaApp({ fullName }: { fullName: string }) {
                 Le mie prenotazioni
               </button>
             </div>
-            <button onClick={() => setChangePasswordOpen(true)} className="text-sm font-medium px-2" style={{ color: COLORS.inkSoft }}>
-              Cambia password
-            </button>
-            <form action={logout}>
-              <button type="submit" className="text-sm font-medium px-2" style={{ color: COLORS.inkSoft }}>
-                Esci
+            <div className="relative">
+              <button
+                onClick={() => setProfileMenuOpen((v) => !v)}
+                className="flex items-center justify-center rounded-lg"
+                style={{ width: 36, height: 36, border: `1px solid ${COLORS.border}`, color: COLORS.ink }}
+                title="Account"
+              >
+                <User size={17} />
               </button>
-            </form>
+              {profileMenuOpen && (
+                <>
+                  <div className="fixed inset-0" style={{ zIndex: 40 }} onClick={() => setProfileMenuOpen(false)} />
+                  <div
+                    className="absolute right-0 mt-2 p-3 rounded-xl"
+                    style={{ zIndex: 41, minWidth: 220, background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: "0 8px 24px rgba(74,58,115,0.14)" }}
+                  >
+                    <div
+                      style={{ fontSize: 12, color: COLORS.inkSoft, wordBreak: "break-all", borderBottom: `1px solid ${COLORS.border}` }}
+                      className="mb-2 pb-2"
+                    >
+                      {email}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        setChangePasswordOpen(true);
+                      }}
+                      className="w-full text-left py-1.5 text-sm font-medium"
+                      style={{ color: COLORS.ink }}
+                    >
+                      Cambia password
+                    </button>
+                    <form action={logout}>
+                      <button type="submit" className="w-full text-left py-1.5 text-sm font-medium" style={{ color: COLORS.danger }}>
+                        Esci
+                      </button>
+                    </form>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -535,7 +570,11 @@ export function AreaApp({ fullName }: { fullName: string }) {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <button
-                            onClick={() => downloadClassIcs({ date: b.date, time: b.time, title: type?.name || "Classe", description: level?.name })}
+                            onClick={() =>
+                              downloadIcsFile(`${type?.name || "Classe"}-${b.date}`, [
+                                { date: b.date, time: b.time, title: type?.name || "Classe", description: level?.name },
+                              ])
+                            }
                             title="Aggiungi al calendario"
                             className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
                             style={{ color: COLORS.primaryDark, border: `1px solid ${COLORS.border}` }}
@@ -671,12 +710,14 @@ export function AreaApp({ fullName }: { fullName: string }) {
             {selected.myStatus === "booked" && (
               <button
                 onClick={() =>
-                  downloadClassIcs({
-                    date: selected.date,
-                    time: selected.time,
-                    title: typeById[selected.typeId]?.name || "Classe",
-                    description: levelById[selected.levelId]?.name,
-                  })
+                  downloadIcsFile(`${typeById[selected.typeId]?.name || "Classe"}-${selected.date}`, [
+                    {
+                      date: selected.date,
+                      time: selected.time,
+                      title: typeById[selected.typeId]?.name || "Classe",
+                      description: levelById[selected.levelId]?.name,
+                    },
+                  ])
                 }
                 className="w-full mb-2 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5"
                 style={{ border: `1px solid ${COLORS.border}`, color: COLORS.primaryDark }}

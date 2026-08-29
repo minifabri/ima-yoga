@@ -235,6 +235,14 @@ export function AdminApp({ initial }: { initial: AdminData }) {
       showToast("Errore nell'eliminazione del livello.");
     }
   }
+  async function updateLevel(id: string, name: string) {
+    setLevels((cur) => cur.map((l) => (l.id === id ? { ...l, name } : l)));
+    try {
+      await db.updateLevel(supabase, id, name);
+    } catch {
+      showToast("Errore nel salvataggio del livello.");
+    }
+  }
   async function saveDefaults(next: Settings) {
     setSettings(next);
     try {
@@ -475,6 +483,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           onRemoveType={removeType}
           onAddLevel={addLevelHandler}
           onRemoveLevel={removeLevel}
+          onUpdateLevel={updateLevel}
           onSaveDefaults={saveDefaults}
         />
       )}

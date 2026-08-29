@@ -18,6 +18,7 @@ export function SettingsModal({
   onRemoveType,
   onAddLevel,
   onRemoveLevel,
+  onUpdateLevel,
   onSaveDefaults,
 }: {
   classTypes: ClassType[];
@@ -30,6 +31,7 @@ export function SettingsModal({
   onRemoveType: (id: string) => Promise<void>;
   onAddLevel: (name: string) => Promise<void>;
   onRemoveLevel: (id: string) => Promise<void>;
+  onUpdateLevel: (id: string, name: string) => Promise<void>;
   onSaveDefaults: (defaults: Settings) => Promise<void>;
 }) {
   const [def, setDef] = useState<Settings>(defaults);
@@ -283,8 +285,17 @@ export function SettingsModal({
             {levels.map((l) => {
               const used = classes.filter((c) => c.levelId === l.id).length;
               return (
-                <div key={l.id} className="flex items-center justify-between px-2.5 py-2 rounded-lg" style={{ border: `1px solid ${COLORS.border}` }}>
-                  <span style={{ fontSize: 13 }}>{l.name}</span>
+                <div key={l.id} className="flex items-center gap-2 px-2.5 py-2 rounded-lg" style={{ border: `1px solid ${COLORS.border}` }}>
+                  <input
+                    key={l.id}
+                    defaultValue={l.name}
+                    onBlur={(e) => {
+                      const name = e.target.value.trim();
+                      if (name && name !== l.name) onUpdateLevel(l.id, name);
+                      else e.target.value = l.name;
+                    }}
+                    style={{ fontSize: 13, flex: 1, border: "none", outline: "none", background: "transparent", color: COLORS.ink }}
+                  />
                   <button
                     onClick={() => onRemoveLevel(l.id)}
                     disabled={used > 0}

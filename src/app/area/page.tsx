@@ -32,5 +32,5 @@ export default async function AreaPage() {
     );
   }
 
-  return <AreaApp fullName={profile?.full_name || "!"} />;
+  return <AreaApp fullName={profile?.full_name || "!"} email={user.email || ""} />;
 }

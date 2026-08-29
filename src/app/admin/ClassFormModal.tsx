@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X, Plus, Trash2, Search, Check, ListPlus, CheckSquare, Square, Copy, Lock, LockOpen, Eye, EyeOff } from "lucide-react";
+import { X, Plus, Trash2, Search, Check, ListPlus, CheckSquare, Square, Copy, Lock, LockOpen, Eye, EyeOff, Download } from "lucide-react";
+import { downloadIcsFile } from "@/lib/ics";
 import { Modal, Field, CapacityBar, inputStyle } from "./ui";
 import { COLORS } from "./colors";
 import { genId, dateKey } from "./utils";
@@ -526,6 +527,18 @@ export function ClassFormModal({
           )}
           <button onClick={handleCopy} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: COLORS.primaryDark }} title="Copia questa classe per incollarla su un altro giorno">
             <Copy size={14} /> {copied ? "Copiata ✓" : "Copia"}
+          </button>
+          <button
+            onClick={() =>
+              downloadIcsFile(`${typeObj?.name || "Classe"}-${date}`, [
+                { date, time, title: typeObj?.name || "Classe", description: levels.find((l) => l.id === levelId)?.name },
+              ])
+            }
+            className="flex items-center gap-1.5 text-sm font-medium"
+            style={{ color: COLORS.primaryDark }}
+            title="Scarica questa classe come file .ics"
+          >
+            <Download size={14} /> Calendario
           </button>
         </div>
         <div className="flex gap-2">
