@@ -19,9 +19,14 @@ export const metadata: Metadata = {
   description: "Calendario classi, prenotazioni e gestionale — ima yoga",
 };
 
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('ima-yoga-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="it" className={`${cormorant.variable} ${montserrat.variable} h-full antialiased`}>
+    <html lang="it" className={`${cormorant.variable} ${montserrat.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

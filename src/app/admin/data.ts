@@ -106,6 +106,8 @@ function mapClass(row: {
   notes: string | null;
   description: string | null;
   bookings_open: boolean;
+  price_override: number | null;
+  is_free: boolean;
   bookings: BookingRow[];
 }): ClassItem {
   const bookings = row.bookings ?? [];
@@ -130,6 +132,8 @@ function mapClass(row: {
     notes: row.notes ?? "",
     description: row.description ?? "",
     bookingsOpen: row.bookings_open,
+    priceOverride: row.price_override != null ? Number(row.price_override) : null,
+    isFree: row.is_free,
     clientIds: booked.map((b) => b.client_id),
     waitlistIds: waitlist.map((b) => b.client_id),
     payments,
@@ -192,6 +196,8 @@ export async function saveClass(supabase: DB, item: ClassItem) {
     notes: item.notes || null,
     description: item.description || null,
     bookings_open: item.bookingsOpen,
+    price_override: item.priceOverride,
+    is_free: item.isFree,
   });
   if (classErr) throw classErr;
 

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Search, Plus, Clock, Trash2, Ban, CheckCircle2, KeyRound, Copy } from "lucide-react";
 import { Badge, Modal, inputStyle } from "./ui";
-import { COLORS } from "./colors";
+import { COLORS, withAlpha } from "./colors";
 import type { ClassItem, ClassType, ClientItem } from "./types";
 
 export function ClientsView({
@@ -85,7 +85,7 @@ export function ClientsView({
           const bookings = bookingsByClient[c.id] || [];
           const isOpen = expandedId === c.id;
           return (
-            <div key={c.id} className="rounded-xl overflow-hidden" style={{ background: COLORS.card, border: `1px solid ${c.disabled ? COLORS.danger + "55" : COLORS.border}` }}>
+            <div key={c.id} className="rounded-xl overflow-hidden" style={{ background: COLORS.card, border: `1px solid ${c.disabled ? withAlpha(COLORS.danger, 33) : COLORS.border}` }}>
               <button onClick={() => setExpandedId(isOpen ? null : c.id)} className="w-full flex items-center justify-between px-4 py-3 text-left">
                 <div>
                   <div className="flex items-center gap-1.5">

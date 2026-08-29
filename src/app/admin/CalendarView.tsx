@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, ClipboardPaste, LayoutGrid, List, Lock, GripVertical, CalendarClock, Download } from "lucide-react";
 import { IconButton, CapacityBar } from "./ui";
-import { COLORS } from "./colors";
+import { COLORS, withAlpha } from "./colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "./utils";
 import { downloadIcsFile } from "@/lib/ics";
 import type { ClassItem, ClassType, Level } from "./types";
@@ -265,7 +265,7 @@ export function CalendarView({
                               minHeight: 26,
                               padding: "3px 2px",
                               borderRadius: 5,
-                              background: color + "1E",
+                              background: withAlpha(color, 12),
                               borderLeft: `2.5px solid ${color}`,
                               gap: 2,
                             }}
@@ -372,7 +372,7 @@ export function CalendarView({
                                 fontSize: 10.5,
                                 padding: "2px 6px",
                                 borderRadius: 6,
-                                background: (type?.color || COLORS.primary) + "1E",
+                                background: withAlpha(type?.color || COLORS.primary, 12),
                                 borderLeft: `3px solid ${type?.color || COLORS.primary}`,
                                 color: COLORS.ink,
                               }}
@@ -482,7 +482,7 @@ function ClassCard({
         cursor: "grab",
         borderRadius: 10,
         padding: "8px 9px",
-        background: color + "16",
+        background: withAlpha(color, 9),
         borderLeft: `3px solid ${color}`,
         gap: 4,
       }}
@@ -503,10 +503,10 @@ function ClassCard({
             fontSize: 10,
             fontWeight: 600,
             color: COLORS.primaryDark,
-            background: "#fff",
+            background: COLORS.card,
             borderRadius: 999,
             padding: "1px 7px",
-            border: `1px solid ${color}55`,
+            border: `1px solid ${withAlpha(color, 33)}`,
           }}
         >
           {level.name}

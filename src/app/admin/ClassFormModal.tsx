@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { X, Plus, Trash2, Search, Check, ListPlus, CheckSquare, Square, Copy, Lock, LockOpen, Eye, EyeOff, Download } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { X, Plus, Trash2, Search, Check, ListPlus, CheckSquare, Square, Copy, Lock, LockOpen, Eye, EyeOff, Download, Gift } from "lucide-react";
 import { downloadIcsFile } from "@/lib/ics";
 import { Modal, Field, CapacityBar, inputStyle } from "./ui";
-import { COLORS } from "./colors";
+import { COLORS, withAlpha } from "./colors";
 import { genId, dateKey } from "./utils";
 import type { ClassItem, ClassType, ClientItem, Level, PackageWithUsage, Payment, PaymentStatus } from "./types";
 
@@ -18,6 +18,8 @@ type ClassClipboard = {
   notes: string;
   description: string;
   bookingsOpen: boolean;
+  priceOverride: number | null;
+  isFree: boolean;
 };
 
 function paymentMeta(status: PaymentStatus) {
@@ -77,6 +79,8 @@ export function ClassFormModal({
   const [notes, setNotes] = useState(editing ? base!.notes || "" : "");
   const [description, setDescription] = useState(editing ? base!.description || "" : "");
   const [bookingsOpen, setBookingsOpen] = useState(editing ? base!.bookingsOpen : true);
+  const [priceOverride, setPriceOverride] = useState<number | string>(editing ? base!.priceOverride ?? "" : "");
+  const [isFree, setIsFree] = useState(editing ? base!.isFree : false);
   const [clientIds, setClientIds] = useState<string[]>(editing ? base!.clientIds || [] : []);
   const [waitlistIds, setWaitlistIds] = useState<string[]>(editing ? base!.waitlistIds || [] : []);
   const [payments, setPayments] = useState<Record<string, Payment>>(editing ? base!.payments || {} : {});
@@ -99,6 +103,44 @@ export function ClassFormModal({
     .filter((c): c is ClientItem => !!c && !allBookedIds.has(c.id))
     .slice(0, 6);
 
+  function effectivePrice(): number {
+    if (isFree) return 0;
+    if (priceOverride === "") return Number(singleClassPrice) || 0;
+    return Number(priceOverride) || 0;
+  }
+
+  // Riallinea gli iscritti già presenti quando si cambia il prezzo della classe
+  // o la si segna/smarca come gratuita (ma non al primo render, per non toccare
+  // i prezzi già registrati solo perché il prezzo di default è cambiato nel frattempo).
+  const skipPriceSync = useRef(true);
+  useEffect(() => {
+    if (skipPriceSync.current) {
+      skipPriceSync.current = false;
+      return;
+    }
+    const price = effectivePrice();
+    setPayments((cur) => {
+      const next = { ...cur };
+      let changed = false;
+      for (const id of clientIds) {
+        const p = cur[id];
+        if (!p) continue;
+        if (isFree) {
+          if (p.status !== "paid" || p.amount !== 0 || p.price !== 0) {
+            next[id] = { status: "paid", amount: 0, price: 0 };
+            changed = true;
+          }
+        } else if (p.price !== price) {
+          const amount = p.status === "paid" || p.status === "package" ? price : p.amount;
+          next[id] = { ...p, price, amount };
+          changed = true;
+        }
+      }
+      return changed ? next : cur;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFree, priceOverride]);
+
   function toggleSelect(id: string) {
     setSelectedIds((cur) => {
       const next = new Set(cur);
@@ -118,7 +160,8 @@ export function ClassFormModal({
 
   function initPayment(id: string, cur: Record<string, Payment>): Record<string, Payment> {
     if (cur[id]) return cur;
-    const price = Number(singleClassPrice) || 0;
+    if (isFree) return { ...cur, [id]: { status: "paid", amount: 0, price: 0 } };
+    const price = effectivePrice();
     const pkg = eligiblePackageFor(id);
     if (pkg) return { ...cur, [id]: { status: "package", amount: price, price, packageId: pkg.id } };
     return { ...cur, [id]: { status: "unpaid", amount: 0, price } };
@@ -189,7 +232,7 @@ export function ClassFormModal({
   }
   function handlePaymentChange(id: string, status: PaymentStatus) {
     setPayments((p) => {
-      const cur = p[id] || { status: "unpaid" as const, amount: 0, price: Number(singleClassPrice) || 0 };
+      const cur = p[id] || { status: "unpaid" as const, amount: 0, price: effectivePrice() };
       const next: Payment = { ...cur, status };
       if (status === "paid") next.amount = cur.price;
       if (status === "unpaid") {
@@ -229,13 +272,25 @@ export function ClassFormModal({
       notes: notes.trim(),
       description: description.trim(),
       bookingsOpen,
+      priceOverride: priceOverride === "" ? null : Number(priceOverride) || 0,
+      isFree,
       clientIds,
       waitlistIds,
       payments,
     });
   }
   function handleCopy() {
-    onCopy({ typeId, levelId, time, capacity: capNum, notes: notes.trim(), description: description.trim(), bookingsOpen });
+    onCopy({
+      typeId,
+      levelId,
+      time,
+      capacity: capNum,
+      notes: notes.trim(),
+      description: description.trim(),
+      bookingsOpen,
+      priceOverride: priceOverride === "" ? null : Number(priceOverride) || 0,
+      isFree,
+    });
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
@@ -326,7 +381,33 @@ export function ClassFormModal({
               </button>
             </div>
           </Field>
+          <Field label={`Prezzo (default €${Number(singleClassPrice) || 0})`}>
+            <input
+              type="number"
+              min={0}
+              step="0.5"
+              disabled={isFree}
+              value={priceOverride}
+              onChange={(e) => setPriceOverride(e.target.value)}
+              placeholder={String(Number(singleClassPrice) || 0)}
+              style={{ ...inputStyle, opacity: isFree ? 0.5 : 1 }}
+            />
+          </Field>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsFree((v) => !v)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium mb-3"
+          style={{
+            border: `1px solid ${isFree ? COLORS.gold : COLORS.border}`,
+            color: isFree ? COLORS.primaryDark : COLORS.inkSoft,
+            background: isFree ? withAlpha(COLORS.gold, 16) : "transparent",
+          }}
+        >
+          <Gift size={13} />
+          {isFree ? "Classe gratuita" : "Segna come gratuita"}
+        </button>
 
         <Field label="Note">
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Facoltativo" style={{ ...inputStyle, resize: "vertical" }} />
@@ -344,7 +425,7 @@ export function ClassFormModal({
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
             placeholder="Facoltativa — si aggiunge a quella della tipologia, se presente"
-            style={{ ...inputStyle, resize: "vertical", background: "#fff" }}
+            style={{ ...inputStyle, resize: "vertical", background: COLORS.card }}
           />
           <div className="flex items-center gap-1 mt-1" style={{ fontSize: 10.5, color: COLORS.primaryDark }}>
             <Eye size={11} /> I clienti la vedranno aprendo questa classe.
@@ -356,9 +437,9 @@ export function ClassFormModal({
           onClick={() => setBookingsOpen((v) => !v)}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium mt-1"
           style={{
-            border: `1px solid ${bookingsOpen ? COLORS.success : COLORS.danger}55`,
+            border: `1px solid ${withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 33)}`,
             color: bookingsOpen ? COLORS.success : COLORS.danger,
-            background: bookingsOpen ? COLORS.success + "14" : COLORS.danger + "14",
+            background: withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 8),
           }}
         >
           {bookingsOpen ? <LockOpen size={13} /> : <Lock size={13} />}
@@ -375,7 +456,7 @@ export function ClassFormModal({
 
           <div className="flex flex-col gap-1.5 mb-2">
             {bookedClients.map((c) => {
-              const pay = payments[c.id] || { status: "unpaid" as const, amount: 0, price: Number(singleClassPrice) || 0 };
+              const pay = payments[c.id] || { status: "unpaid" as const, amount: 0, price: effectivePrice() };
               const meta = paymentMeta(pay.status);
               const hasPackage = typeObj?.packageEligible && packages.some((p) => p.clientId === c.id && p.remaining > 0);
               return (
@@ -388,13 +469,13 @@ export function ClassFormModal({
                       value={pay.amount}
                       onChange={(e) => handlePartialAmount(c.id, e.target.value)}
                       placeholder="€"
-                      style={{ width: 50, fontSize: 11, border: `1px solid ${COLORS.border}`, borderRadius: 6, padding: "3px 5px", background: "#fff" }}
+                      style={{ width: 50, fontSize: 11, border: `1px solid ${COLORS.border}`, borderRadius: 6, padding: "3px 5px", background: COLORS.card }}
                     />
                   )}
                   <select
                     value={pay.status}
                     onChange={(e) => handlePaymentChange(c.id, e.target.value as PaymentStatus)}
-                    style={{ fontSize: 11, fontWeight: 600, border: `1px solid ${meta.color}55`, borderRadius: 6, padding: "3px 4px", color: meta.color, background: "#fff" }}
+                    style={{ fontSize: 11, fontWeight: 600, border: `1px solid ${withAlpha(meta.color, 33)}`, borderRadius: 6, padding: "3px 4px", color: meta.color, background: COLORS.card }}
                   >
                     <option value="unpaid">Da pagare</option>
                     <option value="paid">Pagato</option>
@@ -420,7 +501,7 @@ export function ClassFormModal({
                   <span
                     key={c.id}
                     className="inline-flex items-center gap-1.5 rounded-full"
-                    style={{ background: "#FBF3E3", fontSize: 12, padding: "3px 6px 3px 10px", border: `1px solid ${COLORS.gold}55` }}
+                    style={{ background: withAlpha(COLORS.gold, 16), fontSize: 12, padding: "3px 6px 3px 10px", border: `1px solid ${withAlpha(COLORS.gold, 33)}` }}
                   >
                     {c.name}
                     <button onClick={() => promoteFromWaitlist(c.id)} title="Conferma iscrizione" style={{ color: COLORS.primaryDark }}>
@@ -451,7 +532,7 @@ export function ClassFormModal({
                       style={{
                         fontSize: 12,
                         padding: "3px 9px 3px 7px",
-                        background: sel ? COLORS.primary : "#fff",
+                        background: sel ? COLORS.primary : COLORS.card,
                         color: sel ? "#fff" : COLORS.ink,
                         border: `1px solid ${sel ? COLORS.primary : COLORS.border}`,
                       }}

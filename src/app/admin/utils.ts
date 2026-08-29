@@ -33,6 +33,12 @@ export function genId(): string {
   return crypto.randomUUID();
 }
 
+// Prezzo effettivo di una classe: gratuita > prezzo personalizzato > prezzo di default.
+export function classEffectivePrice(cls: { isFree: boolean; priceOverride: number | null }, defaultPrice: number): number {
+  if (cls.isFree) return 0;
+  return cls.priceOverride ?? defaultPrice;
+}
+
 export function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

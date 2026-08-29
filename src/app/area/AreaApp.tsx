@@ -22,7 +22,8 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
-import { COLORS } from "@/app/admin/colors";
+import { COLORS, withAlpha } from "@/app/admin/colors";
+import { ThemeToggle } from "@/app/admin/ThemeToggle";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/admin/utils";
 import * as db from "./data";
 import { downloadIcsFile } from "@/lib/ics";
@@ -255,6 +256,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 Le mie prenotazioni
               </button>
             </div>
+            <ThemeToggle />
             <div className="relative">
               <button
                 onClick={() => setProfileMenuOpen((v) => !v)}
@@ -308,7 +310,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
         {view === "calendar" ? (
           <div>
             {!bookingsOpen && (
-              <div className="mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2" style={{ background: "#FBF3E3", color: COLORS.gold }}>
+              <div className="mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2" style={{ background: withAlpha(COLORS.gold, 16), color: COLORS.gold }}>
                 <Lock size={15} /> Le iscrizioni non sono ancora aperte.
               </div>
             )}
@@ -430,7 +432,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                                     minHeight: 26,
                                     padding: "3px 2px",
                                     borderRadius: 5,
-                                    background: color + "1E",
+                                    background: withAlpha(color, 12),
                                     borderLeft: `2.5px solid ${color}`,
                                     gap: 2,
                                   }}
@@ -476,7 +478,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                                     fontSize: 10.5,
                                     padding: "3px 6px",
                                     borderRadius: 6,
-                                    background: color + "1E",
+                                    background: withAlpha(color, 12),
                                     borderLeft: `3px solid ${color}`,
                                     color: COLORS.ink,
                                   }}
@@ -586,7 +588,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                               disabled={pending}
                               onClick={() => handleCancel(b.classId)}
                               className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
-                              style={{ color: COLORS.danger, border: `1px solid ${COLORS.danger}55` }}
+                              style={{ color: COLORS.danger, border: `1px solid ${withAlpha(COLORS.danger, 33)}` }}
                             >
                               <X size={12} /> Cancella
                             </button>
@@ -732,7 +734,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                   disabled={pending}
                   onClick={() => handleCancel(selected.id)}
                   className="w-full py-2.5 rounded-lg text-sm font-semibold"
-                  style={{ color: COLORS.danger, border: `1px solid ${COLORS.danger}55` }}
+                  style={{ color: COLORS.danger, border: `1px solid ${withAlpha(COLORS.danger, 33)}` }}
                 >
                   {selected.myStatus === "waitlist" ? "Esci dalla lista d'attesa" : "Cancella prenotazione"}
                 </button>

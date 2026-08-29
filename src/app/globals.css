@@ -15,6 +15,22 @@
   --danger: #a85c4a;
 }
 
+/* Tema scuro — stessa identità (viola, oro, avorio), invertita per il notturno. */
+:root[data-theme="dark"] {
+  --bg: #1c1830; /* notte viola profondo */
+  --card: #262040;
+  --subtle: #322a4d;
+  --border: #443a63;
+  --ink: #ece6f7;
+  --ink-soft: #a99cc9;
+  --heading: #e6dbf5;
+  --primary: #a48ada;
+  --primary-dark: #d9cbf2;
+  --gold: #e3c481;
+  --success: #97b98c;
+  --danger: #d38f77;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-card: var(--card);
@@ -32,8 +48,16 @@
   --font-display: var(--font-display);
 }
 
+:root {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body), sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }

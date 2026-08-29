@@ -215,7 +215,7 @@ export function SettingsModal({
                           Idonea al pacchetto
                         </label>
                       </div>
-                      <div className="mt-2 p-2 rounded-lg" style={{ background: "#fff", border: `1px solid ${COLORS.border}` }}>
+                      <div className="mt-2 p-2 rounded-lg" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
                         <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 11, fontWeight: 600, color: COLORS.primaryDark }}>
                           <Eye size={12} /> Descrizione per i clienti
                         </div>

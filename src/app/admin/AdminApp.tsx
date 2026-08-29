@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
-import { COLORS } from "./colors";
-import { dateKey, genId } from "./utils";
+import { COLORS, withAlpha } from "./colors";
+import { dateKey, genId, classEffectivePrice } from "./utils";
 import { IconButton, Modal } from "./ui";
+import { ThemeToggle } from "./ThemeToggle";
 import { CalendarView } from "./CalendarView";
 import { ClassFormModal } from "./ClassFormModal";
 import { SettingsModal } from "./SettingsModal";
@@ -28,7 +29,17 @@ import type {
   Settings,
 } from "./types";
 
-type ClassClipboard = { typeId: string; levelId: string; time: string; capacity: number; notes: string; description: string; bookingsOpen: boolean };
+type ClassClipboard = {
+  typeId: string;
+  levelId: string;
+  time: string;
+  capacity: number;
+  notes: string;
+  description: string;
+  bookingsOpen: boolean;
+  priceOverride: number | null;
+  isFree: boolean;
+};
 type ClassModalState = { mode: "new"; date: Date } | { mode: "edit"; classItem: ClassItem } | null;
 type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 
@@ -148,7 +159,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   function markClassPaymentPaid(classId: string, clientId: string) {
     const c = classes.find((x) => x.id === classId);
     if (!c) return;
-    const price = c.payments[clientId]?.price ?? settings.singleClassPrice;
+    const price = c.payments[clientId]?.price ?? classEffectivePrice(c, settings.singleClassPrice);
     setClasses((cur) =>
       cur.map((x) =>
         x.id === classId
@@ -398,9 +409,9 @@ export function AdminApp({ initial }: { initial: AdminData }) {
               title={bookingsOpen ? "Le clienti possono prenotare — clicca per chiudere le iscrizioni" : "Iscrizioni chiuse — clicca per riaprirle"}
               className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium disabled:opacity-60"
               style={{
-                border: `1px solid ${bookingsOpen ? COLORS.success : COLORS.danger}55`,
+                border: `1px solid ${withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 33)}`,
                 color: bookingsOpen ? COLORS.success : COLORS.danger,
-                background: bookingsOpen ? COLORS.success + "14" : COLORS.danger + "14",
+                background: withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 8),
               }}
             >
               {bookingsOpen ? <LockOpen size={15} /> : <Lock size={15} />}
@@ -409,6 +420,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             <IconButton title="Impostazioni classi" onClick={() => setSettingsOpen(true)} style={{ border: `1px solid ${COLORS.border}` }}>
               <SettingsIcon size={17} />
             </IconButton>
+            <ThemeToggle />
             <form action={logout}>
               <button type="submit" className="text-sm font-medium px-1.5" style={{ color: COLORS.inkSoft }}>
                 Esci

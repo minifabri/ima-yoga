@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
-import { COLORS } from "./colors";
+import { COLORS, withAlpha } from "./colors";
 
 export const inputStyle: CSSProperties = {
   width: "100%",
@@ -45,12 +45,12 @@ export function Badge({ color, children }: { color: string; children: ReactNode 
     <span
       className="inline-flex items-center gap-1 rounded-full"
       style={{
-        background: color + "1E",
+        background: withAlpha(color, 12),
         color,
         fontSize: 11,
         fontWeight: 600,
         padding: "2px 8px",
-        border: `1px solid ${color}55`,
+        border: `1px solid ${withAlpha(color, 33)}`,
       }}
     >
       {children}
