@@ -13,6 +13,7 @@ import { SettingsModal } from "./SettingsModal";
 import { PaymentsView } from "./PaymentsView";
 import { ClientsView } from "./ClientsView";
 import * as db from "./data";
+import { adminResetClientPassword } from "./actions";
 import type {
   AdminData,
   ClassItem,
@@ -175,6 +176,22 @@ export function AdminApp({ initial }: { initial: AdminData }) {
       })
     );
     db.deleteClient(supabase, id).catch(() => showToast("L'eliminazione non è riuscita."));
+  }
+  function setClientDisabledHandler(id: string, disabled: boolean, cancelFuture: boolean) {
+    setClients((cur) => cur.map((c) => (c.id === id ? { ...c, disabled } : c)));
+    db.setClientDisabled(supabase, id, disabled, cancelFuture)
+      .then(() => {
+        if (disabled && cancelFuture) db.fetchAdminData(supabase).then((next) => setClasses(next.classes));
+      })
+      .catch(() => showToast("Non è stato possibile aggiornare lo stato del cliente."));
+  }
+  async function resetClientPassword(id: string): Promise<string> {
+    const res = await adminResetClientPassword(id);
+    if (!res.ok || !res.password) {
+      showToast(res.error || "Non è stato possibile resettare la password.");
+      throw new Error(res.error || "reset failed");
+    }
+    return res.password;
   }
 
   // ---- class types, levels, settings ----
@@ -394,7 +411,15 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onPasteClass={pasteClass}
           />
         ) : view === "clients" ? (
-          <ClientsView clients={clients} classes={classes} typeById={typeById} onUpsert={upsertClient} onDelete={(id) => setConfirmDelete({ type: "client", id })} />
+          <ClientsView
+            clients={clients}
+            classes={classes}
+            typeById={typeById}
+            onUpsert={upsertClient}
+            onDelete={(id) => setConfirmDelete({ type: "client", id })}
+            onSetDisabled={setClientDisabledHandler}
+            onResetPassword={resetClientPassword}
+          />
         ) : (
           <PaymentsView
             clients={clients}

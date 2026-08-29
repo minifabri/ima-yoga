@@ -112,7 +112,7 @@ export function PaymentsView({
   function confirmSell() {
     let clientId = sellClientId;
     if (!clientId && sellQuery.trim()) {
-      const client: ClientItem = { id: crypto.randomUUID(), name: sellQuery.trim(), phone: "", notes: "" };
+      const client: ClientItem = { id: crypto.randomUUID(), name: sellQuery.trim(), phone: "", notes: "", disabled: false, hasAccount: false };
       onUpsertClient(client);
       clientId = client.id;
     }
@@ -143,7 +143,7 @@ export function PaymentsView({
   function confirmLedger() {
     let clientId = ledgerClientId;
     if (!clientId && ledgerQuery.trim()) {
-      const client: ClientItem = { id: crypto.randomUUID(), name: ledgerQuery.trim(), phone: "", notes: "" };
+      const client: ClientItem = { id: crypto.randomUUID(), name: ledgerQuery.trim(), phone: "", notes: "", disabled: false, hasAccount: false };
       onUpsertClient(client);
       clientId = client.id;
     }

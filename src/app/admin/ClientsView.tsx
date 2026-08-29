@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Plus, Clock, Trash2 } from "lucide-react";
-import { Badge, inputStyle } from "./ui";
+import { Search, Plus, Clock, Trash2, Ban, CheckCircle2, KeyRound, Copy } from "lucide-react";
+import { Badge, Modal, inputStyle } from "./ui";
 import { COLORS } from "./colors";
 import type { ClassItem, ClassType, ClientItem } from "./types";
 
@@ -12,17 +12,25 @@ export function ClientsView({
   typeById,
   onUpsert,
   onDelete,
+  onSetDisabled,
+  onResetPassword,
 }: {
   clients: ClientItem[];
   classes: ClassItem[];
   typeById: Record<string, ClassType>;
   onUpsert: (client: ClientItem) => void;
   onDelete: (id: string) => void;
+  onSetDisabled: (id: string, disabled: boolean, cancelFuture: boolean) => void;
+  onResetPassword: (id: string) => Promise<string>;
 }) {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
+  const [disableTarget, setDisableTarget] = useState<ClientItem | null>(null);
+  const [cancelFuture, setCancelFuture] = useState(false);
+  const [tempPasswords, setTempPasswords] = useState<Record<string, string>>({});
+  const [resettingId, setResettingId] = useState<string | null>(null);
 
   const bookingsByClient = useMemo(() => {
     const map: Record<string, ClassItem[]> = {};
@@ -40,9 +48,19 @@ export function ClientsView({
   function addClient() {
     const name = newName.trim();
     if (!name) return;
-    onUpsert({ id: crypto.randomUUID(), name, phone: newPhone.trim(), notes: "" });
+    onUpsert({ id: crypto.randomUUID(), name, phone: newPhone.trim(), notes: "", disabled: false, hasAccount: false });
     setNewName("");
     setNewPhone("");
+  }
+
+  async function handleResetPassword(id: string) {
+    setResettingId(id);
+    try {
+      const temp = await onResetPassword(id);
+      setTempPasswords((cur) => ({ ...cur, [id]: temp }));
+    } finally {
+      setResettingId(null);
+    }
   }
 
   return (
@@ -67,10 +85,13 @@ export function ClientsView({
           const bookings = bookingsByClient[c.id] || [];
           const isOpen = expandedId === c.id;
           return (
-            <div key={c.id} className="rounded-xl overflow-hidden" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+            <div key={c.id} className="rounded-xl overflow-hidden" style={{ background: COLORS.card, border: `1px solid ${c.disabled ? COLORS.danger + "55" : COLORS.border}` }}>
               <button onClick={() => setExpandedId(isOpen ? null : c.id)} className="w-full flex items-center justify-between px-4 py-3 text-left">
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{c.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{c.name}</span>
+                    {c.disabled && <Badge color={COLORS.danger}>Disabilitato</Badge>}
+                  </div>
                   {c.phone && <div style={{ fontSize: 12, color: COLORS.inkSoft }}>{c.phone}</div>}
                 </div>
                 <Badge color={COLORS.primaryDark}>{bookings.length} classi</Badge>
@@ -86,9 +107,58 @@ export function ClientsView({
                       </div>
                     ))}
                   </div>
-                  <button onClick={() => onDelete(c.id)} className="mt-3 flex items-center gap-1.5 text-xs font-medium" style={{ color: COLORS.danger }}>
-                    <Trash2 size={12} /> Elimina cliente
-                  </button>
+
+                  {tempPasswords[c.id] && (
+                    <div className="mt-3 p-2.5 rounded-lg flex items-center justify-between gap-2" style={{ background: COLORS.subtle }}>
+                      <div style={{ fontSize: 12 }}>
+                        Password temporanea: <strong style={{ fontFamily: "monospace" }}>{tempPasswords[c.id]}</strong>
+                        <div style={{ fontSize: 10.5, color: COLORS.inkSoft }}>Comunicala al cliente — potrà cambiarla dopo l&apos;accesso.</div>
+                      </div>
+                      <button
+                        onClick={() => navigator.clipboard?.writeText(tempPasswords[c.id])}
+                        title="Copia"
+                        style={{ color: COLORS.primaryDark }}
+                      >
+                        <Copy size={14} />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex items-center gap-3 flex-wrap">
+                    <button onClick={() => onDelete(c.id)} className="flex items-center gap-1.5 text-xs font-medium" style={{ color: COLORS.danger }}>
+                      <Trash2 size={12} /> Elimina cliente
+                    </button>
+                    {c.disabled ? (
+                      <button
+                        onClick={() => onSetDisabled(c.id, false, false)}
+                        className="flex items-center gap-1.5 text-xs font-medium"
+                        style={{ color: COLORS.success }}
+                      >
+                        <CheckCircle2 size={12} /> Riabilita cliente
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setDisableTarget(c);
+                          setCancelFuture(false);
+                        }}
+                        className="flex items-center gap-1.5 text-xs font-medium"
+                        style={{ color: COLORS.danger }}
+                      >
+                        <Ban size={12} /> Disabilita cliente
+                      </button>
+                    )}
+                    {c.hasAccount && (
+                      <button
+                        onClick={() => handleResetPassword(c.id)}
+                        disabled={resettingId === c.id}
+                        className="flex items-center gap-1.5 text-xs font-medium disabled:opacity-60"
+                        style={{ color: COLORS.primaryDark }}
+                      >
+                        <KeyRound size={12} /> {resettingId === c.id ? "Reset in corso…" : "Resetta password"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -100,6 +170,36 @@ export function ClientsView({
           </div>
         )}
       </div>
+
+      {disableTarget && (
+        <Modal onClose={() => setDisableTarget(null)} width={380}>
+          <div className="p-5">
+            <div className="font-semibold mb-1">Disabilitare {disableTarget.name}?</div>
+            <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-3">
+              Non potrà più accedere alla sua area né prenotare nuove classi, finché non lo riabiliti.
+            </div>
+            <label className="flex items-center gap-1.5 mb-4" style={{ fontSize: 12.5, color: COLORS.ink }}>
+              <input type="checkbox" checked={cancelFuture} onChange={(e) => setCancelFuture(e.target.checked)} />
+              Cancella anche le sue prenotazioni per lezioni future
+            </label>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDisableTarget(null)} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
+                Annulla
+              </button>
+              <button
+                onClick={() => {
+                  onSetDisabled(disableTarget.id, true, cancelFuture);
+                  setDisableTarget(null);
+                }}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-white"
+                style={{ background: COLORS.danger }}
+              >
+                Disabilita
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

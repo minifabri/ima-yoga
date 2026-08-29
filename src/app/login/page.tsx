@@ -31,6 +31,11 @@ export default function LoginPage() {
           <Field label="Password">
             <input type="password" name="password" required autoComplete="current-password" style={inputStyle} />
           </Field>
+          <div className="text-right -mt-1">
+            <Link href="/forgot-password" style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+              Password dimenticata?
+            </Link>
+          </div>
 
           {state.error && (
             <div className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E2", color: "var(--danger)" }}>

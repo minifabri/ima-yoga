@@ -27,6 +27,8 @@ export type ClientItem = {
   name: string;
   phone: string;
   notes: string;
+  disabled: boolean;
+  hasAccount: boolean;
 };
 
 export type ClassType = {

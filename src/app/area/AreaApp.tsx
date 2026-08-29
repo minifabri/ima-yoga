@@ -17,12 +17,14 @@ import {
   CalendarClock,
   ChevronDown,
   History,
+  Download,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "@/app/admin/colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/admin/utils";
 import * as db from "./data";
+import { downloadClassIcs } from "./ics";
 import type { ClassType, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
 
 function formatLune(amount: number): string {
@@ -77,6 +79,29 @@ export function AreaApp({ fullName }: { fullName: string }) {
   const [selected, setSelected] = useState<PublicClass | null>(null);
   const [pending, setPending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordPending, setPasswordPending] = useState(false);
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordError(null);
+    if (newPassword.length < 6) {
+      setPasswordError("La password deve avere almeno 6 caratteri.");
+      return;
+    }
+    setPasswordPending(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setPasswordPending(false);
+    if (error) {
+      setPasswordError("Non è stato possibile aggiornare la password.");
+      return;
+    }
+    setChangePasswordOpen(false);
+    setNewPassword("");
+    showToast("Password aggiornata.");
+  }
   const [toast, setToast] = useState("");
 
   function showToast(msg: string) {
@@ -228,6 +253,9 @@ export function AreaApp({ fullName }: { fullName: string }) {
                 Le mie prenotazioni
               </button>
             </div>
+            <button onClick={() => setChangePasswordOpen(true)} className="text-sm font-medium px-2" style={{ color: COLORS.inkSoft }}>
+              Cambia password
+            </button>
             <form action={logout}>
               <button type="submit" className="text-sm font-medium px-2" style={{ color: COLORS.inkSoft }}>
                 Esci
@@ -505,18 +533,28 @@ export function AreaApp({ fullName }: { fullName: string }) {
                             {level?.name} {b.status === "waitlist" && <span style={{ color: COLORS.gold, fontWeight: 700 }}>· In lista d&apos;attesa</span>}
                           </div>
                         </div>
-                        {cancellable ? (
+                        <div className="flex items-center gap-1.5">
                           <button
-                            disabled={pending}
-                            onClick={() => handleCancel(b.classId)}
+                            onClick={() => downloadClassIcs({ date: b.date, time: b.time, title: type?.name || "Classe", description: level?.name })}
+                            title="Aggiungi al calendario"
                             className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
-                            style={{ color: COLORS.danger, border: `1px solid ${COLORS.danger}55` }}
+                            style={{ color: COLORS.primaryDark, border: `1px solid ${COLORS.border}` }}
                           >
-                            <X size={12} /> Cancella
+                            <Download size={12} /> Calendario
                           </button>
-                        ) : (
-                          <span style={{ fontSize: 11, color: COLORS.inkSoft, fontStyle: "italic" }}>Per cancellare ora, contattaci direttamente</span>
-                        )}
+                          {cancellable ? (
+                            <button
+                              disabled={pending}
+                              onClick={() => handleCancel(b.classId)}
+                              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
+                              style={{ color: COLORS.danger, border: `1px solid ${COLORS.danger}55` }}
+                            >
+                              <X size={12} /> Cancella
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: 11, color: COLORS.inkSoft, fontStyle: "italic" }}>Per cancellare ora, contattaci</span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -630,6 +668,23 @@ export function AreaApp({ fullName }: { fullName: string }) {
               {availabilityLabel(selected).text}
             </div>
 
+            {selected.myStatus === "booked" && (
+              <button
+                onClick={() =>
+                  downloadClassIcs({
+                    date: selected.date,
+                    time: selected.time,
+                    title: typeById[selected.typeId]?.name || "Classe",
+                    description: levelById[selected.levelId]?.name,
+                  })
+                }
+                className="w-full mb-2 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5"
+                style={{ border: `1px solid ${COLORS.border}`, color: COLORS.primaryDark }}
+              >
+                <Download size={14} /> Aggiungi al calendario
+              </button>
+            )}
+
             {selected.myStatus ? (
               canStillCancel(selected.date, selected.time) ? (
                 <button
@@ -663,6 +718,50 @@ export function AreaApp({ fullName }: { fullName: string }) {
                 {selected.capacity > 0 && selected.bookedCount >= selected.capacity ? "Aggiungimi in lista d'attesa" : "Prenota"}
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {changePasswordOpen && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ background: "rgba(74,58,115,0.35)", zIndex: 50 }}
+          onMouseDown={(e) => e.target === e.currentTarget && setChangePasswordOpen(false)}
+        >
+          <div className="w-full p-5" style={{ maxWidth: 340, background: COLORS.card, borderRadius: 18, boxShadow: "0 16px 44px rgba(74,58,115,0.16)" }}>
+            <div className="flex items-center justify-between mb-3">
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>Cambia password</div>
+              <button onClick={() => setChangePasswordOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
+              <label className="block">
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft, marginBottom: 4 }}>Nuova password</div>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={6}
+                  required
+                  autoComplete="new-password"
+                  style={{ width: "100%", border: `1px solid ${COLORS.border}`, borderRadius: 9, padding: "8px 10px", fontSize: 13, background: COLORS.bg, color: COLORS.ink, outline: "none" }}
+                />
+              </label>
+              {passwordError && (
+                <div className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E2", color: COLORS.danger }}>
+                  {passwordError}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={passwordPending}
+                className="py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
+                style={{ background: COLORS.primary }}
+              >
+                {passwordPending ? "Salvataggio…" : "Salva"}
+              </button>
+            </form>
           </div>
         </div>
       )}

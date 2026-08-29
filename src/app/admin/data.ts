@@ -158,6 +158,8 @@ export async function fetchAdminData(supabase: DB): Promise<AdminData> {
       name: p.full_name,
       phone: p.phone ?? "",
       notes: p.notes ?? "",
+      disabled: p.disabled,
+      hasAccount: p.auth_user_id != null,
     })),
     packages: (packagesRes.data ?? []).map(mapPackage),
     ledger: (ledgerRes.data ?? []).map(mapLedgerEntry),
@@ -246,6 +248,15 @@ export async function upsertClient(supabase: DB, client: ClientItem) {
 
 export async function deleteClient(supabase: DB, id: string) {
   const { error } = await supabase.from("profiles").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function setClientDisabled(supabase: DB, clientId: string, disabled: boolean, cancelFuture: boolean) {
+  const { error } = await supabase.rpc("admin_set_client_disabled", {
+    p_client_id: clientId,
+    p_disabled: disabled,
+    p_cancel_future: cancelFuture,
+  });
   if (error) throw error;
 }
 

@@ -2,9 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionState = { error: string | null };
+export type ForgotPasswordState = { error: string | null; sent: boolean };
 
 export async function login(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const supabase = await createClient();
@@ -47,6 +49,26 @@ export async function signup(_prevState: ActionState, formData: FormData): Promi
   }
 
   redirect("/");
+}
+
+export async function requestPasswordReset(_prevState: ForgotPasswordState, formData: FormData): Promise<ForgotPasswordState> {
+  const supabase = await createClient();
+  const email = String(formData.get("email") || "").trim();
+  if (!email) {
+    return { error: "Inserisci la tua email.", sent: false };
+  }
+
+  const hdrs = await headers();
+  const host = hdrs.get("host");
+  const proto = hdrs.get("x-forwarded-proto") || "https";
+  const origin = host ? `${proto}://${host}` : undefined;
+
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: origin ? `${origin}/reset-password` : undefined,
+  });
+
+  // Risposta sempre uguale, indipendentemente dal fatto che l'email esista o meno.
+  return { error: null, sent: true };
 }
 
 export async function logout() {

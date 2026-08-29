@@ -138,7 +138,7 @@ export function ClassFormModal({
   function addNewClient() {
     const name = query.trim();
     if (!name) return;
-    const client: ClientItem = { id: genId(), name, phone: "", notes: "" };
+    const client: ClientItem = { id: genId(), name, phone: "", notes: "", disabled: false, hasAccount: false };
     onAddClient(client);
     addPersonId(client.id);
   }

@@ -7,6 +7,7 @@ export type Profile = {
   full_name: string;
   phone: string | null;
   notes: string | null;
+  disabled: boolean;
   created_at: string;
 };
 
