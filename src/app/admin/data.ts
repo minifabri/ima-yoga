@@ -4,6 +4,7 @@ import type {
   ClassItem,
   ClassType,
   ClientItem,
+  Expense,
   LedgerEntry,
   Level,
   PackageItem,
@@ -76,6 +77,15 @@ function mapLedgerEntry(row: {
   };
 }
 
+function mapExpense(row: { id: string; amount: number; note: string | null; expense_date: string }): Expense {
+  return {
+    id: row.id,
+    amount: Number(row.amount),
+    note: row.note ?? "",
+    date: row.expense_date,
+  };
+}
+
 type BookingRow = {
   class_id: string;
   client_id: string;
@@ -127,7 +137,7 @@ function mapClass(row: {
 }
 
 export async function fetchAdminData(supabase: DB): Promise<AdminData> {
-  const [typesRes, levelsRes, settingsRes, classesRes, clientsRes, packagesRes, ledgerRes] = await Promise.all([
+  const [typesRes, levelsRes, settingsRes, classesRes, clientsRes, packagesRes, ledgerRes, expensesRes] = await Promise.all([
     supabase.from("class_types").select("*").order("created_at"),
     supabase.from("levels").select("*"),
     supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
@@ -135,6 +145,7 @@ export async function fetchAdminData(supabase: DB): Promise<AdminData> {
     supabase.from("profiles").select("*").eq("role", "client").order("full_name"),
     supabase.from("packages").select("*"),
     supabase.from("ledger_entries").select("*"),
+    supabase.from("expenses").select("*").order("expense_date", { ascending: false }),
   ]);
 
   const settings: Settings = settingsRes.data
@@ -163,6 +174,7 @@ export async function fetchAdminData(supabase: DB): Promise<AdminData> {
     })),
     packages: (packagesRes.data ?? []).map(mapPackage),
     ledger: (ledgerRes.data ?? []).map(mapLedgerEntry),
+    expenses: (expensesRes.data ?? []).map(mapExpense),
   };
 }
 
@@ -405,5 +417,23 @@ export async function addLedgerEntry(
 
 export async function deleteLedgerEntry(supabase: DB, id: string) {
   const { error } = await supabase.from("ledger_entries").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------
+// Expenses
+// ---------------------------------------------------------
+export async function addExpense(supabase: DB, e: { amount: number; note: string; date: string }): Promise<Expense> {
+  const { data, error } = await supabase
+    .from("expenses")
+    .insert({ amount: e.amount, note: e.note || null, expense_date: e.date })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapExpense(data);
+}
+
+export async function deleteExpense(supabase: DB, id: string) {
+  const { error } = await supabase.from("expenses").delete().eq("id", id);
   if (error) throw error;
 }

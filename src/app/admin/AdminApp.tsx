@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
@@ -12,6 +12,7 @@ import { ClassFormModal } from "./ClassFormModal";
 import { SettingsModal } from "./SettingsModal";
 import { PaymentsView } from "./PaymentsView";
 import { ClientsView } from "./ClientsView";
+import { EarningsView } from "./EarningsView";
 import * as db from "./data";
 import { adminResetClientPassword } from "./actions";
 import type {
@@ -19,6 +20,7 @@ import type {
   ClassItem,
   ClassType,
   ClientItem,
+  Expense,
   LedgerEntry,
   Level,
   PackageItem,
@@ -33,7 +35,7 @@ type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
 
-  const [view, setView] = useState<"calendar" | "clients" | "payments">("calendar");
+  const [view, setView] = useState<"calendar" | "clients" | "payments" | "earnings">("calendar");
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>(initial.classTypes);
   const [levels, setLevels] = useState<Level[]>(initial.levels);
@@ -44,6 +46,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   const [clients, setClients] = useState<ClientItem[]>(initial.clients);
   const [packages, setPackages] = useState<PackageItem[]>(initial.packages);
   const [ledger, setLedger] = useState<LedgerEntry[]>(initial.ledger);
+  const [expenses, setExpenses] = useState<Expense[]>(initial.expenses);
   const [clipboard, setClipboard] = useState<ClassClipboard | null>(null);
   const [toast, setToast] = useState("");
   const [classModal, setClassModal] = useState<ClassModalState>(null);
@@ -322,6 +325,20 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     db.deleteLedgerEntry(supabase, id).catch(() => showToast("Errore nell'eliminazione."));
   }
 
+  // ---- expenses ----
+  async function addExpenseHandler(args: { amount: number; note: string; date: string }) {
+    try {
+      const e = await db.addExpense(supabase, args);
+      setExpenses((cur) => [...cur, e]);
+    } catch {
+      showToast("Errore nel salvataggio della spesa.");
+    }
+  }
+  function deleteExpenseItem(id: string) {
+    setExpenses((cur) => cur.filter((e) => e.id !== id));
+    db.deleteExpense(supabase, id).catch(() => showToast("Errore nell'eliminazione."));
+  }
+
   return (
     <div style={{ fontFamily: "var(--font-body)", background: COLORS.bg, color: COLORS.ink, minHeight: "100vh" }}>
       <style>{`
@@ -366,6 +383,13 @@ export function AdminApp({ initial }: { initial: AdminData }) {
                 style={{ background: view === "payments" ? COLORS.primary : "transparent", color: view === "payments" ? "#fff" : COLORS.ink }}
               >
                 <Wallet size={15} /> <span className="hidden sm:inline">Pagamenti</span>
+              </button>
+              <button
+                onClick={() => setView("earnings")}
+                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
+                style={{ background: view === "earnings" ? COLORS.primary : "transparent", color: view === "earnings" ? "#fff" : COLORS.ink }}
+              >
+                <TrendingUp size={15} /> <span className="hidden sm:inline">Guadagni</span>
               </button>
             </div>
             <button
@@ -428,7 +452,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onSetDisabled={setClientDisabledHandler}
             onResetPassword={resetClientPassword}
           />
-        ) : (
+        ) : view === "payments" ? (
           <PaymentsView
             clients={clients}
             classes={classes}
@@ -444,6 +468,14 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onAddLedgerEntry={addLedgerEntryHandler}
             onDeleteLedgerEntry={deleteLedgerEntryItem}
             onMarkClassPaymentPaid={markClassPaymentPaid}
+          />
+        ) : (
+          <EarningsView
+            classes={classes}
+            packages={packages}
+            expenses={expenses}
+            onAddExpense={addExpenseHandler}
+            onDeleteExpense={deleteExpenseItem}
           />
         )}
       </div>

@@ -79,6 +79,13 @@ export type LedgerEntry = {
   date: string;
 };
 
+export type Expense = {
+  id: string;
+  amount: number;
+  note: string;
+  date: string;
+};
+
 export type AdminData = {
   classTypes: ClassType[];
   levels: Level[];
@@ -88,4 +95,5 @@ export type AdminData = {
   clients: ClientItem[];
   packages: PackageItem[];
   ledger: LedgerEntry[];
+  expenses: Expense[];
 };
