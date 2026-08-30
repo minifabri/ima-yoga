@@ -206,44 +206,22 @@ body {
   outline-offset: 2px;
 }
 
-/* Prenotazione confermata — bordo dorato che pulsa piano + stelline discrete. */
+/* Prenotazione confermata — bordo dorato che pulsa all'ingresso e resta acceso finché la modale è aperta. */
 
 @keyframes booking-gold-pulse {
   0% {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 45%, transparent);
-    border-color: var(--gold);
   }
   70% {
     box-shadow: 0 0 0 9px color-mix(in srgb, var(--gold) 0%, transparent);
-    border-color: var(--gold);
   }
   100% {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 0%, transparent);
-    border-color: var(--border);
   }
 }
 .booking-celebration-card {
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--gold);
   animation: booking-gold-pulse 1.4s ease-out 2;
-}
-
-@keyframes booking-sparkle-float {
-  0% {
-    opacity: 0;
-    transform: translateY(4px) scale(0.5) rotate(0deg);
-  }
-  30% {
-    opacity: 1;
-    transform: translateY(-2px) scale(1) rotate(8deg);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-14px) scale(0.7) rotate(16deg);
-  }
-}
-.booking-sparkle {
-  pointer-events: none;
-  animation: booking-sparkle-float 2s ease-in-out forwards;
 }
 
 @keyframes booking-celebration-text-in {
@@ -262,9 +240,9 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .booking-celebration-card,
-  .booking-sparkle,
   .booking-celebration-text {
     animation: none !important;
+    border: 1.5px solid var(--gold);
   }
 }
 

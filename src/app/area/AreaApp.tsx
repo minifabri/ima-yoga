@@ -36,14 +36,6 @@ import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyLedgerE
 
 const DISMISSED_ANNOUNCEMENTS_KEY = "ima-yoga-dismissed-announcements";
 
-const CELEBRATION_SPARKLES = [
-  { top: "6%", left: "10%", size: 13, delay: "0s" },
-  { top: "-4%", left: "48%", size: 16, delay: "0.15s" },
-  { top: "10%", left: "86%", size: 12, delay: "0.3s" },
-  { top: "55%", left: "2%", size: 11, delay: "0.45s" },
-  { top: "60%", left: "94%", size: 13, delay: "0.2s" },
-];
-
 function formatLune(amount: number): string {
   const rounded = Math.round(amount * 100) / 100;
   const label = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
@@ -251,7 +243,6 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
       setSelected(updated);
       if (status === "booked") {
         setJustBookedId(c.id);
-        setTimeout(() => setJustBookedId((cur) => (cur === c.id ? null : cur)), 4000);
       }
       if (status === "booked" && updated && updated.capacity > 0 && updated.bookedCount >= updated.capacity) {
         notifyClassFull({
@@ -373,7 +364,10 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 style={{ background: withAlpha(COLORS.primary, 12), color: COLORS.primaryDark, border: `1px solid ${withAlpha(COLORS.primary, 30)}` }}
               >
                 <Bell size={15} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1 }} />
-                <span className="flex-1">{n.message}</span>
+                <span className="flex-1 flex items-center gap-1.5 flex-wrap">
+                  {n.message}
+                  {n.kind === "package_assigned" && <Sparkles size={13} color={COLORS.gold} style={{ flexShrink: 0 }} />}
+                </span>
                 <button onClick={() => dismissNotice(n.id)} title="Chiudi" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
                   <X size={14} />
                 </button>
@@ -788,26 +782,30 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
       </div>
 
       {selected && (
-        <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(74,58,115,0.35)", zIndex: 50 }} onMouseDown={(e) => e.target === e.currentTarget && setSelected(null)}>
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ background: "rgba(74,58,115,0.35)", zIndex: 50 }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelected(null);
+              setJustBookedId(null);
+            }
+          }}
+        >
           <div
             className={`relative w-full p-5 ${justBookedId === selected.id ? "booking-celebration-card" : ""}`}
             style={{ maxWidth: 380, background: COLORS.card, borderRadius: 18, boxShadow: "0 16px 44px rgba(74,58,115,0.16)", overflow: "hidden" }}
           >
-            {justBookedId === selected.id &&
-              CELEBRATION_SPARKLES.map((s, i) => (
-                <Sparkles
-                  key={i}
-                  size={s.size}
-                  color={COLORS.gold}
-                  className="booking-sparkle"
-                  style={{ position: "absolute", top: s.top, left: s.left, animationDelay: s.delay }}
-                />
-              ))}
             <div className="flex items-center justify-between mb-3">
               <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>
                 {typeById[selected.typeId]?.name || "Classe"}
               </div>
-              <button onClick={() => setSelected(null)}>
+              <button
+                onClick={() => {
+                  setSelected(null);
+                  setJustBookedId(null);
+                }}
+              >
                 <X size={18} />
               </button>
             </div>
