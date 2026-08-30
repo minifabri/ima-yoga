@@ -1,19 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { X, Plus, Trash2, Eye, Megaphone } from "lucide-react";
-import { Modal, Field, IconButton, inputStyle } from "./ui";
+import { Plus, Trash2, Eye, Megaphone } from "lucide-react";
+import { Field, IconButton, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { PALETTE } from "./utils";
 import type { Announcement, ClassItem, ClassType, Level, Settings } from "./types";
 
-export function SettingsModal({
+export function SettingsView({
   classTypes,
   levels,
   classes,
   defaults,
   announcements,
-  onClose,
   onAddType,
   onUpdateType,
   onRemoveType,
@@ -30,9 +29,8 @@ export function SettingsModal({
   classes: ClassItem[];
   defaults: Settings;
   announcements: Announcement[];
-  onClose: () => void;
   onAddType: (name: string, color: string) => Promise<void>;
-  onUpdateType: (id: string, patch: Partial<Pick<ClassType, "color" | "packageEligible" | "defaultCapacity" | "description">>) => Promise<void>;
+  onUpdateType: (id: string, patch: Partial<Pick<ClassType, "name" | "color" | "packageEligible" | "defaultCapacity" | "description">>) => Promise<void>;
   onRemoveType: (id: string) => Promise<void>;
   onAddLevel: (name: string) => Promise<void>;
   onRemoveLevel: (id: string) => Promise<void>;
@@ -79,15 +77,12 @@ export function SettingsModal({
   }
 
   return (
-    <Modal onClose={onClose} width={480}>
-      <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-        <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>Impostazioni</div>
-        <IconButton onClick={onClose}>
-          <X size={18} />
-        </IconButton>
+    <div>
+      <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 600, color: COLORS.heading }} className="mb-4">
+        Impostazioni
       </div>
 
-      <div className="p-5 overflow-y-auto" style={{ flex: 1 }}>
+      <div style={{ maxWidth: 640 }}>
         <div className="mb-6">
           <div style={{ fontSize: 13, fontWeight: 600 }} className="mb-2">
             Predefiniti per una nuova classe
@@ -187,6 +182,20 @@ export function SettingsModal({
                   </div>
                   {isEditing && (
                     <div className="px-2.5 pb-2.5">
+                      <div className="mb-2.5">
+                        <Field label="Nome">
+                          <input
+                            key={t.id}
+                            defaultValue={t.name}
+                            onBlur={(e) => {
+                              const name = e.target.value.trim();
+                              if (name && name !== t.name) onUpdateType(t.id, { name });
+                              else e.target.value = t.name;
+                            }}
+                            style={{ ...inputStyle, fontSize: 12 }}
+                          />
+                        </Field>
+                      </div>
                       <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
                         {PALETTE.map((p) => (
                           <button
@@ -394,6 +403,6 @@ export function SettingsModal({
           </div>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

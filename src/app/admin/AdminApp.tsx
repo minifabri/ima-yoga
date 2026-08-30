@@ -6,11 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS, withAlpha } from "./colors";
 import { dateKey, genId, classEffectivePrice } from "./utils";
-import { IconButton, Modal } from "./ui";
+import { Modal } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
 import { CalendarView } from "./CalendarView";
 import { ClassFormModal } from "./ClassFormModal";
-import { SettingsModal } from "./SettingsModal";
+import { SettingsView } from "./SettingsView";
 import { PaymentsView } from "./PaymentsView";
 import { ClientsView } from "./ClientsView";
 import { EarningsView } from "./EarningsView";
@@ -51,7 +51,7 @@ type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
 
-  const [view, setView] = useState<"calendar" | "clients" | "payments" | "earnings" | "notices" | "worklog">("calendar");
+  const [view, setView] = useState<"calendar" | "clients" | "payments" | "earnings" | "notices" | "worklog" | "settings">("calendar");
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>(initial.classTypes);
   const [levels, setLevels] = useState<Level[]>(initial.levels);
@@ -68,7 +68,6 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   const [clipboard, setClipboard] = useState<ClassClipboard | null>(null);
   const [toast, setToast] = useState("");
   const [classModal, setClassModal] = useState<ClassModalState>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<ConfirmDeleteState>(null);
 
   function showToast(msg: string) {
@@ -235,7 +234,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
       showToast("Errore nella creazione della tipologia.");
     }
   }
-  async function updateClassType(id: string, patch: Partial<Pick<ClassType, "color" | "packageEligible" | "defaultCapacity" | "description">>) {
+  async function updateClassType(id: string, patch: Partial<Pick<ClassType, "name" | "color" | "packageEligible" | "defaultCapacity" | "description">>) {
     setClassTypes((cur) => cur.map((t) => (t.id === id ? { ...t, ...patch } : t)));
     try {
       await db.updateClassType(supabase, id, patch);
@@ -468,6 +467,13 @@ export function AdminApp({ initial }: { initial: AdminData }) {
               >
                 <History size={15} /> <span className="hidden sm:inline">Registro</span>
               </button>
+              <button
+                onClick={() => setView("settings")}
+                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
+                style={{ background: view === "settings" ? COLORS.primary : "transparent", color: view === "settings" ? "#fff" : COLORS.ink }}
+              >
+                <SettingsIcon size={15} /> <span className="hidden sm:inline">Impostazioni</span>
+              </button>
             </div>
             <button
               onClick={toggleBookingsOpen}
@@ -483,9 +489,6 @@ export function AdminApp({ initial }: { initial: AdminData }) {
               {bookingsOpen ? <LockOpen size={15} /> : <Lock size={15} />}
               <span className="hidden sm:inline">{bookingsOpen ? "Iscrizioni aperte" : "Iscrizioni chiuse"}</span>
             </button>
-            <IconButton title="Impostazioni classi" onClick={() => setSettingsOpen(true)} style={{ border: `1px solid ${COLORS.border}` }}>
-              <SettingsIcon size={17} />
-            </IconButton>
             <ThemeToggle />
             <form action={logout}>
               <button type="submit" className="text-sm font-medium px-1.5" style={{ color: COLORS.inkSoft }}>
@@ -562,8 +565,26 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onSendNotice={sendPersonalNotices}
             onDeleteNotice={deleteClientNoticeItem}
           />
-        ) : (
+        ) : view === "worklog" ? (
           <WorklogView supabase={supabase} />
+        ) : (
+          <SettingsView
+            classTypes={classTypes}
+            levels={levels}
+            classes={classes}
+            defaults={settings}
+            announcements={announcements}
+            onAddType={addClassType}
+            onUpdateType={updateClassType}
+            onRemoveType={removeType}
+            onAddLevel={addLevelHandler}
+            onRemoveLevel={removeLevel}
+            onUpdateLevel={updateLevel}
+            onSaveDefaults={saveDefaults}
+            onAddAnnouncement={addAnnouncementItem}
+            onUpdateAnnouncement={updateAnnouncementItem}
+            onRemoveAnnouncement={deleteAnnouncementItem}
+          />
         )}
       </div>
 
@@ -585,29 +606,11 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           }}
           onDelete={(id) => setConfirmDelete({ type: "class", id })}
           onAddClient={upsertClient}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => {
+            setClassModal(null);
+            setView("settings");
+          }}
           onCopy={copyClass}
-        />
-      )}
-
-      {settingsOpen && (
-        <SettingsModal
-          classTypes={classTypes}
-          levels={levels}
-          classes={classes}
-          defaults={settings}
-          announcements={announcements}
-          onClose={() => setSettingsOpen(false)}
-          onAddType={addClassType}
-          onUpdateType={updateClassType}
-          onRemoveType={removeType}
-          onAddLevel={addLevelHandler}
-          onRemoveLevel={removeLevel}
-          onUpdateLevel={updateLevel}
-          onSaveDefaults={saveDefaults}
-          onAddAnnouncement={addAnnouncementItem}
-          onUpdateAnnouncement={updateAnnouncementItem}
-          onRemoveAnnouncement={deleteAnnouncementItem}
         />
       )}
 
