@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, ClipboardPaste, LayoutGrid, List, Lock, GripVertical, CalendarClock, Download, Gift } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, ClipboardPaste, LayoutGrid, List, Lock, EyeOff, GripVertical, CalendarClock, Download, Gift } from "lucide-react";
 import { IconButton, CapacityBar } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "./utils";
@@ -268,10 +268,12 @@ export function CalendarView({
                               background: withAlpha(color, 12),
                               borderLeft: `2.5px solid ${color}`,
                               gap: 2,
+                              opacity: c.published ? 1 : 0.6,
                             }}
-                            title={`${c.time || "—"} · Trascina per spostare in un altro giorno`}
+                            title={`${c.time || "—"}${c.published ? "" : " · Bozza"} · Trascina per spostare in un altro giorno`}
                           >
                             <span className="flex items-center gap-0.5" style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>
+                              {!c.published && <EyeOff size={8} color={COLORS.inkSoft} />}
                               {!c.bookingsOpen && <Lock size={8} color={COLORS.inkSoft} />}
                               {c.isFree && <Gift size={8} color={COLORS.gold} />}
                               {typeInitials(type?.name)}
@@ -376,8 +378,10 @@ export function CalendarView({
                                 background: withAlpha(type?.color || COLORS.primary, 12),
                                 borderLeft: `3px solid ${type?.color || COLORS.primary}`,
                                 color: COLORS.ink,
+                                opacity: c.published ? 1 : 0.6,
                               }}
                             >
+                              {!c.published && <EyeOff size={9} color={COLORS.inkSoft} />}
                               {!c.bookingsOpen && <Lock size={9} color={COLORS.inkSoft} />}
                               {c.isFree && <Gift size={9} color={COLORS.gold} />}
                               {c.time ? `${c.time} · ` : ""}
@@ -426,11 +430,19 @@ export function CalendarView({
                         key={c.id}
                         onClick={() => onOpenClass(c)}
                         className="flex items-center justify-between text-left p-2.5 rounded-lg w-full gap-2"
-                        style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderLeft: `3px solid ${color}` }}
+                        style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderLeft: `3px solid ${color}`, opacity: c.published ? 1 : 0.65 }}
                       >
                         <div>
                           <div style={{ fontSize: 12.5, fontWeight: 700 }} className="flex items-center gap-1.5">
                             {c.time || "—"} · {type?.name || "Classe"}
+                            {!c.published && (
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded-full"
+                                style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.gold, background: withAlpha(COLORS.gold, 16), padding: "1px 6px" }}
+                              >
+                                <EyeOff size={9} /> Bozza
+                              </span>
+                            )}
                             {!c.bookingsOpen && <Lock size={11} color={COLORS.inkSoft} />}
                             {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
                           </div>
@@ -488,8 +500,9 @@ function ClassCard({
         background: withAlpha(color, 9),
         borderLeft: `3px solid ${color}`,
         gap: 4,
+        opacity: c.published ? 1 : 0.7,
       }}
-      title="Trascina per spostare in un altro giorno"
+      title={`Trascina per spostare in un altro giorno${c.published ? "" : " · Bozza, non visibile ai clienti"}`}
     >
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-1" style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.ink }}>
@@ -502,6 +515,14 @@ function ClassCard({
         </span>
       </div>
       <div style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.ink, lineHeight: 1.2 }}>{type?.name || "Classe"}</div>
+      {!c.published && (
+        <span
+          className="self-start inline-flex items-center gap-0.5 rounded-full"
+          style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.gold, background: withAlpha(COLORS.gold, 16), padding: "1px 6px" }}
+        >
+          <EyeOff size={9} /> Bozza
+        </span>
+      )}
       {level && (
         <span
           className="self-start"

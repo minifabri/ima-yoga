@@ -43,9 +43,15 @@ function formatLune(amount: number): string {
   return `${label} lune`;
 }
 
+function isPastClass(dateStr: string, timeStr: string): boolean {
+  const dt = new Date(`${dateStr}T${(timeStr || "00:00").padEnd(5, "0")}:00`);
+  return dt.getTime() < Date.now();
+}
+
 function availabilityLabel(c: PublicClass): { text: string; color: string } {
   if (c.myStatus === "booked") return { text: "Prenotata", color: COLORS.primaryDark };
   if (c.myStatus === "waitlist") return { text: "In lista d'attesa", color: COLORS.primaryDark };
+  if (isPastClass(c.date, c.time)) return { text: "Lezione svolta", color: COLORS.inkSoft };
   if (!c.bookingsOpen) return { text: "Iscrizioni chiuse", color: COLORS.inkSoft };
   if (c.capacity <= 0) return { text: "Posti liberi", color: COLORS.success };
   const remaining = c.capacity - c.bookedCount;
@@ -932,6 +938,10 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                   Meno di 24 ore alla lezione: per cancellare, contattaci direttamente.
                 </div>
               )
+            ) : isPastClass(selected.date, selected.time) ? (
+              <div style={{ fontSize: 12.5, color: COLORS.inkSoft, fontStyle: "italic" }} className="text-center">
+                Questa lezione è già passata.
+              </div>
             ) : !bookingsOpen ? (
               <div style={{ fontSize: 12.5, color: COLORS.gold, fontWeight: 600 }} className="text-center">
                 Le iscrizioni non sono ancora aperte.

@@ -81,6 +81,7 @@ export function ClassFormModal({
   const [bookingsOpen, setBookingsOpen] = useState(editing ? base!.bookingsOpen : true);
   const [priceOverride, setPriceOverride] = useState<number | string>(editing ? base!.priceOverride ?? "" : "");
   const [isFree, setIsFree] = useState(editing ? base!.isFree : false);
+  const [published, setPublished] = useState(editing ? base!.published : false);
   const [clientIds, setClientIds] = useState<string[]>(editing ? base!.clientIds || [] : []);
   const [waitlistIds, setWaitlistIds] = useState<string[]>(editing ? base!.waitlistIds || [] : []);
   const [payments, setPayments] = useState<Record<string, Payment>>(editing ? base!.payments || {} : {});
@@ -274,6 +275,7 @@ export function ClassFormModal({
       bookingsOpen,
       priceOverride: priceOverride === "" ? null : Number(priceOverride) || 0,
       isFree,
+      published,
       clientIds,
       waitlistIds,
       payments,
@@ -323,6 +325,21 @@ export function ClassFormModal({
       </div>
 
       <div className="p-5 overflow-y-auto" style={{ flex: 1 }}>
+        <button
+          type="button"
+          onClick={() => setPublished((v) => !v)}
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium mb-4"
+          style={{
+            border: `1px solid ${withAlpha(published ? COLORS.success : COLORS.gold, 33)}`,
+            color: published ? COLORS.success : COLORS.gold,
+            background: withAlpha(published ? COLORS.success : COLORS.gold, 8),
+          }}
+        >
+          {published ? <Eye size={15} /> : <EyeOff size={15} />}
+          <span className="flex-1 text-left">{published ? "Pubblicata — visibile ai clienti" : "Bozza — visibile solo a te"}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.8 }}>{published ? "Rendi bozza" : "Pubblica"}</span>
+        </button>
+
         <div className="grid grid-cols-2 gap-3 mb-3">
           <Field label="Data">
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />

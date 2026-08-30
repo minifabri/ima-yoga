@@ -19,6 +19,7 @@ export type ClassItem = {
   bookingsOpen: boolean;
   priceOverride: number | null;
   isFree: boolean;
+  published: boolean;
   clientIds: string[];
   waitlistIds: string[];
   payments: Record<string, Payment>;

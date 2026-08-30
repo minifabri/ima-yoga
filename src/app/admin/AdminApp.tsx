@@ -170,7 +170,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   function pasteClass(dateStr: string) {
     if (!clipboard) return;
     if ((classesByDay[dateStr] || []).length > 0) return;
-    const item: ClassItem = { id: genId(), date: dateStr, ...clipboard, clientIds: [], waitlistIds: [], payments: {} };
+    const item: ClassItem = { id: genId(), date: dateStr, ...clipboard, published: false, clientIds: [], waitlistIds: [], payments: {} };
     saveClassItem(item);
     showToast("Classe incollata.");
   }
