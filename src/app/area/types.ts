@@ -10,6 +10,11 @@ export type Level = {
   name: string;
 };
 
+export type Announcement = {
+  id: string;
+  message: string;
+};
+
 export type PublicClass = {
   id: string;
   date: string; // yyyy-mm-dd
@@ -19,6 +24,7 @@ export type PublicClass = {
   capacity: number;
   description: string;
   bookingsOpen: boolean;
+  isFree: boolean;
   bookedCount: number;
   waitlistCount: number;
   myStatus: "booked" | "waitlist" | null;
@@ -31,6 +37,7 @@ export type MyBooking = {
   time: string;
   typeId: string;
   levelId: string;
+  isFree: boolean;
   status: "booked" | "waitlist";
   paymentStatus: "unpaid" | "paid" | "partial" | "package";
   paymentAmount: number;

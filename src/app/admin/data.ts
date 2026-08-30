@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AdminData,
+  Announcement,
   ClassItem,
   ClassType,
   ClientItem,
@@ -141,7 +142,7 @@ function mapClass(row: {
 }
 
 export async function fetchAdminData(supabase: DB): Promise<AdminData> {
-  const [typesRes, levelsRes, settingsRes, classesRes, clientsRes, packagesRes, ledgerRes, expensesRes] = await Promise.all([
+  const [typesRes, levelsRes, settingsRes, classesRes, clientsRes, packagesRes, ledgerRes, expensesRes, announcementsRes] = await Promise.all([
     supabase.from("class_types").select("*").order("created_at"),
     supabase.from("levels").select("*"),
     supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
@@ -150,6 +151,7 @@ export async function fetchAdminData(supabase: DB): Promise<AdminData> {
     supabase.from("packages").select("*"),
     supabase.from("ledger_entries").select("*"),
     supabase.from("expenses").select("*").order("expense_date", { ascending: false }),
+    supabase.from("announcements").select("*").order("created_at", { ascending: false }),
   ]);
 
   const settings: Settings = settingsRes.data
@@ -179,6 +181,7 @@ export async function fetchAdminData(supabase: DB): Promise<AdminData> {
     packages: (packagesRes.data ?? []).map(mapPackage),
     ledger: (ledgerRes.data ?? []).map(mapLedgerEntry),
     expenses: (expensesRes.data ?? []).map(mapExpense),
+    announcements: (announcementsRes.data ?? []).map((a) => ({ id: a.id, message: a.message, active: a.active })),
   };
 }
 
@@ -441,5 +444,24 @@ export async function addExpense(supabase: DB, e: { amount: number; note: string
 
 export async function deleteExpense(supabase: DB, id: string) {
   const { error } = await supabase.from("expenses").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------
+// Avvisi per i clienti
+// ---------------------------------------------------------
+export async function addAnnouncement(supabase: DB, message: string): Promise<Announcement> {
+  const { data, error } = await supabase.from("announcements").insert({ message }).select().single();
+  if (error) throw error;
+  return { id: data.id, message: data.message, active: data.active };
+}
+
+export async function updateAnnouncement(supabase: DB, id: string, patch: Partial<{ message: string; active: boolean }>) {
+  const { error } = await supabase.from("announcements").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteAnnouncement(supabase: DB, id: string) {
+  const { error } = await supabase.from("announcements").delete().eq("id", id);
   if (error) throw error;
 }

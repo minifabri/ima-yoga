@@ -71,6 +71,10 @@ export function CapacityBar({
   const full = capNum > 0 && booked >= capNum;
   const ratio = capNum > 0 ? Math.min(1, booked / capNum) : 0;
   const barColor = full ? COLORS.danger : ratio >= 0.7 ? COLORS.gold : COLORS.success;
+  // Con lista d'attesa, quella è l'informazione utile: "al completo" diventa ridondante.
+  const showWaitlistLabel = full && waiting > 0;
+  const label = showWaitlistLabel ? `${waiting} in lista d'attesa` : full ? "Al completo" : "Posti liberi";
+  const labelColor = showWaitlistLabel ? COLORS.gold : barColor;
 
   return (
     <div>
@@ -86,10 +90,10 @@ export function CapacityBar({
         />
       </div>
       <div className="flex items-center justify-between mt-1" style={{ fontSize: 10.5 }}>
-        <span style={{ color: barColor, fontWeight: 700 }}>{full ? "Al completo" : "Posti liberi"}</span>
+        <span style={{ color: labelColor, fontWeight: 700 }}>{label}</span>
         <span style={{ color: COLORS.inkSoft }}>
           {booked}/{capNum || "—"}
-          {waiting > 0 && <span style={{ color: COLORS.gold, fontWeight: 700 }}> · {waiting} in attesa</span>}
+          {waiting > 0 && !showWaitlistLabel && <span style={{ color: COLORS.gold, fontWeight: 700 }}> · {waiting} in attesa</span>}
         </span>
       </div>
     </div>

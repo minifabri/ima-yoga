@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export type ActionState = { error: string | null };
 export type ForgotPasswordState = { error: string | null; sent: boolean };
+export type SignupState = { error: string | null; needsConfirmation: boolean };
 
 export async function login(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const supabase = await createClient();
@@ -23,7 +24,7 @@ export async function login(_prevState: ActionState, formData: FormData): Promis
   redirect("/");
 }
 
-export async function signup(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+export async function signup(_prevState: SignupState, formData: FormData): Promise<SignupState> {
   const supabase = await createClient();
 
   const email = String(formData.get("email") || "").trim();
@@ -32,20 +33,27 @@ export async function signup(_prevState: ActionState, formData: FormData): Promi
   const phone = String(formData.get("phone") || "").trim();
 
   if (!fullName) {
-    return { error: "Inserisci nome e cognome." };
+    return { error: "Inserisci nome e cognome.", needsConfirmation: false };
   }
   if (password.length < 6) {
-    return { error: "La password deve avere almeno 6 caratteri." };
+    return { error: "La password deve avere almeno 6 caratteri.", needsConfirmation: false };
   }
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: { data: { full_name: fullName, phone } },
   });
 
   if (error) {
-    return { error: error.message };
+    return { error: error.message, needsConfirmation: false };
+  }
+
+  // Se la conferma email è attiva su Supabase, signUp non crea subito una
+  // sessione: il profilo (trigger handle_new_user) esiste già, ma l'accesso
+  // resta bloccato finché non si clicca il link ricevuto via email.
+  if (!data.session) {
+    return { error: null, needsConfirmation: true };
   }
 
   redirect("/");

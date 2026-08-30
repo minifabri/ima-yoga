@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ClassType, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
+import type { Announcement, ClassType, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
 
 type DB = SupabaseClient;
 
@@ -18,6 +18,11 @@ export async function fetchBookingsOpen(supabase: DB): Promise<boolean> {
   return data?.bookings_open ?? true;
 }
 
+export async function fetchActiveAnnouncements(supabase: DB): Promise<Announcement[]> {
+  const { data } = await supabase.from("announcements").select("id, message").eq("active", true).order("created_at", { ascending: false });
+  return data ?? [];
+}
+
 export async function fetchPublicClasses(supabase: DB, from: string, to: string): Promise<PublicClass[]> {
   const { data, error } = await supabase.rpc("public_classes", { p_from: from, p_to: to });
   if (error) throw error;
@@ -31,6 +36,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       capacity: number;
       description: string | null;
       bookings_open: boolean;
+      is_free: boolean;
       booked_count: number;
       waitlist_count: number;
       my_status: "booked" | "waitlist" | null;
@@ -43,6 +49,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       capacity: r.capacity,
       description: r.description ?? "",
       bookingsOpen: r.bookings_open,
+      isFree: r.is_free,
       bookedCount: Number(r.booked_count),
       waitlistCount: Number(r.waitlist_count),
       myStatus: r.my_status,
@@ -58,13 +65,13 @@ type BookingRow = {
   payment_amount: number;
   price: number;
   package_id: string | null;
-  classes: { class_date: string; class_time: string; type_id: string; level_id: string } | null;
+  classes: { class_date: string; class_time: string; type_id: string; level_id: string; is_free: boolean } | null;
 };
 
 export async function fetchMyBookings(supabase: DB): Promise<MyBooking[]> {
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, class_id, status, payment_status, payment_amount, price, package_id, classes(class_date, class_time, type_id, level_id)")
+    .select("id, class_id, status, payment_status, payment_amount, price, package_id, classes(class_date, class_time, type_id, level_id, is_free)")
     .order("class_date", { foreignTable: "classes" });
   if (error) throw error;
   return ((data ?? []) as unknown as BookingRow[])
@@ -76,6 +83,7 @@ export async function fetchMyBookings(supabase: DB): Promise<MyBooking[]> {
       time: (b.classes!.class_time || "").slice(0, 5),
       typeId: b.classes!.type_id,
       levelId: b.classes!.level_id,
+      isFree: b.classes!.is_free,
       status: b.status,
       paymentStatus: b.payment_status,
       paymentAmount: Number(b.payment_amount),

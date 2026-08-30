@@ -88,6 +88,12 @@ export type Expense = {
   date: string;
 };
 
+export type Announcement = {
+  id: string;
+  message: string;
+  active: boolean;
+};
+
 export type AdminData = {
   classTypes: ClassType[];
   levels: Level[];
@@ -97,5 +103,6 @@ export type AdminData = {
   clients: ClientItem[];
   packages: PackageItem[];
   ledger: LedgerEntry[];
+  announcements: Announcement[];
   expenses: Expense[];
 };

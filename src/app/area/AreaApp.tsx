@@ -19,6 +19,8 @@ import {
   History,
   Download,
   User,
+  Gift,
+  Megaphone,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
@@ -27,7 +29,10 @@ import { ThemeToggle } from "@/app/admin/ThemeToggle";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/admin/utils";
 import * as db from "./data";
 import { downloadIcsFile } from "@/lib/ics";
-import type { ClassType, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
+import { notifyClassFull } from "@/lib/notifications";
+import type { Announcement, ClassType, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
+
+const DISMISSED_ANNOUNCEMENTS_KEY = "ima-yoga-dismissed-announcements";
 
 function formatLune(amount: number): string {
   const rounded = Math.round(amount * 100) / 100;
@@ -75,6 +80,16 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   const [levels, setLevels] = useState<Level[]>([]);
   const [classes, setClasses] = useState<PublicClass[]>([]);
   const [bookingsOpen, setBookingsOpen] = useState(true);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [dismissedAnnouncementIds, setDismissedAnnouncementIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem(DISMISSED_ANNOUNCEMENTS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
   const [myBookings, setMyBookings] = useState<MyBooking[]>([]);
   const [myPackages, setMyPackages] = useState<MyPackage[]>([]);
   const [myLedger, setMyLedger] = useState<MyLedgerEntry[]>([]);
@@ -114,16 +129,32 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
 
   useEffect(() => {
     (async () => {
-      const [types, lvls, open] = await Promise.all([
+      const [types, lvls, open, notices] = await Promise.all([
         db.fetchClassTypes(supabase),
         db.fetchLevels(supabase),
         db.fetchBookingsOpen(supabase),
+        db.fetchActiveAnnouncements(supabase),
       ]);
       setClassTypes(types);
       setLevels(lvls);
       setBookingsOpen(open);
+      setAnnouncements(notices);
     })();
   }, [supabase]);
+
+  function dismissAnnouncement(id: string) {
+    setDismissedAnnouncementIds((cur) => {
+      const next = [...cur, id];
+      try {
+        localStorage.setItem(DISMISSED_ANNOUNCEMENTS_KEY, JSON.stringify(next));
+      } catch {
+        // vedi commento sopra
+      }
+      return next;
+    });
+  }
+
+  const visibleAnnouncements = announcements.filter((a) => !dismissedAnnouncementIds.includes(a.id));
 
   const days = useMemo(() => getCalendarDays(viewDate), [viewDate]);
 
@@ -197,7 +228,16 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
       const status = await db.bookClass(supabase, c.id);
       showToast(status === "booked" ? "Prenotazione confermata." : "Classe piena: sei in lista d'attesa.");
       const next = await refreshClasses();
-      setSelected(next.find((x) => x.id === c.id) || null);
+      const updated = next.find((x) => x.id === c.id) || null;
+      setSelected(updated);
+      if (status === "booked" && updated && updated.capacity > 0 && updated.bookedCount >= updated.capacity) {
+        notifyClassFull({
+          className: typeById[updated.typeId]?.name || "Classe",
+          date: updated.date,
+          time: updated.time,
+          capacity: updated.capacity,
+        }).catch(() => {});
+      }
       await refreshMine();
     } catch (err) {
       showToast(errorMessage(err) || "Non è stato possibile completare la prenotazione.");
@@ -300,6 +340,24 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             </div>
           </div>
         </div>
+
+        {visibleAnnouncements.length > 0 && (
+          <div className="flex flex-col gap-2 mb-4">
+            {visibleAnnouncements.map((a) => (
+              <div
+                key={a.id}
+                className="flex items-start gap-2 text-sm rounded-lg px-3 py-2.5"
+                style={{ background: withAlpha(COLORS.gold, 14), color: COLORS.primaryDark, border: `1px solid ${withAlpha(COLORS.gold, 33)}` }}
+              >
+                <Megaphone size={15} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span className="flex-1">{a.message}</span>
+                <button onClick={() => dismissAnnouncement(a.id)} title="Chiudi" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {toast && (
           <div className="mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2" style={{ background: COLORS.subtle, color: COLORS.primaryDark }}>
@@ -437,7 +495,10 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                                     gap: 2,
                                   }}
                                 >
-                                  <span style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>{typeInitials(type?.name)}</span>
+                                  <span className="flex items-center gap-0.5" style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>
+                                    {c.isFree && <Gift size={8} color={COLORS.gold} />}
+                                    {typeInitials(type?.name)}
+                                  </span>
                                   <span style={{ width: 5, height: 5, borderRadius: 999, background: avail.color, flexShrink: 0 }} />
                                 </button>
                               );
@@ -483,7 +544,10 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                                     color: COLORS.ink,
                                   }}
                                 >
-                                  <div style={{ fontWeight: 700 }}>{c.time}</div>
+                                  <div className="flex items-center gap-1" style={{ fontWeight: 700 }}>
+                                    {c.time}
+                                    {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={10} color={COLORS.gold} /></span>}
+                                  </div>
                                   <div>{type?.name || "Classe"}</div>
                                   <div style={{ color: avail.color, fontWeight: 600 }}>{avail.text}</div>
                                 </button>
@@ -529,8 +593,9 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                               style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderLeft: `3px solid ${color}` }}
                             >
                               <div>
-                                <div style={{ fontSize: 12.5, fontWeight: 700 }}>
+                                <div className="flex items-center gap-1" style={{ fontSize: 12.5, fontWeight: 700 }}>
                                   {c.time} · {type?.name || "Classe"}
+                                  {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
                                 </div>
                                 <div style={{ fontSize: 11, color: COLORS.inkSoft }}>{levelById[c.levelId]?.name}</div>
                               </div>
@@ -563,8 +628,9 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                     return (
                       <div key={b.id} className="flex items-center justify-between p-3 rounded-xl flex-wrap gap-2" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
                         <div>
-                          <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                          <div className="flex items-center gap-1" style={{ fontSize: 13.5, fontWeight: 600 }}>
                             {b.date} · {b.time} — {type?.name || "Classe"}
+                            {b.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
                           </div>
                           <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
                             {level?.name} {b.status === "waitlist" && <span style={{ color: COLORS.gold, fontWeight: 700 }}>· In lista d&apos;attesa</span>}
@@ -691,8 +757,18 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 <X size={18} />
               </button>
             </div>
-            <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-1">
-              {selected.date} · {selected.time}
+            <div className="flex items-center gap-1.5 flex-wrap mb-1">
+              <span style={{ fontSize: 13, color: COLORS.inkSoft }}>
+                {selected.date} · {selected.time}
+              </span>
+              {selected.isFree && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full"
+                  style={{ fontSize: 10.5, fontWeight: 700, color: COLORS.gold, background: withAlpha(COLORS.gold, 16), padding: "1px 8px" }}
+                >
+                  <Gift size={10} /> Gratuita
+                </span>
+              )}
             </div>
             <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-3">
               {levelById[selected.levelId]?.name}

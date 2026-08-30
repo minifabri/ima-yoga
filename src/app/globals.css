@@ -1,22 +1,7 @@
 @import "tailwindcss";
 
+/* Tema scuro — di default. */
 :root {
-  --bg: #faf7f2; /* avorio */
-  --card: #ffffff;
-  --subtle: #f2edf9;
-  --border: #e4daf0;
-  --ink: #362d4a;
-  --ink-soft: #867ca0;
-  --heading: #4a3a73; /* viola profondo */
-  --primary: #8e72c7; /* viola principale */
-  --primary-dark: #4a3a73;
-  --gold: #d6b36a;
-  --success: #7c9473;
-  --danger: #a85c4a;
-}
-
-/* Tema scuro — stessa identità (viola, oro, avorio), invertita per il notturno. */
-:root[data-theme="dark"] {
   --bg: #1c1830; /* notte viola profondo */
   --card: #262040;
   --subtle: #322a4d;
@@ -29,6 +14,22 @@
   --gold: #e3c481;
   --success: #97b98c;
   --danger: #d38f77;
+}
+
+/* Tema chiaro — stessa identità (viola, oro, avorio), per chi lo preferisce di giorno. */
+:root[data-theme="light"] {
+  --bg: #faf7f2; /* avorio */
+  --card: #ffffff;
+  --subtle: #f2edf9;
+  --border: #e4daf0;
+  --ink: #362d4a;
+  --ink-soft: #867ca0;
+  --heading: #4a3a73; /* viola profondo */
+  --primary: #8e72c7; /* viola principale */
+  --primary-dark: #4a3a73;
+  --gold: #d6b36a;
+  --success: #7c9473;
+  --danger: #a85c4a;
 }
 
 @theme inline {
@@ -49,10 +50,10 @@
 }
 
 :root {
-  color-scheme: light;
-}
-:root[data-theme="dark"] {
   color-scheme: dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 body {

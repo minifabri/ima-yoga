@@ -16,8 +16,10 @@ import { ClientsView } from "./ClientsView";
 import { EarningsView } from "./EarningsView";
 import * as db from "./data";
 import { adminResetClientPassword } from "./actions";
+import { notifyClassFull } from "@/lib/notifications";
 import type {
   AdminData,
+  Announcement,
   ClassItem,
   ClassType,
   ClientItem,
@@ -58,6 +60,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   const [packages, setPackages] = useState<PackageItem[]>(initial.packages);
   const [ledger, setLedger] = useState<LedgerEntry[]>(initial.ledger);
   const [expenses, setExpenses] = useState<Expense[]>(initial.expenses);
+  const [announcements, setAnnouncements] = useState<Announcement[]>(initial.announcements);
   const [clipboard, setClipboard] = useState<ClassClipboard | null>(null);
   const [toast, setToast] = useState("");
   const [classModal, setClassModal] = useState<ClassModalState>(null);
@@ -114,11 +117,22 @@ export function AdminApp({ initial }: { initial: AdminData }) {
 
   // ---- classes & bookings ----
   function saveClassItem(item: ClassItem) {
+    const prev = classes.find((c) => c.id === item.id);
+    const wasFull = !!prev && prev.capacity > 0 && prev.clientIds.length >= prev.capacity;
+    const isFull = item.capacity > 0 && item.clientIds.length >= item.capacity;
     setClasses((cur) => {
       const exists = cur.some((c) => c.id === item.id);
       return exists ? cur.map((c) => (c.id === item.id ? item : c)) : [...cur, item];
     });
     db.saveClass(supabase, item).catch(() => showToast("Il salvataggio della classe non è riuscito."));
+    if (isFull && !wasFull) {
+      notifyClassFull({
+        className: typeById[item.typeId]?.name || "Classe",
+        date: item.date,
+        time: item.time,
+        capacity: item.capacity,
+      }).catch(() => {});
+    }
   }
   function deleteClassItem(id: string) {
     setClasses((cur) => cur.filter((c) => c.id !== id));
@@ -350,6 +364,24 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     db.deleteExpense(supabase, id).catch(() => showToast("Errore nell'eliminazione."));
   }
 
+  // ---- avvisi per i clienti ----
+  async function addAnnouncementItem(message: string) {
+    try {
+      const a = await db.addAnnouncement(supabase, message);
+      setAnnouncements((cur) => [a, ...cur]);
+    } catch {
+      showToast("Errore nel salvataggio dell'avviso.");
+    }
+  }
+  function updateAnnouncementItem(id: string, patch: Partial<Pick<Announcement, "message" | "active">>) {
+    setAnnouncements((cur) => cur.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+    db.updateAnnouncement(supabase, id, patch).catch(() => showToast("Errore nel salvataggio dell'avviso."));
+  }
+  function deleteAnnouncementItem(id: string) {
+    setAnnouncements((cur) => cur.filter((a) => a.id !== id));
+    db.deleteAnnouncement(supabase, id).catch(() => showToast("Errore nell'eliminazione."));
+  }
+
   return (
     <div style={{ fontFamily: "var(--font-body)", background: COLORS.bg, color: COLORS.ink, minHeight: "100vh" }}>
       <style>{`
@@ -521,6 +553,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           levels={levels}
           classes={classes}
           defaults={settings}
+          announcements={announcements}
           onClose={() => setSettingsOpen(false)}
           onAddType={addClassType}
           onUpdateType={updateClassType}
@@ -529,6 +562,9 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           onRemoveLevel={removeLevel}
           onUpdateLevel={updateLevel}
           onSaveDefaults={saveDefaults}
+          onAddAnnouncement={addAnnouncementItem}
+          onUpdateAnnouncement={updateAnnouncementItem}
+          onRemoveAnnouncement={deleteAnnouncementItem}
         />
       )}
 

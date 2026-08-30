@@ -14,11 +14,11 @@ function subscribe(callback: () => void) {
 }
 
 function getSnapshot(): Theme {
-  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
 }
 
 function getServerSnapshot(): Theme {
-  return "light";
+  return "dark";
 }
 
 function applyTheme(theme: Theme) {
@@ -43,27 +43,18 @@ function MoonMark({ size }: { size: number }) {
   );
 }
 
-// Sole: stesso tratto sottile e la stessa scintilla dorata della luna, letta come raggi.
+// Sole: un piccolo fiore dorato — petali morbidi invece di raggi a filo, per
+// non somigliare a una lampadina. Stesso accento viola della luna sul bordo.
 function SunMark({ size }: { size: number }) {
-  const rays = [0, 45, 90, 135, 180, 225, 270, 315];
+  const petals = [0, 60, 120, 180, 240, 300];
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="4.3" stroke={COLORS.gold} strokeWidth="1.2" />
       <g className="theme-toggle-spark" style={{ transformOrigin: "10px 10px" }}>
-        {rays.map((deg) => (
-          <line
-            key={deg}
-            x1="10"
-            y1="3.1"
-            x2="10"
-            y2="1.1"
-            stroke={COLORS.heading}
-            strokeWidth="1.2"
-            strokeLinecap="round"
-            transform={`rotate(${deg} 10 10)`}
-          />
+        {petals.map((deg) => (
+          <path key={deg} d="M10 5.6c-1.35 0-2.1-1.55-2.1-3.5S8.65.9 10 .9s2.1 1.15 2.1 3.5-.75 3.2-2.1 3.2z" fill={COLORS.gold} transform={`rotate(${deg} 10 10)`} />
         ))}
       </g>
+      <circle cx="10" cy="10" r="3.1" fill={COLORS.gold} stroke={COLORS.heading} strokeWidth="0.9" />
     </svg>
   );
 }

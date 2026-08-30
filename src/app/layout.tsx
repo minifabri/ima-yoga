@@ -19,7 +19,9 @@ export const metadata: Metadata = {
   description: "Calendario classi, prenotazioni e gestionale — ima yoga",
 };
 
-const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('ima-yoga-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();`;
+// Il tema scuro è quello di default (bare :root in globals.css): basta impostare
+// l'attributo quando l'utente ha scelto esplicitamente il chiaro.
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('ima-yoga-theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

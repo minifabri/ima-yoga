@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, ClipboardPaste, LayoutGrid, List, Lock, GripVertical, CalendarClock, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, ClipboardPaste, LayoutGrid, List, Lock, GripVertical, CalendarClock, Download, Gift } from "lucide-react";
 import { IconButton, CapacityBar } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "./utils";
@@ -273,6 +273,7 @@ export function CalendarView({
                           >
                             <span className="flex items-center gap-0.5" style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>
                               {!c.bookingsOpen && <Lock size={8} color={COLORS.inkSoft} />}
+                              {c.isFree && <Gift size={8} color={COLORS.gold} />}
                               {typeInitials(type?.name)}
                             </span>
                             <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
@@ -378,6 +379,7 @@ export function CalendarView({
                               }}
                             >
                               {!c.bookingsOpen && <Lock size={9} color={COLORS.inkSoft} />}
+                              {c.isFree && <Gift size={9} color={COLORS.gold} />}
                               {c.time ? `${c.time} · ` : ""}
                               {type?.name || "Classe"}
                             </button>
@@ -430,6 +432,7 @@ export function CalendarView({
                           <div style={{ fontSize: 12.5, fontWeight: 700 }} className="flex items-center gap-1.5">
                             {c.time || "—"} · {type?.name || "Classe"}
                             {!c.bookingsOpen && <Lock size={11} color={COLORS.inkSoft} />}
+                            {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
                           </div>
                           <div style={{ fontSize: 11, color: COLORS.inkSoft }}>{level?.name}</div>
                         </div>
@@ -489,7 +492,10 @@ function ClassCard({
       title="Trascina per spostare in un altro giorno"
     >
       <div className="flex items-center justify-between">
-        <span style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.ink }}>{c.time || "—"}</span>
+        <span className="flex items-center gap-1" style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.ink }}>
+          {c.time || "—"}
+          {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
+        </span>
         <span className="flex items-center gap-1">
           {!c.bookingsOpen && <Lock size={11} color={COLORS.inkSoft} />}
           <GripVertical size={12} color={COLORS.inkSoft} style={{ opacity: 0.6 }} />
