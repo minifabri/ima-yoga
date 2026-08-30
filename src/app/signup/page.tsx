@@ -1,13 +1,20 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { signup, type SignupState } from "@/app/actions";
+import { createClient } from "@/lib/supabase/client";
+import { getVisitorId, trackPageView } from "@/lib/track";
 
 const initialState: SignupState = { error: null, needsConfirmation: false };
 
 export default function SignupPage() {
   const [state, formAction, pending] = useActionState(signup, initialState);
+  const supabase = useMemo(() => createClient(), []);
+  const [visitorId] = useState<string | null>(() => getVisitorId());
+  useEffect(() => {
+    trackPageView(supabase, "/signup");
+  }, [supabase]);
 
   return (
     <main className="flex-1 flex items-center justify-center p-5" style={{ background: "var(--bg)" }}>
@@ -30,6 +37,7 @@ export default function SignupPage() {
           </div>
         ) : (
           <form action={formAction} className="flex flex-col gap-3">
+            <input type="hidden" name="visitor_id" value={visitorId ?? ""} />
             <Field label="Nome e cognome">
               <input type="text" name="full_name" required autoComplete="name" style={inputStyle} />
             </Field>

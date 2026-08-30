@@ -11,6 +11,7 @@ import type {
   Level,
   PackageItem,
   Settings,
+  VisitorStats,
   WorkLogActorRole,
   WorkLogEntry,
 } from "./types";
@@ -575,4 +576,26 @@ export async function fetchWorkLog(
 export async function deleteWorkLogEntry(supabase: DB, id: string) {
   const { error } = await supabase.from("work_log").delete().eq("id", id);
   if (error) throw error;
+}
+
+// ---------------------------------------------------------
+// Statistiche visitatori
+// ---------------------------------------------------------
+export async function fetchVisitorStats(supabase: DB, days: number): Promise<VisitorStats> {
+  const { data, error } = await supabase.rpc("fetch_visitor_stats", { p_days: days });
+  if (error) throw error;
+  const d = (data ?? {}) as {
+    by_path?: { path: string; views: number }[];
+    daily?: { day: string; pageviews: number; signups: number }[];
+    unique_visitors?: number;
+    calendar_viewers?: number;
+    calendar_conversions?: number;
+  };
+  return {
+    byPath: d.by_path ?? [],
+    daily: d.daily ?? [],
+    uniqueVisitors: d.unique_visitors ?? 0,
+    calendarViewers: d.calendar_viewers ?? 0,
+    calendarConversions: d.calendar_conversions ?? 0,
+  };
 }

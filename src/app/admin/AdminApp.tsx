@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Bell, History, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS, withAlpha } from "./colors";
@@ -16,6 +16,7 @@ import { ClientsView } from "./ClientsView";
 import { EarningsView } from "./EarningsView";
 import { NoticesView } from "./NoticesView";
 import { WorklogView } from "./WorklogView";
+import { StatsView } from "./StatsView";
 import * as db from "./data";
 import { adminResetClientPassword } from "./actions";
 import { notifyClassFull } from "@/lib/notifications";
@@ -51,7 +52,7 @@ type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
 
-  const [view, setView] = useState<"calendar" | "clients" | "payments" | "earnings" | "notices" | "worklog" | "settings">("calendar");
+  const [view, setView] = useState<"calendar" | "clients" | "payments" | "earnings" | "notices" | "worklog" | "stats" | "settings">("calendar");
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>(initial.classTypes);
   const [levels, setLevels] = useState<Level[]>(initial.levels);
@@ -468,6 +469,13 @@ export function AdminApp({ initial }: { initial: AdminData }) {
                 <History size={15} /> <span className="hidden sm:inline">Registro</span>
               </button>
               <button
+                onClick={() => setView("stats")}
+                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
+                style={{ background: view === "stats" ? COLORS.primary : "transparent", color: view === "stats" ? "#fff" : COLORS.ink }}
+              >
+                <BarChart3 size={15} /> <span className="hidden sm:inline">Statistiche</span>
+              </button>
+              <button
                 onClick={() => setView("settings")}
                 className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
                 style={{ background: view === "settings" ? COLORS.primary : "transparent", color: view === "settings" ? "#fff" : COLORS.ink }}
@@ -567,6 +575,8 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           />
         ) : view === "worklog" ? (
           <WorklogView supabase={supabase} />
+        ) : view === "stats" ? (
+          <StatsView supabase={supabase} />
         ) : (
           <SettingsView
             classTypes={classTypes}

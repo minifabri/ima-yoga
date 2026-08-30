@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ChevronLeft, ChevronRight, Eye, Gift, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { trackPageView } from "@/lib/track";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/admin/utils";
 import { fetchVisitorClasses } from "./data";
@@ -14,6 +15,11 @@ export function CalendarioVisitatore() {
   const [viewDate, setViewDate] = useState(new Date());
   const [classes, setClasses] = useState<VisitorClass[]>([]);
   const [selected, setSelected] = useState<VisitorClass | null>(null);
+
+  useEffect(() => {
+    trackPageView(supabase, "/calendario");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const days = useMemo(() => getCalendarDays(viewDate), [viewDate]);
 

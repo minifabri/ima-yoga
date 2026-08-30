@@ -31,6 +31,7 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   const password = String(formData.get("password") || "");
   const fullName = String(formData.get("full_name") || "").trim();
   const phone = String(formData.get("phone") || "").trim();
+  const visitorId = String(formData.get("visitor_id") || "").trim();
 
   if (!fullName) {
     return { error: "Inserisci nome e cognome.", needsConfirmation: false };
@@ -47,6 +48,14 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
 
   if (error) {
     return { error: error.message, needsConfirmation: false };
+  }
+
+  if (visitorId) {
+    try {
+      await supabase.rpc("track_page_view", { p_path: "/signup", p_visitor_id: visitorId, p_kind: "signup_completed" });
+    } catch {
+      // il tracciamento non deve mai bloccare la registrazione
+    }
   }
 
   // Se la conferma email è attiva su Supabase, signUp non crea subito una

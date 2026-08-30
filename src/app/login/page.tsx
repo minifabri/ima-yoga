@@ -1,14 +1,20 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { login, type ActionState } from "@/app/actions";
+import { createClient } from "@/lib/supabase/client";
+import { trackPageView } from "@/lib/track";
 import { PeekCalendarLink } from "./PeekCalendarLink";
 
 const initialState: ActionState = { error: null };
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(login, initialState);
+  const supabase = useMemo(() => createClient(), []);
+  useEffect(() => {
+    trackPageView(supabase, "/login");
+  }, [supabase]);
 
   return (
     <main className="flex-1 flex items-center justify-center p-5" style={{ background: "var(--bg)" }}>

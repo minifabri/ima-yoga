@@ -118,6 +118,14 @@ export type WorkLogEntry = {
   description: string;
 };
 
+export type VisitorStats = {
+  byPath: { path: string; views: number }[];
+  daily: { day: string; pageviews: number; signups: number }[];
+  uniqueVisitors: number;
+  calendarViewers: number;
+  calendarConversions: number;
+};
+
 export type AdminData = {
   classTypes: ClassType[];
   levels: Level[];
