@@ -99,6 +99,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   const [myNotices, setMyNotices] = useState<ClientNotice[]>([]);
   const [selected, setSelected] = useState<PublicClass | null>(null);
   const [justBookedId, setJustBookedId] = useState<string | null>(null);
+  const [justCancelledId, setJustCancelledId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -266,6 +267,8 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
     try {
       await db.cancelBooking(supabase, classId);
       showToast("Prenotazione appassita. Rifiorirai alla prossima lezione.", "rose");
+      setJustBookedId((cur) => (cur === classId ? null : cur));
+      setJustCancelledId(classId);
       const next = await refreshClasses();
       setSelected((cur) => (cur ? next.find((x) => x.id === cur.id) || null : null));
       await refreshMine();
@@ -795,6 +798,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             if (e.target === e.currentTarget) {
               setSelected(null);
               setJustBookedId(null);
+              setJustCancelledId(null);
             }
           }}
         >
@@ -810,6 +814,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 onClick={() => {
                   setSelected(null);
                   setJustBookedId(null);
+                  setJustCancelledId(null);
                 }}
               >
                 <X size={18} />
@@ -846,6 +851,16 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             {selected.myStatus === "booked" && justBookedId === selected.id && (
               <div className="booking-celebration-text mb-3 text-center" style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: COLORS.gold }}>
                 Complimenti, la lezione è tua!
+              </div>
+            )}
+
+            {!selected.myStatus && justCancelledId === selected.id && (
+              <div
+                className="booking-celebration-text mb-3 text-center flex items-center justify-center gap-1.5"
+                style={{ fontSize: 13, color: COLORS.inkSoft }}
+              >
+                <Rose size={14} color={COLORS.inkSoft} style={{ transform: "rotate(18deg)", flexShrink: 0 }} />
+                Prenotazione appassita. Rifiorirai alla prossima lezione.
               </div>
             )}
 
