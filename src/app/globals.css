@@ -62,3 +62,244 @@ body {
   font-family: var(--font-body), sans-serif;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* Copertina — mazzo di carte */
+
+.cover-card {
+  position: relative;
+  transform-origin: bottom center;
+  rotate: var(--fan-rot, 0deg);
+  translate: var(--fan-x, 0px) var(--fan-y, 0px);
+  margin-left: var(--fan-overlap, 0px);
+  filter: drop-shadow(0 6px 16px rgba(74, 58, 115, 0.18));
+  transition: rotate 0.4s cubic-bezier(0.22, 1, 0.36, 1), translate 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    scale 0.4s cubic-bezier(0.22, 1, 0.36, 1), filter 0.35s ease;
+  animation: cover-card-breathe 6.5s ease-in-out infinite;
+  animation-delay: var(--fan-delay, 0s);
+}
+.cover-card:hover:not(.is-flipped),
+.cover-card.is-lifted {
+  rotate: 0deg;
+  translate: 0 -16px;
+  scale: 1.05;
+  filter: drop-shadow(0 18px 32px rgba(74, 58, 115, 0.3));
+  z-index: 50 !important;
+  animation: none;
+}
+
+@keyframes cover-card-breathe {
+  0%,
+  100% {
+    translate: var(--fan-x, 0px) var(--fan-y, 0px);
+  }
+  50% {
+    translate: var(--fan-x, 0px) calc(var(--fan-y, 0px) - 6px);
+  }
+}
+
+@media (max-width: 767px) {
+  .cover-card {
+    rotate: 0deg;
+    translate: 0;
+    margin-left: 0;
+    animation: none;
+  }
+}
+
+.cover-card-scene {
+  width: 100%;
+  height: 100%;
+  perspective: 1600px;
+}
+
+.cover-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cover-card-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.cover-card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px;
+  text-align: center;
+}
+
+.cover-card-face-front {
+  cursor: pointer;
+}
+.cover-card-face-back {
+  transform: rotateY(180deg);
+}
+.cover-card-face-front:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Medaglione opaco dietro icona + etichetta, per restare leggibile sopra il mandala del dorso. */
+.cover-card-plate {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border-radius: 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 10px rgba(74, 58, 115, 0.1);
+}
+
+.cover-card-face-back {
+  align-items: stretch;
+  text-align: left;
+  justify-content: flex-start;
+  padding-top: 34px;
+}
+
+.cover-card-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+  background: var(--subtle);
+}
+.cover-card-close:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.cover-card-body p + p {
+  margin-top: 8px;
+}
+
+.cover-card-cta {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.cover-card-cta:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Prenotazione confermata — bordo dorato che pulsa piano + stelline discrete. */
+
+@keyframes booking-gold-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 45%, transparent);
+    border-color: var(--gold);
+  }
+  70% {
+    box-shadow: 0 0 0 9px color-mix(in srgb, var(--gold) 0%, transparent);
+    border-color: var(--gold);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 0%, transparent);
+    border-color: var(--border);
+  }
+}
+.booking-celebration-card {
+  border: 1.5px solid var(--border);
+  animation: booking-gold-pulse 1.4s ease-out 2;
+}
+
+@keyframes booking-sparkle-float {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.5) rotate(0deg);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1) rotate(8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.7) rotate(16deg);
+  }
+}
+.booking-sparkle {
+  pointer-events: none;
+  animation: booking-sparkle-float 2s ease-in-out forwards;
+}
+
+@keyframes booking-celebration-text-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.booking-celebration-text {
+  animation: booking-celebration-text-in 0.45s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .booking-celebration-card,
+  .booking-sparkle,
+  .booking-celebration-text {
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cover-card,
+  .cover-card-inner {
+    transition: none;
+    animation: none;
+  }
+  .cover-card,
+  .cover-card:hover:not(.is-flipped),
+  .cover-card.is-lifted {
+    rotate: 0deg;
+    translate: 0;
+    scale: 1;
+  }
+  .cover-card-inner {
+    transform: none !important;
+  }
+  .cover-card-face-back {
+    transform: none;
+  }
+  .cover-card-face {
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+  }
+  .cover-card-face-back {
+    opacity: 0;
+    visibility: hidden;
+  }
+  .cover-card-inner.is-flipped .cover-card-face-front {
+    opacity: 0;
+    visibility: hidden;
+  }
+  .cover-card-inner.is-flipped .cover-card-face-back {
+    opacity: 1;
+    visibility: visible;
+  }
+}

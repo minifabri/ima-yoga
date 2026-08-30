@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUserAndProfile } from "@/lib/supabase/profile";
+import { ThemeToggle } from "./admin/ThemeToggle";
+import { Deck } from "./cover/Deck";
 
 export default async function HomePage() {
   const { user, profile } = await getCurrentUserAndProfile();
@@ -9,32 +11,24 @@ export default async function HomePage() {
   if (user && profile?.role === "client") redirect("/area");
 
   return (
-    <main className="flex-1 flex items-center justify-center p-5" style={{ background: "var(--bg)" }}>
-      <div className="text-center">
-        <div
-          style={{ fontFamily: "var(--font-display)", fontSize: 40, fontWeight: 500, color: "var(--heading)" }}
-        >
+    <main className="flex-1 flex flex-col" style={{ background: "var(--bg)" }}>
+      <header className="flex items-center justify-between px-5 pt-6">
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 500, color: "var(--heading)" }}>
           ima yoga
         </div>
-        <div className="mt-1 mb-6" style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-          Calendario classi e prenotazioni
-        </div>
-        <div className="flex items-center justify-center gap-3">
-          <Link
-            href="/login"
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
-            style={{ background: "var(--primary)" }}
-          >
+        <div className="flex items-center gap-3">
+          <Link href="/login" className="text-sm font-medium" style={{ color: "var(--ink-soft)" }}>
             Accedi
           </Link>
-          <Link
-            href="/signup"
-            className="px-4 py-2 rounded-lg text-sm font-semibold"
-            style={{ border: "1px solid var(--border)", color: "var(--ink)" }}
-          >
-            Registrati
-          </Link>
+          <ThemeToggle size={34} />
         </div>
+      </header>
+
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <p className="mb-2 text-center px-5" style={{ fontSize: 13, color: "var(--ink-soft)" }}>
+          Scegli una carta per iniziare
+        </p>
+        <Deck />
       </div>
     </main>
   );

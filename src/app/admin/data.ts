@@ -5,11 +5,14 @@ import type {
   ClassItem,
   ClassType,
   ClientItem,
+  ClientNotice,
   Expense,
   LedgerEntry,
   Level,
   PackageItem,
   Settings,
+  WorkLogActorRole,
+  WorkLogEntry,
 } from "./types";
 
 type DB = SupabaseClient;
@@ -78,6 +81,26 @@ function mapLedgerEntry(row: {
   };
 }
 
+function mapClientNotice(row: {
+  id: string;
+  client_id: string;
+  message: string;
+  kind: "custom" | "package_assigned";
+  read: boolean;
+  created_at: string;
+  profiles: { full_name: string } | null;
+}): ClientNotice {
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    clientName: row.profiles?.full_name ?? "",
+    message: row.message,
+    kind: row.kind,
+    read: row.read,
+    createdAt: row.created_at,
+  };
+}
+
 function mapExpense(row: { id: string; amount: number; note: string | null; expense_date: string }): Expense {
   return {
     id: row.id,
@@ -142,17 +165,19 @@ function mapClass(row: {
 }
 
 export async function fetchAdminData(supabase: DB): Promise<AdminData> {
-  const [typesRes, levelsRes, settingsRes, classesRes, clientsRes, packagesRes, ledgerRes, expensesRes, announcementsRes] = await Promise.all([
-    supabase.from("class_types").select("*").order("created_at"),
-    supabase.from("levels").select("*"),
-    supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
-    supabase.from("classes").select("*, bookings(*)").order("class_date"),
-    supabase.from("profiles").select("*").eq("role", "client").order("full_name"),
-    supabase.from("packages").select("*"),
-    supabase.from("ledger_entries").select("*"),
-    supabase.from("expenses").select("*").order("expense_date", { ascending: false }),
-    supabase.from("announcements").select("*").order("created_at", { ascending: false }),
-  ]);
+  const [typesRes, levelsRes, settingsRes, classesRes, clientsRes, packagesRes, ledgerRes, expensesRes, announcementsRes, clientNoticesRes] =
+    await Promise.all([
+      supabase.from("class_types").select("*").order("created_at"),
+      supabase.from("levels").select("*"),
+      supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
+      supabase.from("classes").select("*, bookings(*)").order("class_date"),
+      supabase.from("profiles").select("*").eq("role", "client").order("full_name"),
+      supabase.from("packages").select("*"),
+      supabase.from("ledger_entries").select("*"),
+      supabase.from("expenses").select("*").order("expense_date", { ascending: false }),
+      supabase.from("announcements").select("*").order("created_at", { ascending: false }),
+      supabase.from("client_notices").select("*, profiles(full_name)").order("created_at", { ascending: false }),
+    ]);
 
   const settings: Settings = settingsRes.data
     ? {
@@ -182,6 +207,7 @@ export async function fetchAdminData(supabase: DB): Promise<AdminData> {
     ledger: (ledgerRes.data ?? []).map(mapLedgerEntry),
     expenses: (expensesRes.data ?? []).map(mapExpense),
     announcements: (announcementsRes.data ?? []).map((a) => ({ id: a.id, message: a.message, active: a.active })),
+    clientNotices: (clientNoticesRes.data ?? []).map(mapClientNotice),
   };
 }
 
@@ -370,6 +396,15 @@ export async function sellPackage(
   if (error) throw error;
   const pkg = mapPackage(data);
 
+  await supabase
+    .from("client_notices")
+    .insert({
+      client_id: args.clientId,
+      message: `Ti è stato assegnato un nuovo pacchetto di ${args.size} lezioni.`,
+      kind: "package_assigned",
+    })
+    .then(() => {}, () => {});
+
   if (args.linkClassIds.length > 0) {
     const { data: existing } = await supabase
       .from("bookings")
@@ -464,4 +499,74 @@ export async function updateAnnouncement(supabase: DB, id: string, patch: Partia
 export async function deleteAnnouncement(supabase: DB, id: string) {
   const { error } = await supabase.from("announcements").delete().eq("id", id);
   if (error) throw error;
+}
+
+// ---------------------------------------------------------
+// Avvisi personali ai clienti
+// ---------------------------------------------------------
+export async function addPersonalNotices(supabase: DB, clientIds: string[], message: string): Promise<ClientNotice[]> {
+  const { data, error } = await supabase
+    .from("client_notices")
+    .insert(clientIds.map((clientId) => ({ client_id: clientId, message, kind: "custom" as const })))
+    .select("*, profiles(full_name)");
+  if (error) throw error;
+  return (data ?? []).map(mapClientNotice);
+}
+
+export async function deleteClientNotice(supabase: DB, id: string) {
+  const { error } = await supabase.from("client_notices").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function fetchClientNotices(supabase: DB): Promise<ClientNotice[]> {
+  const { data, error } = await supabase.from("client_notices").select("*, profiles(full_name)").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapClientNotice);
+}
+
+// ---------------------------------------------------------
+// Worklog (registro attività)
+// ---------------------------------------------------------
+function mapWorkLogEntry(row: {
+  id: string;
+  created_at: string;
+  actor_role: WorkLogActorRole;
+  actor_id: string | null;
+  actor_name: string;
+  action: string;
+  entity_table: string;
+  entity_id: string | null;
+  description: string;
+}): WorkLogEntry {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    actorRole: row.actor_role,
+    actorId: row.actor_id,
+    actorName: row.actor_name,
+    action: row.action,
+    entityTable: row.entity_table,
+    entityId: row.entity_id,
+    description: row.description,
+  };
+}
+
+const WORKLOG_PAGE_SIZE = 50;
+
+export async function fetchWorkLog(
+  supabase: DB,
+  opts: { actorRole?: "admin" | "client"; search?: string; offset?: number } = {}
+): Promise<{ entries: WorkLogEntry[]; hasMore: boolean }> {
+  const offset = opts.offset ?? 0;
+  let query = supabase.from("work_log").select("*").order("created_at", { ascending: false });
+  if (opts.actorRole) query = query.eq("actor_role", opts.actorRole);
+  const term = opts.search?.trim();
+  if (term) query = query.ilike("description", `%${term.replace(/[%_]/g, "")}%`);
+  query = query.range(offset, offset + WORKLOG_PAGE_SIZE);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  const rows = data ?? [];
+  const hasMore = rows.length > WORKLOG_PAGE_SIZE;
+  return { entries: (hasMore ? rows.slice(0, WORKLOG_PAGE_SIZE) : rows).map(mapWorkLogEntry), hasMore };
 }

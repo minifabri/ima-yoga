@@ -94,6 +94,30 @@ export type Announcement = {
   active: boolean;
 };
 
+export type ClientNotice = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  message: string;
+  kind: "custom" | "package_assigned";
+  read: boolean;
+  createdAt: string;
+};
+
+export type WorkLogActorRole = "admin" | "client" | "system";
+
+export type WorkLogEntry = {
+  id: string;
+  createdAt: string; // ISO
+  actorRole: WorkLogActorRole;
+  actorId: string | null;
+  actorName: string;
+  action: string;
+  entityTable: string;
+  entityId: string | null;
+  description: string;
+};
+
 export type AdminData = {
   classTypes: ClassType[];
   levels: Level[];
@@ -104,5 +128,6 @@ export type AdminData = {
   packages: PackageItem[];
   ledger: LedgerEntry[];
   announcements: Announcement[];
+  clientNotices: ClientNotice[];
   expenses: Expense[];
 };

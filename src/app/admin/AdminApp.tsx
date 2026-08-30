@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Bell, History, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS, withAlpha } from "./colors";
@@ -14,6 +14,8 @@ import { SettingsModal } from "./SettingsModal";
 import { PaymentsView } from "./PaymentsView";
 import { ClientsView } from "./ClientsView";
 import { EarningsView } from "./EarningsView";
+import { NoticesView } from "./NoticesView";
+import { WorklogView } from "./WorklogView";
 import * as db from "./data";
 import { adminResetClientPassword } from "./actions";
 import { notifyClassFull } from "@/lib/notifications";
@@ -23,6 +25,7 @@ import type {
   ClassItem,
   ClassType,
   ClientItem,
+  ClientNotice,
   Expense,
   LedgerEntry,
   Level,
@@ -48,7 +51,7 @@ type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
 
-  const [view, setView] = useState<"calendar" | "clients" | "payments" | "earnings">("calendar");
+  const [view, setView] = useState<"calendar" | "clients" | "payments" | "earnings" | "notices" | "worklog">("calendar");
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>(initial.classTypes);
   const [levels, setLevels] = useState<Level[]>(initial.levels);
@@ -61,6 +64,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   const [ledger, setLedger] = useState<LedgerEntry[]>(initial.ledger);
   const [expenses, setExpenses] = useState<Expense[]>(initial.expenses);
   const [announcements, setAnnouncements] = useState<Announcement[]>(initial.announcements);
+  const [clientNotices, setClientNotices] = useState<ClientNotice[]>(initial.clientNotices);
   const [clipboard, setClipboard] = useState<ClassClipboard | null>(null);
   const [toast, setToast] = useState("");
   const [classModal, setClassModal] = useState<ClassModalState>(null);
@@ -307,6 +311,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
         linkClassIds,
       });
       setPackages((cur) => [...cur, pkg]);
+      db.fetchClientNotices(supabase).then(setClientNotices).catch(() => {});
       if (linkClassIds.length > 0) {
         setClasses((cur) =>
           cur.map((c) => {
@@ -382,6 +387,21 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     db.deleteAnnouncement(supabase, id).catch(() => showToast("Errore nell'eliminazione."));
   }
 
+  // ---- avvisi personali ai clienti ----
+  async function sendPersonalNotices(clientIds: string[], message: string) {
+    try {
+      const created = await db.addPersonalNotices(supabase, clientIds, message);
+      setClientNotices((cur) => [...created, ...cur]);
+      showToast(`Avviso inviato a ${clientIds.length} ${clientIds.length === 1 ? "cliente" : "clienti"}.`);
+    } catch {
+      showToast("Errore nell'invio dell'avviso.");
+    }
+  }
+  function deleteClientNoticeItem(id: string) {
+    setClientNotices((cur) => cur.filter((n) => n.id !== id));
+    db.deleteClientNotice(supabase, id).catch(() => showToast("Errore nell'eliminazione."));
+  }
+
   return (
     <div style={{ fontFamily: "var(--font-body)", background: COLORS.bg, color: COLORS.ink, minHeight: "100vh" }}>
       <style>{`
@@ -433,6 +453,20 @@ export function AdminApp({ initial }: { initial: AdminData }) {
                 style={{ background: view === "earnings" ? COLORS.primary : "transparent", color: view === "earnings" ? "#fff" : COLORS.ink }}
               >
                 <TrendingUp size={15} /> <span className="hidden sm:inline">Guadagni</span>
+              </button>
+              <button
+                onClick={() => setView("notices")}
+                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
+                style={{ background: view === "notices" ? COLORS.primary : "transparent", color: view === "notices" ? "#fff" : COLORS.ink }}
+              >
+                <Bell size={15} /> <span className="hidden sm:inline">Avvisi</span>
+              </button>
+              <button
+                onClick={() => setView("worklog")}
+                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
+                style={{ background: view === "worklog" ? COLORS.primary : "transparent", color: view === "worklog" ? "#fff" : COLORS.ink }}
+              >
+                <History size={15} /> <span className="hidden sm:inline">Registro</span>
               </button>
             </div>
             <button
@@ -513,7 +547,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onDeleteLedgerEntry={deleteLedgerEntryItem}
             onMarkClassPaymentPaid={markClassPaymentPaid}
           />
-        ) : (
+        ) : view === "earnings" ? (
           <EarningsView
             classes={classes}
             packages={packages}
@@ -521,6 +555,15 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onAddExpense={addExpenseHandler}
             onDeleteExpense={deleteExpenseItem}
           />
+        ) : view === "notices" ? (
+          <NoticesView
+            clients={clients}
+            clientNotices={clientNotices}
+            onSendNotice={sendPersonalNotices}
+            onDeleteNotice={deleteClientNoticeItem}
+          />
+        ) : (
+          <WorklogView supabase={supabase} />
         )}
       </div>
 

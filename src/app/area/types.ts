@@ -15,6 +15,12 @@ export type Announcement = {
   message: string;
 };
 
+export type ClientNotice = {
+  id: string;
+  message: string;
+  kind: "custom" | "package_assigned";
+};
+
 export type PublicClass = {
   id: string;
   date: string; // yyyy-mm-dd

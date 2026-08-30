@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Announcement, ClassType, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
+import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
 
 type DB = SupabaseClient;
 
@@ -21,6 +21,19 @@ export async function fetchBookingsOpen(supabase: DB): Promise<boolean> {
 export async function fetchActiveAnnouncements(supabase: DB): Promise<Announcement[]> {
   const { data } = await supabase.from("announcements").select("id, message").eq("active", true).order("created_at", { ascending: false });
   return data ?? [];
+}
+
+export async function fetchMyNotices(supabase: DB): Promise<ClientNotice[]> {
+  const { data } = await supabase
+    .from("client_notices")
+    .select("id, message, kind")
+    .eq("read", false)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
+export async function markNoticeRead(supabase: DB, id: string): Promise<void> {
+  await supabase.from("client_notices").update({ read: true }).eq("id", id);
 }
 
 export async function fetchPublicClasses(supabase: DB, from: string, to: string): Promise<PublicClass[]> {

@@ -21,6 +21,8 @@ import {
   User,
   Gift,
   Megaphone,
+  Bell,
+  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
@@ -30,9 +32,17 @@ import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/adm
 import * as db from "./data";
 import { downloadIcsFile } from "@/lib/ics";
 import { notifyClassFull } from "@/lib/notifications";
-import type { Announcement, ClassType, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
+import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
 
 const DISMISSED_ANNOUNCEMENTS_KEY = "ima-yoga-dismissed-announcements";
+
+const CELEBRATION_SPARKLES = [
+  { top: "6%", left: "10%", size: 13, delay: "0s" },
+  { top: "-4%", left: "48%", size: 16, delay: "0.15s" },
+  { top: "10%", left: "86%", size: 12, delay: "0.3s" },
+  { top: "55%", left: "2%", size: 11, delay: "0.45s" },
+  { top: "60%", left: "94%", size: 13, delay: "0.2s" },
+];
 
 function formatLune(amount: number): string {
   const rounded = Math.round(amount * 100) / 100;
@@ -93,7 +103,9 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   const [myBookings, setMyBookings] = useState<MyBooking[]>([]);
   const [myPackages, setMyPackages] = useState<MyPackage[]>([]);
   const [myLedger, setMyLedger] = useState<MyLedgerEntry[]>([]);
+  const [myNotices, setMyNotices] = useState<ClientNotice[]>([]);
   const [selected, setSelected] = useState<PublicClass | null>(null);
+  const [justBookedId, setJustBookedId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -129,16 +141,18 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
 
   useEffect(() => {
     (async () => {
-      const [types, lvls, open, notices] = await Promise.all([
+      const [types, lvls, open, notices, personalNotices] = await Promise.all([
         db.fetchClassTypes(supabase),
         db.fetchLevels(supabase),
         db.fetchBookingsOpen(supabase),
         db.fetchActiveAnnouncements(supabase),
+        db.fetchMyNotices(supabase),
       ]);
       setClassTypes(types);
       setLevels(lvls);
       setBookingsOpen(open);
       setAnnouncements(notices);
+      setMyNotices(personalNotices);
     })();
   }, [supabase]);
 
@@ -152,6 +166,11 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
       }
       return next;
     });
+  }
+
+  function dismissNotice(id: string) {
+    setMyNotices((cur) => cur.filter((n) => n.id !== id));
+    db.markNoticeRead(supabase, id).catch(() => {});
   }
 
   const visibleAnnouncements = announcements.filter((a) => !dismissedAnnouncementIds.includes(a.id));
@@ -230,6 +249,10 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
       const next = await refreshClasses();
       const updated = next.find((x) => x.id === c.id) || null;
       setSelected(updated);
+      if (status === "booked") {
+        setJustBookedId(c.id);
+        setTimeout(() => setJustBookedId((cur) => (cur === c.id ? null : cur)), 4000);
+      }
       if (status === "booked" && updated && updated.capacity > 0 && updated.bookedCount >= updated.capacity) {
         notifyClassFull({
           className: typeById[updated.typeId]?.name || "Classe",
@@ -340,6 +363,24 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             </div>
           </div>
         </div>
+
+        {myNotices.length > 0 && (
+          <div className="flex flex-col gap-2 mb-4">
+            {myNotices.map((n) => (
+              <div
+                key={n.id}
+                className="flex items-start gap-2 text-sm rounded-lg px-3 py-2.5"
+                style={{ background: withAlpha(COLORS.primary, 12), color: COLORS.primaryDark, border: `1px solid ${withAlpha(COLORS.primary, 30)}` }}
+              >
+                <Bell size={15} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span className="flex-1">{n.message}</span>
+                <button onClick={() => dismissNotice(n.id)} title="Chiudi" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {visibleAnnouncements.length > 0 && (
           <div className="flex flex-col gap-2 mb-4">
@@ -748,7 +789,20 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
 
       {selected && (
         <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: "rgba(74,58,115,0.35)", zIndex: 50 }} onMouseDown={(e) => e.target === e.currentTarget && setSelected(null)}>
-          <div className="w-full p-5" style={{ maxWidth: 380, background: COLORS.card, borderRadius: 18, boxShadow: "0 16px 44px rgba(74,58,115,0.16)" }}>
+          <div
+            className={`relative w-full p-5 ${justBookedId === selected.id ? "booking-celebration-card" : ""}`}
+            style={{ maxWidth: 380, background: COLORS.card, borderRadius: 18, boxShadow: "0 16px 44px rgba(74,58,115,0.16)", overflow: "hidden" }}
+          >
+            {justBookedId === selected.id &&
+              CELEBRATION_SPARKLES.map((s, i) => (
+                <Sparkles
+                  key={i}
+                  size={s.size}
+                  color={COLORS.gold}
+                  className="booking-sparkle"
+                  style={{ position: "absolute", top: s.top, left: s.left, animationDelay: s.delay }}
+                />
+              ))}
             <div className="flex items-center justify-between mb-3">
               <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>
                 {typeById[selected.typeId]?.name || "Classe"}
@@ -784,6 +838,19 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             <div className="mb-4" style={{ fontSize: 12.5, fontWeight: 600, color: availabilityLabel(selected).color }}>
               {availabilityLabel(selected).text}
             </div>
+
+            {selected.myStatus === "booked" && justBookedId === selected.id && (
+              <div className="booking-celebration-text mb-3 text-center" style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: COLORS.gold }}>
+                Complimenti, la lezione è tua!
+              </div>
+            )}
+
+            {selected.myStatus === "booked" && canStillCancel(selected.date, selected.time) && (
+              <div className="flex items-center gap-1.5 mb-3 justify-center" style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
+                <Clock size={12} style={{ flexShrink: 0 }} />
+                Ricordati di disdire in tempo se non potrai partecipare.
+              </div>
+            )}
 
             {selected.myStatus === "booked" && (
               <button
