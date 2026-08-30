@@ -161,3 +161,8 @@ export async function cancelBooking(supabase: DB, classId: string): Promise<void
   const { error } = await supabase.rpc("cancel_booking", { p_class_id: classId });
   if (error) throw error;
 }
+
+export async function submitIssueReport(supabase: DB, message: string): Promise<void> {
+  const { error } = await supabase.rpc("submit_issue_report", { p_message: message });
+  if (error) throw error;
+}

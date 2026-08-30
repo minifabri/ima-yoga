@@ -1,19 +1,28 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCw, Search, ShieldCheck, User } from "lucide-react";
+import { RefreshCw, Search, ShieldCheck, Trash2, User } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { COLORS, withAlpha } from "./colors";
 import { inputStyle } from "./ui";
-import { fetchWorkLog } from "./data";
+import { deleteWorkLogEntry, fetchWorkLog } from "./data";
 import type { WorkLogEntry } from "./types";
 
 type ActorFilter = "all" | "admin" | "client";
 
 const FILTERS: { key: ActorFilter; label: string }[] = [
   { key: "all", label: "Tutti" },
-  { key: "admin", label: "Io" },
+  { key: "admin", label: "Admin" },
   { key: "client", label: "Clienti" },
+];
+
+type ActionFilter = "all" | "bookings" | "cancellations" | "registrations";
+
+const ACTION_FILTERS: { key: ActionFilter; label: string; actions?: string[] }[] = [
+  { key: "all", label: "Tutte le azioni" },
+  { key: "bookings", label: "Prenotazioni", actions: ["booking_created", "booking_waitlisted", "admin_booking_added", "booking_promoted"] },
+  { key: "cancellations", label: "Cancellazioni", actions: ["booking_cancelled", "admin_booking_removed"] },
+  { key: "registrations", label: "Registrazioni", actions: ["client_registered", "client_created"] },
 ];
 
 function formatDateTime(iso: string): { date: string; time: string } {
@@ -32,12 +41,15 @@ function roleMeta(role: WorkLogEntry["actorRole"]) {
 
 export function WorklogView({ supabase }: { supabase: SupabaseClient }) {
   const [filter, setFilter] = useState<ActorFilter>("all");
+  const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
   const [search, setSearch] = useState("");
   const [entries, setEntries] = useState<WorkLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(false);
+
+  const selectedActions = ACTION_FILTERS.find((f) => f.key === actionFilter)?.actions;
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +59,7 @@ export function WorklogView({ supabase }: { supabase: SupabaseClient }) {
       try {
         const { entries: rows, hasMore: more } = await fetchWorkLog(supabase, {
           actorRole: filter === "all" ? undefined : filter,
+          actions: selectedActions,
           search,
         });
         if (cancelled) return;
@@ -61,13 +74,15 @@ export function WorklogView({ supabase }: { supabase: SupabaseClient }) {
     return () => {
       cancelled = true;
     };
-  }, [supabase, filter, search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase, filter, actionFilter, search]);
 
   async function loadMore() {
     setLoadingMore(true);
     try {
       const { entries: more, hasMore: next } = await fetchWorkLog(supabase, {
         actorRole: filter === "all" ? undefined : filter,
+        actions: selectedActions,
         search,
         offset: entries.length,
       });
@@ -77,6 +92,16 @@ export function WorklogView({ supabase }: { supabase: SupabaseClient }) {
       // l'utente può ritentare col bottone
     } finally {
       setLoadingMore(false);
+    }
+  }
+
+  async function deleteEntry(id: string) {
+    const prev = entries;
+    setEntries((cur) => cur.filter((e) => e.id !== id));
+    try {
+      await deleteWorkLogEntry(supabase, id);
+    } catch {
+      setEntries(prev);
     }
   }
 
@@ -107,6 +132,19 @@ export function WorklogView({ supabase }: { supabase: SupabaseClient }) {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="flex rounded-lg overflow-hidden mb-4" style={{ border: `1px solid ${COLORS.border}`, width: "fit-content" }}>
+        {ACTION_FILTERS.map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => setActionFilter(opt.key)}
+            className="px-3 py-1.5 text-sm font-medium whitespace-nowrap"
+            style={{ background: actionFilter === opt.key ? COLORS.primary : "transparent", color: actionFilter === opt.key ? "#fff" : COLORS.ink }}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       <div className="relative mb-4">
@@ -157,6 +195,9 @@ export function WorklogView({ supabase }: { supabase: SupabaseClient }) {
                           <span style={{ fontWeight: 600, color: meta.color }}>{meta.label}</span>
                         </div>
                       </div>
+                      <button onClick={() => deleteEntry(entry.id)} title="Elimina" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   );
                 })}

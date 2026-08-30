@@ -23,6 +23,7 @@ import {
   Megaphone,
   Bell,
   Sparkles,
+  Flag,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
@@ -106,6 +107,10 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   const [newPassword, setNewPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordPending, setPasswordPending] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportMessage, setReportMessage] = useState("");
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportPending, setReportPending] = useState(false);
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -124,6 +129,26 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
     setChangePasswordOpen(false);
     setNewPassword("");
     showToast("Password aggiornata.");
+  }
+
+  async function handleSubmitReport(e: React.FormEvent) {
+    e.preventDefault();
+    setReportError(null);
+    if (!reportMessage.trim()) {
+      setReportError("Scrivi qualche parola su cosa non ha funzionato.");
+      return;
+    }
+    setReportPending(true);
+    try {
+      await db.submitIssueReport(supabase, reportMessage.trim());
+      setReportOpen(false);
+      setReportMessage("");
+      showToast("Segnalazione inviata, grazie!");
+    } catch (err) {
+      setReportError(errorMessage(err) || "Non è stato possibile inviare la segnalazione.");
+    } finally {
+      setReportPending(false);
+    }
   }
   const [toast, setToast] = useState<{ message: string; icon: "check" | "rose" } | null>(null);
 
@@ -313,6 +338,14 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 Le mie prenotazioni
               </button>
             </div>
+            <button
+              onClick={() => setReportOpen(true)}
+              className="flex items-center justify-center rounded-lg"
+              style={{ width: 36, height: 36, border: `1px solid ${COLORS.border}`, color: COLORS.inkSoft }}
+              title="Segnala un problema"
+            >
+              <Flag size={15} />
+            </button>
             <ThemeToggle />
             <div className="relative">
               <button
@@ -959,6 +992,59 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 style={{ background: COLORS.primary }}
               >
                 {passwordPending ? "Salvataggio…" : "Salva"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {reportOpen && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ background: "rgba(74,58,115,0.35)", zIndex: 50 }}
+          onMouseDown={(e) => e.target === e.currentTarget && setReportOpen(false)}
+        >
+          <div className="w-full p-5" style={{ maxWidth: 360, background: COLORS.card, borderRadius: 18, boxShadow: "0 16px 44px rgba(74,58,115,0.16)" }}>
+            <div className="flex items-center justify-between mb-2">
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>Segnala un problema</div>
+              <button onClick={() => setReportOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ fontSize: 12.5, color: COLORS.inkSoft, lineHeight: 1.4 }} className="mb-3">
+              Anche i guru possono sbagliare, ogni tanto — raccontaci cosa non ha funzionato.
+            </div>
+            <form onSubmit={handleSubmitReport} className="flex flex-col gap-3">
+              <textarea
+                value={reportMessage}
+                onChange={(e) => setReportMessage(e.target.value)}
+                rows={4}
+                required
+                placeholder="Cosa hai trovato che non va?"
+                style={{
+                  width: "100%",
+                  border: `1px solid ${COLORS.border}`,
+                  borderRadius: 9,
+                  padding: "8px 10px",
+                  fontSize: 13,
+                  background: COLORS.bg,
+                  color: COLORS.ink,
+                  outline: "none",
+                  resize: "vertical",
+                }}
+              />
+              {reportError && (
+                <div className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E2", color: COLORS.danger }}>
+                  {reportError}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={reportPending}
+                className="py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
+                style={{ background: COLORS.primary }}
+              >
+                {reportPending ? "Invio…" : "Invia segnalazione"}
               </button>
             </form>
           </div>

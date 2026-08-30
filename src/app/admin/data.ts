@@ -555,11 +555,12 @@ const WORKLOG_PAGE_SIZE = 50;
 
 export async function fetchWorkLog(
   supabase: DB,
-  opts: { actorRole?: "admin" | "client"; search?: string; offset?: number } = {}
+  opts: { actorRole?: "admin" | "client"; actions?: string[]; search?: string; offset?: number } = {}
 ): Promise<{ entries: WorkLogEntry[]; hasMore: boolean }> {
   const offset = opts.offset ?? 0;
   let query = supabase.from("work_log").select("*").order("created_at", { ascending: false });
   if (opts.actorRole) query = query.eq("actor_role", opts.actorRole);
+  if (opts.actions && opts.actions.length > 0) query = query.in("action", opts.actions);
   const term = opts.search?.trim();
   if (term) query = query.ilike("description", `%${term.replace(/[%_]/g, "")}%`);
   query = query.range(offset, offset + WORKLOG_PAGE_SIZE);
@@ -569,4 +570,9 @@ export async function fetchWorkLog(
   const rows = data ?? [];
   const hasMore = rows.length > WORKLOG_PAGE_SIZE;
   return { entries: (hasMore ? rows.slice(0, WORKLOG_PAGE_SIZE) : rows).map(mapWorkLogEntry), hasMore };
+}
+
+export async function deleteWorkLogEntry(supabase: DB, id: string) {
+  const { error } = await supabase.from("work_log").delete().eq("id", id);
+  if (error) throw error;
 }
