@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <style>
+    .bg { fill: #1c1830; }
+    .moon { stroke: #e6dbf5; }
+    .spark { fill: #e3c481; }
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #faf7f2; }
+      .moon { stroke: #4a3a73; }
+      .spark { fill: #d6b36a; }
+    }
+  </style>
+  <rect class="bg" x="0" y="0" width="512" height="512" rx="112" />
+  <g transform="translate(80 130) scale(16)">
+    <path class="moon" d="M12.6 5a5.4 5.4 0 1 0 0 10 4.3 4.3 0 0 1 0-10z" fill="none" stroke-width="1.2" stroke-linejoin="round" />
+    <path class="spark" d="M15.5 2.3 L16 3.7 L17.4 4.3 L16 4.9 L15.5 6.3 L15 4.9 L13.6 4.3 L15 3.7 Z" />
+  </g>
+</svg>

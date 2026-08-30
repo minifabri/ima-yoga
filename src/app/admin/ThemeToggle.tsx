@@ -43,18 +43,18 @@ function MoonMark({ size }: { size: number }) {
   );
 }
 
-// Sole: un piccolo fiore dorato — petali morbidi invece di raggi a filo, per
-// non somigliare a una lampadina. Stesso accento viola della luna sul bordo.
+// Sole: raggi sottili ad ago, stesso linguaggio minimale della luna (cerchio +
+// accenti a punta), per non somigliare a un fiore.
 function SunMark({ size }: { size: number }) {
-  const petals = [0, 60, 120, 180, 240, 300];
+  const rays = [0, 45, 90, 135, 180, 225, 270, 315];
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <g className="theme-toggle-spark" style={{ transformOrigin: "10px 10px" }}>
-        {petals.map((deg) => (
-          <path key={deg} d="M10 5.6c-1.35 0-2.1-1.55-2.1-3.5S8.65.9 10 .9s2.1 1.15 2.1 3.5-.75 3.2-2.1 3.2z" fill={COLORS.gold} transform={`rotate(${deg} 10 10)`} />
+      <g className="theme-toggle-spark" style={{ transformOrigin: "10px 10px" }} stroke={COLORS.gold} strokeWidth="1.5" strokeLinecap="round">
+        {rays.map((deg) => (
+          <line key={deg} x1="10" y1="3.6" x2="10" y2="5.7" transform={`rotate(${deg} 10 10)`} />
         ))}
       </g>
-      <circle cx="10" cy="10" r="3.1" fill={COLORS.gold} stroke={COLORS.heading} strokeWidth="0.9" />
+      <circle cx="10" cy="10" r="3.3" fill={COLORS.gold} stroke={COLORS.heading} strokeWidth="0.9" />
     </svg>
   );
 }
