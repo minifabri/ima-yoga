@@ -99,7 +99,7 @@ export type ClientNotice = {
   clientId: string;
   clientName: string;
   message: string;
-  kind: "custom" | "package_assigned";
+  kind: "custom" | "package_assigned" | "welcome";
   read: boolean;
   createdAt: string;
 };

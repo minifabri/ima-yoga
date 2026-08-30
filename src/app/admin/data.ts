@@ -85,7 +85,7 @@ function mapClientNotice(row: {
   id: string;
   client_id: string;
   message: string;
-  kind: "custom" | "package_assigned";
+  kind: "custom" | "package_assigned" | "welcome";
   read: boolean;
   created_at: string;
   profiles: { full_name: string } | null;

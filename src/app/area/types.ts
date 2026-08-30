@@ -18,7 +18,7 @@ export type Announcement = {
 export type ClientNotice = {
   id: string;
   message: string;
-  kind: "custom" | "package_assigned";
+  kind: "custom" | "package_assigned" | "welcome";
 };
 
 export type PublicClass = {
