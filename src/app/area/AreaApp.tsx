@@ -23,7 +23,6 @@ import {
   Megaphone,
   Bell,
   Sparkles,
-  Rose,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
@@ -400,11 +399,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
 
         {toast && (
           <div className="mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2" style={{ background: COLORS.subtle, color: COLORS.primaryDark }}>
-            {toast.icon === "rose" ? (
-              <Rose size={15} color={COLORS.inkSoft} style={{ transform: "rotate(18deg)" }} />
-            ) : (
-              <Check size={15} />
-            )}{" "}
+            {toast.icon === "rose" ? <span style={{ fontSize: 15, lineHeight: 1 }}>🥀</span> : <Check size={15} />}{" "}
             {toast.message}
           </div>
         )}
@@ -855,12 +850,11 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             )}
 
             {!selected.myStatus && justCancelledId === selected.id && (
-              <div
-                className="booking-celebration-text mb-3 text-center flex items-center justify-center gap-1.5"
-                style={{ fontSize: 13, color: COLORS.inkSoft }}
-              >
-                <Rose size={14} color={COLORS.inkSoft} style={{ transform: "rotate(18deg)", flexShrink: 0 }} />
-                Prenotazione appassita. Rifiorirai alla prossima lezione.
+              <div className="booking-celebration-text mb-3 text-center">
+                <div style={{ fontSize: 26, lineHeight: 1 }} className="mb-1">
+                  🥀
+                </div>
+                <div style={{ fontSize: 13, color: COLORS.inkSoft }}>Prenotazione appassita. Rifiorirai alla prossima lezione.</div>
               </div>
             )}
 
