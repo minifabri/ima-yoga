@@ -23,6 +23,7 @@ import {
   Megaphone,
   Bell,
   Sparkles,
+  Rose,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
@@ -124,11 +125,11 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
     setNewPassword("");
     showToast("Password aggiornata.");
   }
-  const [toast, setToast] = useState("");
+  const [toast, setToast] = useState<{ message: string; icon: "check" | "rose" } | null>(null);
 
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(""), 2600);
+  function showToast(msg: string, icon: "check" | "rose" = "check") {
+    setToast({ message: msg, icon });
+    setTimeout(() => setToast(null), 2600);
   }
 
   useEffect(() => {
@@ -264,7 +265,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
     setPending(true);
     try {
       await db.cancelBooking(supabase, classId);
-      showToast("Prenotazione cancellata.");
+      showToast("Prenotazione appassita. Rifiorirai alla prossima lezione.", "rose");
       const next = await refreshClasses();
       setSelected((cur) => (cur ? next.find((x) => x.id === cur.id) || null : null));
       await refreshMine();
@@ -396,7 +397,12 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
 
         {toast && (
           <div className="mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2" style={{ background: COLORS.subtle, color: COLORS.primaryDark }}>
-            <Check size={15} /> {toast}
+            {toast.icon === "rose" ? (
+              <Rose size={15} color={COLORS.inkSoft} style={{ transform: "rotate(18deg)" }} />
+            ) : (
+              <Check size={15} />
+            )}{" "}
+            {toast.message}
           </div>
         )}
 

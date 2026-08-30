@@ -2,8 +2,8 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { VenetianMask } from "lucide-react";
 import { login, type ActionState } from "@/app/actions";
+import { PeekCalendarLink } from "./PeekCalendarLink";
 
 const initialState: ActionState = { error: null };
 
@@ -62,13 +62,7 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-3 pt-3 text-center" style={{ borderTop: "1px solid var(--border)" }}>
-          <Link
-            href="/calendario"
-            className="inline-flex items-center gap-1.5"
-            style={{ fontSize: 12, color: "var(--ink-soft)" }}
-          >
-            <VenetianMask size={14} /> Dai un&apos;occhiata al calendario senza accedere
-          </Link>
+          <PeekCalendarLink />
         </div>
       </div>
     </main>

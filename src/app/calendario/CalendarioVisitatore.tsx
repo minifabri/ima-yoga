@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronLeft, ChevronRight, Gift, VenetianMask, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Eye, Gift, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/admin/utils";
@@ -37,7 +37,7 @@ export function CalendarioVisitatore() {
       <div className="w-full mx-auto" style={{ maxWidth: 860 }}>
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <Link href="/" className="inline-flex items-center gap-1 text-sm" style={{ color: COLORS.inkSoft }}>
-            <ArrowLeft size={15} /> Torna alla copertina
+            <ArrowLeft size={15} /> Fai un passo indietro
           </Link>
           <div
             className="inline-flex items-center gap-1.5 rounded-full"
@@ -51,7 +51,7 @@ export function CalendarioVisitatore() {
             }}
             title="Stai guardando il calendario come visitatore, senza aver effettuato l'accesso."
           >
-            <VenetianMask size={14} /> Modalità visitatore
+            <Eye size={14} /> Modalità visitatore
           </div>
         </div>
 
