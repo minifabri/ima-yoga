@@ -23,7 +23,7 @@ import {
   Megaphone,
   Bell,
   Sparkles,
-  Flag,
+  Bug,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
@@ -344,7 +344,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
               style={{ width: 36, height: 36, border: `1px solid ${COLORS.border}`, color: COLORS.inkSoft }}
               title="Segnala un problema"
             >
-              <Flag size={15} />
+              <Bug size={15} />
             </button>
             <ThemeToggle />
             <div className="relative">
