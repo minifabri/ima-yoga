@@ -8,6 +8,7 @@ import { COLORS, withAlpha } from "./colors";
 import { dateKey, genId, classEffectivePrice } from "./utils";
 import { Modal } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
+import { NotificationsPanel } from "./NotificationsPanel";
 import { CalendarView } from "./CalendarView";
 import { ClassFormModal } from "./ClassFormModal";
 import { SettingsView } from "./SettingsView";
@@ -30,6 +31,7 @@ import type {
   Expense,
   LedgerEntry,
   Level,
+  NotificationItem,
   PackageItem,
   PackageWithUsage,
   Settings,
@@ -66,6 +68,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   const [expenses, setExpenses] = useState<Expense[]>(initial.expenses);
   const [announcements, setAnnouncements] = useState<Announcement[]>(initial.announcements);
   const [clientNotices, setClientNotices] = useState<ClientNotice[]>(initial.clientNotices);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(initial.notifications);
   const [clipboard, setClipboard] = useState<ClassClipboard | null>(null);
   const [toast, setToast] = useState("");
   const [classModal, setClassModal] = useState<ClassModalState>(null);
@@ -103,6 +106,34 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     }, 30000);
     return () => clearInterval(interval);
   }, [view, supabase]);
+
+  // ---- notifiche admin ----
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-notifications-feed")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications" },
+        (payload) => {
+          const n = db.mapNotification(payload.new as Parameters<typeof db.mapNotification>[0]);
+          setNotifications((cur) => [n, ...cur]);
+          showToast(`${n.title}: ${n.message}`);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
+
+  function markNotificationReadHandler(id: string) {
+    setNotifications((cur) => cur.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    db.markNotificationRead(supabase, id).catch(() => {});
+  }
+  function markAllNotificationsReadHandler() {
+    setNotifications((cur) => cur.map((n) => ({ ...n, read: true })));
+    db.markAllNotificationsRead(supabase).catch(() => {});
+  }
 
   // ---- derived ----
   const typeById = useMemo(() => Object.fromEntries(classTypes.map((t) => [t.id, t])), [classTypes]);
@@ -543,6 +574,11 @@ export function AdminApp({ initial }: { initial: AdminData }) {
               {bookingsOpen ? <LockOpen size={15} /> : <Lock size={15} />}
               <span className="hidden sm:inline">{bookingsOpen ? "Iscrizioni aperte" : "Iscrizioni chiuse"}</span>
             </button>
+            <NotificationsPanel
+              notifications={notifications}
+              onMarkRead={markNotificationReadHandler}
+              onMarkAllRead={markAllNotificationsReadHandler}
+            />
             <ThemeToggle />
             <form action={logout}>
               <button type="submit" className="text-sm font-medium px-1.5" style={{ color: COLORS.inkSoft }}>

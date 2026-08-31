@@ -119,6 +119,19 @@ export type WorkLogEntry = {
   description: string;
 };
 
+export type NotificationType = "registration" | "enrollment" | "cancellation" | "issue_report";
+
+export type NotificationItem = {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  entityTable: string | null;
+  entityId: string | null;
+  read: boolean;
+  createdAt: string;
+};
+
 export type VisitorStats = {
   byPath: { path: string; views: number }[];
   daily: { day: string; pageviews: number; signups: number }[];
@@ -139,4 +152,5 @@ export type AdminData = {
   announcements: Announcement[];
   clientNotices: ClientNotice[];
   expenses: Expense[];
+  notifications: NotificationItem[];
 };

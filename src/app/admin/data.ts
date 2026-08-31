@@ -9,6 +9,8 @@ import type {
   Expense,
   LedgerEntry,
   Level,
+  NotificationItem,
+  NotificationType,
   PackageItem,
   Settings,
   VisitorStats,
@@ -102,6 +104,28 @@ function mapClientNotice(row: {
   };
 }
 
+export function mapNotification(row: {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  entity_table: string | null;
+  entity_id: string | null;
+  read: boolean;
+  created_at: string;
+}): NotificationItem {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    message: row.message,
+    entityTable: row.entity_table,
+    entityId: row.entity_id,
+    read: row.read,
+    createdAt: row.created_at,
+  };
+}
+
 function mapExpense(row: { id: string; amount: number; note: string | null; expense_date: string }): Expense {
   return {
     id: row.id,
@@ -168,19 +192,31 @@ function mapClass(row: {
 }
 
 export async function fetchAdminData(supabase: DB): Promise<AdminData> {
-  const [typesRes, levelsRes, settingsRes, classesRes, clientsRes, packagesRes, ledgerRes, expensesRes, announcementsRes, clientNoticesRes] =
-    await Promise.all([
-      supabase.from("class_types").select("*").order("created_at"),
-      supabase.from("levels").select("*"),
-      supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
-      supabase.from("classes").select("*, bookings(*)").order("class_date"),
-      supabase.from("profiles").select("*").eq("role", "client").order("full_name"),
-      supabase.from("packages").select("*"),
-      supabase.from("ledger_entries").select("*"),
-      supabase.from("expenses").select("*").order("expense_date", { ascending: false }),
-      supabase.from("announcements").select("*").order("created_at", { ascending: false }),
-      supabase.from("client_notices").select("*, profiles(full_name)").order("created_at", { ascending: false }),
-    ]);
+  const [
+    typesRes,
+    levelsRes,
+    settingsRes,
+    classesRes,
+    clientsRes,
+    packagesRes,
+    ledgerRes,
+    expensesRes,
+    announcementsRes,
+    clientNoticesRes,
+    notificationsRes,
+  ] = await Promise.all([
+    supabase.from("class_types").select("*").order("created_at"),
+    supabase.from("levels").select("*"),
+    supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
+    supabase.from("classes").select("*, bookings(*)").order("class_date"),
+    supabase.from("profiles").select("*").eq("role", "client").order("full_name"),
+    supabase.from("packages").select("*"),
+    supabase.from("ledger_entries").select("*"),
+    supabase.from("expenses").select("*").order("expense_date", { ascending: false }),
+    supabase.from("announcements").select("*").order("created_at", { ascending: false }),
+    supabase.from("client_notices").select("*, profiles(full_name)").order("created_at", { ascending: false }),
+    supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(50),
+  ]);
 
   const settings: Settings = settingsRes.data
     ? {
@@ -211,6 +247,7 @@ export async function fetchAdminData(supabase: DB): Promise<AdminData> {
     expenses: (expensesRes.data ?? []).map(mapExpense),
     announcements: (announcementsRes.data ?? []).map((a) => ({ id: a.id, message: a.message, active: a.active })),
     clientNotices: (clientNoticesRes.data ?? []).map(mapClientNotice),
+    notifications: (notificationsRes.data ?? []).map(mapNotification),
   };
 }
 
@@ -578,6 +615,19 @@ export async function fetchWorkLog(
 
 export async function deleteWorkLogEntry(supabase: DB, id: string) {
   const { error } = await supabase.from("work_log").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------
+// Notifiche admin
+// ---------------------------------------------------------
+export async function markNotificationRead(supabase: DB, id: string) {
+  const { error } = await supabase.from("notifications").update({ read: true }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function markAllNotificationsRead(supabase: DB) {
+  const { error } = await supabase.from("notifications").update({ read: true }).eq("read", false);
   if (error) throw error;
 }
 
