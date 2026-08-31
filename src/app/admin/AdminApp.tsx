@@ -70,13 +70,27 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   const [toast, setToast] = useState("");
   const [classModal, setClassModal] = useState<ClassModalState>(null);
   const [confirmDelete, setConfirmDelete] = useState<ConfirmDeleteState>(null);
+  const [clientsRefreshing, setClientsRefreshing] = useState(false);
 
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(""), 2600);
   }
 
-  // ---- aggiornamento automatico elenco clienti ----
+  // ---- aggiornamento elenco clienti ----
+  async function refreshClients() {
+    setClientsRefreshing(true);
+    try {
+      const next = await db.fetchAdminData(supabase);
+      setClients(next.clients);
+      setClasses(next.classes);
+    } catch {
+      showToast("Aggiornamento non riuscito.");
+    } finally {
+      setClientsRefreshing(false);
+    }
+  }
+
   useEffect(() => {
     if (view !== "clients") return;
     const interval = setInterval(() => {
@@ -575,6 +589,8 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onGetAuthStatus={getClientAuthStatus}
             onResendActivation={resendClientActivation}
             onResendPasswordReset={resendClientPasswordReset}
+            onRefresh={refreshClients}
+            refreshing={clientsRefreshing}
           />
         ) : view === "payments" ? (
           <PaymentsView

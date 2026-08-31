@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Plus, Clock, Trash2, Ban, CheckCircle2, KeyRound, Copy, Mail, Send } from "lucide-react";
+import { Search, Plus, Clock, Trash2, Ban, CheckCircle2, KeyRound, Copy, Mail, Send, RefreshCw } from "lucide-react";
 import { Badge, Modal, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import type { ClassItem, ClassType, ClientItem } from "./types";
@@ -19,6 +19,8 @@ export function ClientsView({
   onGetAuthStatus,
   onResendActivation,
   onResendPasswordReset,
+  onRefresh,
+  refreshing,
 }: {
   clients: ClientItem[];
   classes: ClassItem[];
@@ -30,6 +32,8 @@ export function ClientsView({
   onGetAuthStatus: (id: string) => Promise<AuthStatus | null>;
   onResendActivation: (id: string) => Promise<boolean>;
   onResendPasswordReset: (id: string) => Promise<boolean>;
+  onRefresh: () => void;
+  refreshing: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -110,6 +114,15 @@ export function ClientsView({
           <Search size={15} color={COLORS.inkSoft} />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cerca cliente…" style={{ border: "none", outline: "none", fontSize: 13, flex: 1, background: "transparent" }} />
         </div>
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          title="Aggiorna elenco clienti"
+          className="flex items-center justify-center p-2.5 rounded-lg disabled:opacity-60"
+          style={{ border: `1px solid ${COLORS.border}` }}
+        >
+          <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
+        </button>
       </div>
 
       <div className="flex items-center gap-2 mb-4 p-3 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
