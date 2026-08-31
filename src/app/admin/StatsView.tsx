@@ -64,6 +64,15 @@ export function StatsView({ supabase }: { supabase: SupabaseClient }) {
     };
   }, [supabase, days]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchVisitorStats(supabase, days)
+        .then(setStats)
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [supabase, days]);
+
   const totalPageviews = useMemo(() => (stats?.byPath ?? []).reduce((sum, p) => sum + p.views, 0), [stats]);
   const totalSignups = useMemo(() => (stats?.daily ?? []).reduce((sum, d) => sum + d.signups, 0), [stats]);
   const conversionRate = stats && stats.calendarViewers > 0 ? Math.round((stats.calendarConversions / stats.calendarViewers) * 1000) / 10 : 0;

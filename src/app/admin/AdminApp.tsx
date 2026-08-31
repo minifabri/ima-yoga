@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
@@ -75,6 +75,20 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     setToast(msg);
     setTimeout(() => setToast(""), 2600);
   }
+
+  // ---- aggiornamento automatico elenco clienti ----
+  useEffect(() => {
+    if (view !== "clients") return;
+    const interval = setInterval(() => {
+      db.fetchAdminData(supabase)
+        .then((next) => {
+          setClients(next.clients);
+          setClasses(next.classes);
+        })
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [view, supabase]);
 
   // ---- derived ----
   const typeById = useMemo(() => Object.fromEntries(classTypes.map((t) => [t.id, t])), [classTypes]);
