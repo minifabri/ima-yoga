@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Plus, Clock, Trash2, Ban, CheckCircle2, KeyRound, Copy } from "lucide-react";
+import { Search, Plus, Clock, Trash2, Ban, CheckCircle2, KeyRound, Copy, Mail, Send } from "lucide-react";
 import { Badge, Modal, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import type { ClassItem, ClassType, ClientItem } from "./types";
+
+type AuthStatus = { email: string; emailConfirmed: boolean };
 
 export function ClientsView({
   clients,
@@ -14,6 +16,9 @@ export function ClientsView({
   onDelete,
   onSetDisabled,
   onResetPassword,
+  onGetAuthStatus,
+  onResendActivation,
+  onResendPasswordReset,
 }: {
   clients: ClientItem[];
   classes: ClassItem[];
@@ -22,6 +27,9 @@ export function ClientsView({
   onDelete: (id: string) => void;
   onSetDisabled: (id: string, disabled: boolean, cancelFuture: boolean) => void;
   onResetPassword: (id: string) => Promise<string>;
+  onGetAuthStatus: (id: string) => Promise<AuthStatus | null>;
+  onResendActivation: (id: string) => Promise<boolean>;
+  onResendPasswordReset: (id: string) => Promise<boolean>;
 }) {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -31,6 +39,9 @@ export function ClientsView({
   const [cancelFuture, setCancelFuture] = useState(false);
   const [tempPasswords, setTempPasswords] = useState<Record<string, string>>({});
   const [resettingId, setResettingId] = useState<string | null>(null);
+  const [authStatus, setAuthStatus] = useState<Record<string, AuthStatus | null>>({});
+  const [authStatusLoading, setAuthStatusLoading] = useState<Record<string, boolean>>({});
+  const [resendLoading, setResendLoading] = useState<Record<string, "activation" | "reset" | null>>({});
 
   const bookingsByClient = useMemo(() => {
     const map: Record<string, ClassItem[]> = {};
@@ -63,6 +74,35 @@ export function ClientsView({
     }
   }
 
+  async function toggleExpand(c: ClientItem) {
+    const opening = expandedId !== c.id;
+    setExpandedId(opening ? c.id : null);
+    if (opening && c.hasAccount && authStatus[c.id] === undefined && !authStatusLoading[c.id]) {
+      setAuthStatusLoading((cur) => ({ ...cur, [c.id]: true }));
+      const status = await onGetAuthStatus(c.id);
+      setAuthStatus((cur) => ({ ...cur, [c.id]: status }));
+      setAuthStatusLoading((cur) => ({ ...cur, [c.id]: false }));
+    }
+  }
+
+  async function handleResendActivation(id: string) {
+    setResendLoading((cur) => ({ ...cur, [id]: "activation" }));
+    try {
+      await onResendActivation(id);
+    } finally {
+      setResendLoading((cur) => ({ ...cur, [id]: null }));
+    }
+  }
+
+  async function handleResendPasswordReset(id: string) {
+    setResendLoading((cur) => ({ ...cur, [id]: "reset" }));
+    try {
+      await onResendPasswordReset(id);
+    } finally {
+      setResendLoading((cur) => ({ ...cur, [id]: null }));
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center gap-2 mb-4">
@@ -86,7 +126,7 @@ export function ClientsView({
           const isOpen = expandedId === c.id;
           return (
             <div key={c.id} className="rounded-xl overflow-hidden" style={{ background: COLORS.card, border: `1px solid ${c.disabled ? withAlpha(COLORS.danger, 33) : COLORS.border}` }}>
-              <button onClick={() => setExpandedId(isOpen ? null : c.id)} className="w-full flex items-center justify-between px-4 py-3 text-left">
+              <button onClick={() => toggleExpand(c)} className="w-full flex items-center justify-between px-4 py-3 text-left">
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span style={{ fontSize: 14, fontWeight: 600 }}>{c.name}</span>
@@ -107,6 +147,25 @@ export function ClientsView({
                       </div>
                     ))}
                   </div>
+
+                  {c.hasAccount && (
+                    <div className="mt-3 p-2.5 rounded-lg" style={{ background: COLORS.subtle }}>
+                      {authStatusLoading[c.id] ? (
+                        <div style={{ fontSize: 12, color: COLORS.inkSoft }}>Verifica stato account…</div>
+                      ) : authStatus[c.id] ? (
+                        <div className="flex items-center gap-2 flex-wrap" style={{ fontSize: 12 }}>
+                          <span style={{ color: COLORS.inkSoft }}>{authStatus[c.id]!.email}</span>
+                          {authStatus[c.id]!.emailConfirmed ? (
+                            <Badge color={COLORS.success}>Email verificata</Badge>
+                          ) : (
+                            <Badge color={COLORS.danger}>Email non verificata</Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: COLORS.inkSoft }}>Stato account non disponibile.</div>
+                      )}
+                    </div>
+                  )}
 
                   {tempPasswords[c.id] && (
                     <div className="mt-3 p-2.5 rounded-lg flex items-center justify-between gap-2" style={{ background: COLORS.subtle }}>
@@ -156,6 +215,26 @@ export function ClientsView({
                         style={{ color: COLORS.primaryDark }}
                       >
                         <KeyRound size={12} /> {resettingId === c.id ? "Reset in corso…" : "Resetta password"}
+                      </button>
+                    )}
+                    {c.hasAccount && (
+                      <button
+                        onClick={() => handleResendPasswordReset(c.id)}
+                        disabled={resendLoading[c.id] === "reset"}
+                        className="flex items-center gap-1.5 text-xs font-medium disabled:opacity-60"
+                        style={{ color: COLORS.primaryDark }}
+                      >
+                        <Send size={12} /> {resendLoading[c.id] === "reset" ? "Invio…" : "Rinvia reset password"}
+                      </button>
+                    )}
+                    {c.hasAccount && authStatus[c.id] && !authStatus[c.id]!.emailConfirmed && (
+                      <button
+                        onClick={() => handleResendActivation(c.id)}
+                        disabled={resendLoading[c.id] === "activation"}
+                        className="flex items-center gap-1.5 text-xs font-medium disabled:opacity-60"
+                        style={{ color: COLORS.primaryDark }}
+                      >
+                        <Mail size={12} /> {resendLoading[c.id] === "activation" ? "Invio…" : "Rinvia link attivazione"}
                       </button>
                     )}
                   </div>

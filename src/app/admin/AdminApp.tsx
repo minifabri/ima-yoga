@@ -18,7 +18,7 @@ import { NoticesView } from "./NoticesView";
 import { WorklogView } from "./WorklogView";
 import { StatsView } from "./StatsView";
 import * as db from "./data";
-import { adminResetClientPassword } from "./actions";
+import { adminResetClientPassword, adminGetClientAuthStatus, adminResendActivationEmail, adminResendPasswordReset } from "./actions";
 import { notifyClassFull } from "@/lib/notifications";
 import type {
   AdminData,
@@ -224,6 +224,24 @@ export function AdminApp({ initial }: { initial: AdminData }) {
       throw new Error(res.error || "reset failed");
     }
     return res.password;
+  }
+  async function getClientAuthStatus(id: string): Promise<{ email: string; emailConfirmed: boolean } | null> {
+    const res = await adminGetClientAuthStatus(id);
+    if (!res.ok || res.email === undefined || res.emailConfirmed === undefined) {
+      showToast(res.error || "Non è stato possibile leggere lo stato dell'account.");
+      return null;
+    }
+    return { email: res.email, emailConfirmed: res.emailConfirmed };
+  }
+  async function resendClientActivation(id: string) {
+    const res = await adminResendActivationEmail(id);
+    showToast(res.ok ? "Email di attivazione reinviata." : res.error || "Invio non riuscito.");
+    return res.ok;
+  }
+  async function resendClientPasswordReset(id: string) {
+    const res = await adminResendPasswordReset(id);
+    showToast(res.ok ? "Email di reset password reinviata." : res.error || "Invio non riuscito.");
+    return res.ok;
   }
 
   // ---- class types, levels, settings ----
@@ -540,6 +558,9 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onDelete={(id) => setConfirmDelete({ type: "client", id })}
             onSetDisabled={setClientDisabledHandler}
             onResetPassword={resetClientPassword}
+            onGetAuthStatus={getClientAuthStatus}
+            onResendActivation={resendClientActivation}
+            onResendPasswordReset={resendClientPasswordReset}
           />
         ) : view === "payments" ? (
           <PaymentsView
