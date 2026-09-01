@@ -1193,7 +1193,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
               )}
             </div>
             <div style={{ fontSize: 12.5, color: COLORS.inkSoft, lineHeight: 1.5 }} className="mb-3">
-              Non potrai più accedere e le tue eventuali prenotazioni future verranno cancellate. Lo storico delle lezioni svolte e i movimenti contabili restano archiviati. L&apos;operazione non è reversibile.
+              Non potrai più accedere e le tue eventuali prenotazioni future verranno cancellate. Lo storico delle lezioni svolte resta archiviato. L&apos;operazione non è reversibile.
             </div>
             <form action={deleteAccountFormAction} className="flex flex-col gap-3">
               <label className="block">
