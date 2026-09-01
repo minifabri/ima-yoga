@@ -24,6 +24,7 @@ import {
   Bell,
   Sparkles,
   Bug,
+  UserCheck,
   AtSign,
   MessageCircle,
 } from "lucide-react";
@@ -112,6 +113,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   const [historyOpen, setHistoryOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordPending, setPasswordPending] = useState(false);
@@ -357,7 +359,90 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             <ThemeToggle />
             <div className="relative">
               <button
-                onClick={() => setProfileMenuOpen((v) => !v)}
+                onClick={() => {
+                  setProfileMenuOpen(false);
+                  setNotificationsOpen((v) => !v);
+                }}
+                className="flex items-center justify-center rounded-lg relative"
+                style={{ width: 36, height: 36, border: `1px solid ${COLORS.border}`, color: COLORS.ink }}
+                title="Notifiche"
+              >
+                <Bell size={16} />
+                {myNotices.length > 0 && (
+                  <span
+                    className="absolute flex items-center justify-center rounded-full"
+                    style={{
+                      top: -4,
+                      right: -4,
+                      minWidth: 16,
+                      height: 16,
+                      padding: "0 3px",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      color: "#fff",
+                      background: COLORS.danger,
+                    }}
+                  >
+                    {myNotices.length}
+                  </span>
+                )}
+              </button>
+              {notificationsOpen && (
+                <>
+                  <div className="fixed inset-0" style={{ zIndex: 40 }} onClick={() => setNotificationsOpen(false)} />
+                  <div
+                    className="absolute right-0 mt-2 rounded-xl overflow-hidden"
+                    style={{
+                      zIndex: 41,
+                      width: 320,
+                      maxWidth: "88vw",
+                      background: COLORS.card,
+                      border: `1px solid ${COLORS.border}`,
+                      boxShadow: "0 8px 24px rgba(74,58,115,0.14)",
+                    }}
+                  >
+                    <div
+                      className="px-3 py-2.5"
+                      style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.heading, borderBottom: `1px solid ${COLORS.border}` }}
+                    >
+                      Notifiche
+                    </div>
+                    <div style={{ maxHeight: 340, overflowY: "auto" }}>
+                      {myNotices.length === 0 ? (
+                        <div className="px-3 py-5 text-center" style={{ fontSize: 12.5, color: COLORS.inkSoft }}>
+                          Nessuna notifica.
+                        </div>
+                      ) : (
+                        myNotices.map((n) => (
+                          <div key={n.id} className="flex items-start gap-2 px-3 py-2.5" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                            {n.kind === "package_assigned" ? (
+                              <Sparkles size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />
+                            ) : n.kind === "waitlist_promoted" ? (
+                              <UserCheck size={14} color={COLORS.success} style={{ flexShrink: 0, marginTop: 1 }} />
+                            ) : (
+                              <Bell size={14} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1 }} />
+                            )}
+                            <span className="flex-1" style={{ fontSize: 13, color: COLORS.ink }}>
+                              {n.message}
+                            </span>
+                            <button onClick={() => dismissNotice(n.id)} title="Segna come letta" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setNotificationsOpen(false);
+                  setProfileMenuOpen((v) => !v);
+                }}
                 className="flex items-center justify-center rounded-lg"
                 style={{ width: 36, height: 36, border: `1px solid ${COLORS.border}`, color: COLORS.ink }}
                 title="Account"
@@ -398,27 +483,6 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             </div>
           </div>
         </div>
-
-        {myNotices.length > 0 && (
-          <div className="flex flex-col gap-2 mb-4">
-            {myNotices.map((n) => (
-              <div
-                key={n.id}
-                className="flex items-start gap-2 text-sm rounded-lg px-3 py-2.5"
-                style={{ background: withAlpha(COLORS.primary, 12), color: COLORS.primaryDark, border: `1px solid ${withAlpha(COLORS.primary, 30)}` }}
-              >
-                <Bell size={15} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1 }} />
-                <span className="flex-1 flex items-center gap-1.5 flex-wrap">
-                  {n.message}
-                  {n.kind === "package_assigned" && <Sparkles size={13} color={COLORS.gold} style={{ flexShrink: 0 }} />}
-                </span>
-                <button onClick={() => dismissNotice(n.id)} title="Chiudi" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
 
         {visibleAnnouncements.length > 0 && (
           <div className="flex flex-col gap-2 mb-4">

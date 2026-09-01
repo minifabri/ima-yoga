@@ -88,7 +88,7 @@ function mapClientNotice(row: {
   id: string;
   client_id: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome";
+  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted";
   read: boolean;
   created_at: string;
   profiles: { full_name: string } | null;

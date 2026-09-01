@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bell, PackagePlus, Search, Send, Sparkles, Trash2, X } from "lucide-react";
+import { Bell, PackagePlus, Search, Send, Sparkles, Trash2, UserCheck, X } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { inputStyle } from "./ui";
 import type { ClientItem, ClientNotice } from "./types";
@@ -167,6 +167,8 @@ export function NoticesView({
                   <PackagePlus size={15} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 2 }} />
                 ) : n.kind === "welcome" ? (
                   <Sparkles size={15} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 2 }} />
+                ) : n.kind === "waitlist_promoted" ? (
+                  <UserCheck size={15} color={COLORS.success} style={{ flexShrink: 0, marginTop: 2 }} />
                 ) : (
                   <Bell size={15} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 2 }} />
                 )}

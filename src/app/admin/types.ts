@@ -100,7 +100,7 @@ export type ClientNotice = {
   clientId: string;
   clientName: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome";
+  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted";
   read: boolean;
   createdAt: string;
 };
