@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Plus, Clock, Trash2, Ban, CheckCircle2, KeyRound, Copy, Mail, Send, RefreshCw } from "lucide-react";
+import { Search, Plus, Clock, Trash2, Ban, CheckCircle2, KeyRound, Copy, Mail, Send, RefreshCw, GitMerge } from "lucide-react";
 import { Badge, Modal, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import type { ClassItem, ClassType, ClientItem } from "./types";
@@ -15,6 +15,7 @@ export function ClientsView({
   onUpsert,
   onDelete,
   onSetDisabled,
+  onMerge,
   onResetPassword,
   onGetAuthStatus,
   onResendActivation,
@@ -28,6 +29,7 @@ export function ClientsView({
   onUpsert: (client: ClientItem) => void;
   onDelete: (id: string) => void;
   onSetDisabled: (id: string, disabled: boolean, cancelFuture: boolean) => void;
+  onMerge: (removeId: string, keepId: string) => void;
   onResetPassword: (id: string) => Promise<string>;
   onGetAuthStatus: (id: string) => Promise<AuthStatus | null>;
   onResendActivation: (id: string) => Promise<boolean>;
@@ -46,6 +48,19 @@ export function ClientsView({
   const [authStatus, setAuthStatus] = useState<Record<string, AuthStatus | null>>({});
   const [authStatusLoading, setAuthStatusLoading] = useState<Record<string, boolean>>({});
   const [resendLoading, setResendLoading] = useState<Record<string, "activation" | "reset" | null>>({});
+  const [mergeSource, setMergeSource] = useState<ClientItem | null>(null);
+  const [mergeSearch, setMergeSearch] = useState("");
+  const [mergeTarget, setMergeTarget] = useState<ClientItem | null>(null);
+
+  const registeredClients = useMemo(() => clients.filter((c) => c.hasAccount), [clients]);
+  const mergeCandidates = useMemo(
+    () =>
+      registeredClients
+        .filter((c) => c.id !== mergeSource?.id)
+        .filter((c) => c.name.toLowerCase().includes(mergeSearch.toLowerCase()))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [registeredClients, mergeSource, mergeSearch]
+  );
 
   const bookingsByClient = useMemo(() => {
     const map: Record<string, ClassItem[]> = {};
@@ -105,6 +120,19 @@ export function ClientsView({
     } finally {
       setResendLoading((cur) => ({ ...cur, [id]: null }));
     }
+  }
+
+  function openMerge(c: ClientItem) {
+    setMergeSource(c);
+    setMergeSearch("");
+    setMergeTarget(null);
+  }
+
+  function confirmMerge() {
+    if (!mergeSource || !mergeTarget) return;
+    onMerge(mergeSource.id, mergeTarget.id);
+    setMergeSource(null);
+    setMergeTarget(null);
   }
 
   return (
@@ -220,6 +248,11 @@ export function ClientsView({
                         <Ban size={12} /> Disabilita cliente
                       </button>
                     )}
+                    {!c.hasAccount && registeredClients.length > 0 && (
+                      <button onClick={() => openMerge(c)} className="flex items-center gap-1.5 text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+                        <GitMerge size={12} /> Fondi con un cliente registrato
+                      </button>
+                    )}
                     {c.hasAccount && (
                       <button
                         onClick={() => handleResetPassword(c.id)}
@@ -289,6 +322,68 @@ export function ClientsView({
                 Disabilita
               </button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {mergeSource && (
+        <Modal onClose={() => setMergeSource(null)} width={420}>
+          <div className="p-5">
+            <div className="font-semibold mb-1">Fondi &quot;{mergeSource.name}&quot; con un cliente registrato</div>
+            <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-3">
+              Le prenotazioni, i pacchetti e i saldi che hai registrato a mano per &quot;{mergeSource.name}&quot; passeranno al cliente che scegli qui
+              sotto, che deve essere quello con l&apos;account collegato. Il profilo &quot;{mergeSource.name}&quot; verrà eliminato.
+            </div>
+
+            {!mergeTarget ? (
+              <>
+                <div className="flex items-center gap-2 mb-3" style={{ ...inputStyle, padding: "8px 12px" }}>
+                  <Search size={15} color={COLORS.inkSoft} />
+                  <input
+                    value={mergeSearch}
+                    onChange={(e) => setMergeSearch(e.target.value)}
+                    placeholder="Cerca cliente registrato…"
+                    autoFocus
+                    style={{ border: "none", outline: "none", fontSize: 13, flex: 1, background: "transparent" }}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5" style={{ maxHeight: 260, overflowY: "auto" }}>
+                  {mergeCandidates.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setMergeTarget(c)}
+                      className="w-full text-left px-3 py-2 rounded-lg"
+                      style={{ border: `1px solid ${COLORS.border}`, fontSize: 13 }}
+                    >
+                      {c.name}
+                      {c.phone && <span style={{ color: COLORS.inkSoft }}> · {c.phone}</span>}
+                    </button>
+                  ))}
+                  {mergeCandidates.length === 0 && (
+                    <div style={{ fontSize: 12.5, color: COLORS.inkSoft }}>Nessun cliente registrato trovato.</div>
+                  )}
+                </div>
+                <div className="flex justify-end mt-3">
+                  <button onClick={() => setMergeSource(null)} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
+                    Annulla
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="p-2.5 rounded-lg mb-4" style={{ background: COLORS.subtle, fontSize: 13 }}>
+                  <strong>{mergeSource.name}</strong> (a mano) verrà fuso in <strong>{mergeTarget.name}</strong> (registrato).
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setMergeTarget(null)} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
+                    Indietro
+                  </button>
+                  <button onClick={confirmMerge} className="px-3 py-2 rounded-lg text-sm font-medium text-white" style={{ background: COLORS.primary }}>
+                    Conferma fusione
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </Modal>
       )}

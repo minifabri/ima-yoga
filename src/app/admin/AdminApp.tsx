@@ -276,6 +276,24 @@ export function AdminApp({ initial }: { initial: AdminData }) {
       })
       .catch(() => showToast("Non è stato possibile aggiornare lo stato del cliente."));
   }
+  async function mergeClientsHandler(removeId: string, keepId: string) {
+    try {
+      const result = await db.mergeClients(supabase, keepId, removeId);
+      const next = await db.fetchAdminData(supabase);
+      setClasses(next.classes);
+      setClients(next.clients);
+      setPackages(next.packages);
+      setLedger(next.ledger);
+      setClientNotices(next.clientNotices);
+      const parts = [`${result.bookingsMoved} prenotazioni spostate`];
+      if (result.packagesMoved) parts.push(`${result.packagesMoved} pacchetti`);
+      if (result.ledgerMoved) parts.push(`${result.ledgerMoved} saldi`);
+      if (result.bookingsSkipped) parts.push(`${result.bookingsSkipped} prenotazioni scartate per doppione`);
+      showToast(`Clienti fusi: ${parts.join(", ")}.`);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "La fusione dei clienti non è riuscita.");
+    }
+  }
   async function resetClientPassword(id: string): Promise<string> {
     const res = await adminResetClientPassword(id);
     if (!res.ok || !res.password) {
@@ -621,6 +639,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onUpsert={upsertClient}
             onDelete={(id) => setConfirmDelete({ type: "client", id })}
             onSetDisabled={setClientDisabledHandler}
+            onMerge={mergeClientsHandler}
             onResetPassword={resetClientPassword}
             onGetAuthStatus={getClientAuthStatus}
             onResendActivation={resendClientActivation}
