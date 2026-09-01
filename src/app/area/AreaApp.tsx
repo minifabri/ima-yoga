@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -24,9 +24,14 @@ import {
   Bell,
   Sparkles,
   Bug,
+  UserCheck,
+  Trash2,
+  AtSign,
+  MessageCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
+import { deleteOwnAccount, type DeleteAccountState } from "./actions";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { ThemeToggle } from "@/app/admin/ThemeToggle";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/admin/utils";
@@ -41,6 +46,13 @@ function formatLune(amount: number): string {
   const rounded = Math.round(amount * 100) / 100;
   const label = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
   return `${label} lune`;
+}
+
+function formatNoticeDate(iso: string): string {
+  const d = new Date(iso);
+  const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = "numeric";
+  return d.toLocaleDateString("it-IT", opts);
 }
 
 function isPastClass(dateStr: string, timeStr: string): boolean {
@@ -103,6 +115,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   const [myPackages, setMyPackages] = useState<MyPackage[]>([]);
   const [myLedger, setMyLedger] = useState<MyLedgerEntry[]>([]);
   const [myNotices, setMyNotices] = useState<ClientNotice[]>([]);
+  const [unreadNoticeCount, setUnreadNoticeCount] = useState(0);
   const [selected, setSelected] = useState<PublicClass | null>(null);
   const [justBookedId, setJustBookedId] = useState<string | null>(null);
   const [justCancelledId, setJustCancelledId] = useState<string | null>(null);
@@ -110,6 +123,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   const [historyOpen, setHistoryOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordPending, setPasswordPending] = useState(false);
@@ -117,6 +131,12 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   const [reportMessage, setReportMessage] = useState("");
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportPending, setReportPending] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deleteConfirmWord, setDeleteConfirmWord] = useState("");
+  const [deleteAccountState, deleteAccountFormAction, deleteAccountPending] = useActionState<DeleteAccountState, FormData>(
+    deleteOwnAccount,
+    { error: null }
+  );
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -177,8 +197,22 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
       setBookingsOpen(open);
       setAnnouncements(notices);
       setMyNotices(personalNotices);
+      setUnreadNoticeCount(personalNotices.filter((n) => !n.read).length);
     })();
   }, [supabase]);
+
+  function toggleNotifications() {
+    setProfileMenuOpen(false);
+    setNotificationsOpen((v) => {
+      const next = !v;
+      if (next && unreadNoticeCount > 0) {
+        setUnreadNoticeCount(0);
+        setMyNotices((cur) => cur.map((n) => (n.read ? n : { ...n, read: true })));
+        db.markAllNoticesRead(supabase).catch(() => {});
+      }
+      return next;
+    });
+  }
 
   function dismissAnnouncement(id: string) {
     setDismissedAnnouncementIds((cur) => {
@@ -192,9 +226,9 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
     });
   }
 
-  function dismissNotice(id: string) {
+  function deleteNotice(id: string) {
     setMyNotices((cur) => cur.filter((n) => n.id !== id));
-    db.markNoticeRead(supabase, id).catch(() => {});
+    db.deleteMyNotice(supabase, id).catch(() => {});
   }
 
   const visibleAnnouncements = announcements.filter((a) => !dismissedAnnouncementIds.includes(a.id));
@@ -296,7 +330,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
     setPending(true);
     try {
       await db.cancelBooking(supabase, classId);
-      showToast("Prenotazione appassita. Rifiorirai alla prossima lezione.", "rose");
+      showToast("Prenotazione cancellata. Il tuo tappetino ti aspetta quando vuoi tornare.", "rose");
       setJustBookedId((cur) => (cur === classId ? null : cur));
       setJustCancelledId(classId);
       const next = await refreshClasses();
@@ -355,7 +389,96 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             <ThemeToggle />
             <div className="relative">
               <button
-                onClick={() => setProfileMenuOpen((v) => !v)}
+                onClick={toggleNotifications}
+                className="flex items-center justify-center rounded-lg relative"
+                style={{ width: 36, height: 36, border: `1px solid ${COLORS.border}`, color: COLORS.ink }}
+                title="Notifiche"
+              >
+                <Bell size={16} />
+                {unreadNoticeCount > 0 && (
+                  <span
+                    className="absolute flex items-center justify-center rounded-full"
+                    style={{
+                      top: -4,
+                      right: -4,
+                      minWidth: 16,
+                      height: 16,
+                      padding: "0 3px",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      color: "#fff",
+                      background: COLORS.danger,
+                    }}
+                  >
+                    {unreadNoticeCount}
+                  </span>
+                )}
+              </button>
+              {notificationsOpen && (
+                <>
+                  <div className="fixed inset-0" style={{ zIndex: 40 }} onClick={() => setNotificationsOpen(false)} />
+                  <div
+                    className="absolute right-0 mt-2 rounded-xl overflow-hidden"
+                    style={{
+                      zIndex: 41,
+                      width: 320,
+                      maxWidth: "88vw",
+                      background: COLORS.card,
+                      border: `1px solid ${COLORS.border}`,
+                      boxShadow: "0 8px 24px rgba(74,58,115,0.14)",
+                    }}
+                  >
+                    <div
+                      className="px-3 py-2.5"
+                      style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.heading, borderBottom: `1px solid ${COLORS.border}` }}
+                    >
+                      Notifiche
+                    </div>
+                    <div style={{ maxHeight: 340, overflowY: "auto" }}>
+                      {myNotices.length === 0 ? (
+                        <div className="px-3 py-5 text-center" style={{ fontSize: 12.5, color: COLORS.inkSoft }}>
+                          Nessuna notifica.
+                        </div>
+                      ) : (
+                        myNotices.map((n) => (
+                          <div
+                            key={n.id}
+                            className="flex items-start gap-2 px-3 py-2.5"
+                            style={{ borderBottom: `1px solid ${COLORS.border}`, background: n.read ? "transparent" : withAlpha(COLORS.primary, 7) }}
+                          >
+                            {n.kind === "package_assigned" ? (
+                              <PackagePlus size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
+                            ) : n.kind === "welcome" ? (
+                              <Sparkles size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
+                            ) : n.kind === "waitlist_promoted" ? (
+                              <UserCheck size={14} color={COLORS.success} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
+                            ) : (
+                              <Bell size={14} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div style={{ fontSize: 13, color: n.read ? COLORS.inkSoft : COLORS.ink, fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
+                              <div style={{ fontSize: 11, color: COLORS.inkSoft }} className="mt-0.5">
+                                {formatNoticeDate(n.createdAt)}
+                              </div>
+                            </div>
+                            <button onClick={() => deleteNotice(n.id)} title="Elimina" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setNotificationsOpen(false);
+                  setProfileMenuOpen((v) => !v);
+                }}
                 className="flex items-center justify-center rounded-lg"
                 style={{ width: 36, height: 36, border: `1px solid ${COLORS.border}`, color: COLORS.ink }}
                 title="Account"
@@ -385,6 +508,17 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                     >
                       Cambia password
                     </button>
+                    <button
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        setDeleteConfirmWord("");
+                        setDeleteAccountOpen(true);
+                      }}
+                      className="w-full text-left py-1.5 text-sm font-medium"
+                      style={{ color: COLORS.danger }}
+                    >
+                      Elimina account
+                    </button>
                     <form action={logout}>
                       <button type="submit" className="w-full text-left py-1.5 text-sm font-medium" style={{ color: COLORS.danger }}>
                         Esci
@@ -396,27 +530,6 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             </div>
           </div>
         </div>
-
-        {myNotices.length > 0 && (
-          <div className="flex flex-col gap-2 mb-4">
-            {myNotices.map((n) => (
-              <div
-                key={n.id}
-                className="flex items-start gap-2 text-sm rounded-lg px-3 py-2.5"
-                style={{ background: withAlpha(COLORS.primary, 12), color: COLORS.primaryDark, border: `1px solid ${withAlpha(COLORS.primary, 30)}` }}
-              >
-                <Bell size={15} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1 }} />
-                <span className="flex-1 flex items-center gap-1.5 flex-wrap">
-                  {n.message}
-                  {n.kind === "package_assigned" && <Sparkles size={13} color={COLORS.gold} style={{ flexShrink: 0 }} />}
-                </span>
-                <button onClick={() => dismissNotice(n.id)} title="Chiudi" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
 
         {visibleAnnouncements.length > 0 && (
           <div className="flex flex-col gap-2 mb-4">
@@ -822,6 +935,27 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             )}
           </div>
         )}
+
+        <div className="mt-8 pt-5 flex items-center justify-center gap-5" style={{ borderTop: `1px solid ${COLORS.border}` }}>
+          <a
+            href="https://www.instagram.com/ima.yo.ga/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5"
+            style={{ fontSize: 13, fontWeight: 600, color: COLORS.inkSoft }}
+          >
+            <AtSign size={16} /> Instagram
+          </a>
+          <a
+            href="https://chat.whatsapp.com/E3P9O46soqKDiUqgd3YOaf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5"
+            style={{ fontSize: 13, fontWeight: 600, color: COLORS.inkSoft }}
+          >
+            <MessageCircle size={16} /> WhatsApp
+          </a>
+        </div>
       </div>
 
       {selected && (
@@ -1055,6 +1189,56 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 style={{ background: COLORS.primary }}
               >
                 {reportPending ? "Invio…" : "Invia segnalazione"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteAccountOpen && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ background: "rgba(74,58,115,0.35)", zIndex: 50 }}
+          onMouseDown={(e) => e.target === e.currentTarget && !deleteAccountPending && setDeleteAccountOpen(false)}
+        >
+          <div className="w-full p-5" style={{ maxWidth: 380, background: COLORS.card, borderRadius: 18, boxShadow: "0 16px 44px rgba(74,58,115,0.16)" }}>
+            <div className="flex items-center justify-between mb-2">
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>Elimina account</div>
+              {!deleteAccountPending && (
+                <button onClick={() => setDeleteAccountOpen(false)}>
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+            <div style={{ fontSize: 12.5, color: COLORS.inkSoft, lineHeight: 1.5 }} className="mb-3">
+              Non potrai più accedere e le tue eventuali prenotazioni future verranno cancellate. Lo storico delle lezioni svolte resta archiviato. L&apos;operazione non è reversibile.
+            </div>
+            <form action={deleteAccountFormAction} className="flex flex-col gap-3">
+              <label className="block">
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft, marginBottom: 4 }}>
+                  Scrivi <strong>UTTHITA HASTA PADANGUSTHASANA</strong> (in maiuscolo) per confermare
+                </div>
+                <input
+                  type="text"
+                  name="confirm"
+                  value={deleteConfirmWord}
+                  onChange={(e) => setDeleteConfirmWord(e.target.value)}
+                  autoComplete="off"
+                  style={{ width: "100%", border: `1px solid ${COLORS.border}`, borderRadius: 9, padding: "8px 10px", fontSize: 13, background: COLORS.bg, color: COLORS.ink, outline: "none" }}
+                />
+              </label>
+              {deleteAccountState.error && (
+                <div className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E2", color: COLORS.danger }}>
+                  {deleteAccountState.error}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={deleteAccountPending || deleteConfirmWord.trim() !== "UTTHITA HASTA PADANGUSTHASANA"}
+                className="py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
+                style={{ background: COLORS.danger }}
+              >
+                {deleteAccountPending ? "Eliminazione…" : "Elimina account"}
               </button>
             </form>
           </div>

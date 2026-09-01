@@ -1,13 +1,27 @@
 "use client";
 
-import { useActionState, useEffect, useMemo } from "react";
+import { Suspense, useActionState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { login, type ActionState } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import { trackPageView } from "@/lib/track";
 import { PeekCalendarLink } from "./PeekCalendarLink";
 
 const initialState: ActionState = { error: null };
+
+function AccountDeletedBanner() {
+  const searchParams = useSearchParams();
+  if (searchParams.get("account_deleted") !== "1") return null;
+  return (
+    <div
+      className="text-sm rounded-lg px-3 py-2 mb-3"
+      style={{ background: "color-mix(in srgb, var(--success) 14%, transparent)", color: "var(--success)" }}
+    >
+      Il tuo account è stato eliminato. Namasté.
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(login, initialState);
@@ -30,6 +44,10 @@ export default function LoginPage() {
           </div>
           <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Accedi al tuo account</div>
         </div>
+
+        <Suspense fallback={null}>
+          <AccountDeletedBanner />
+        </Suspense>
 
         <form action={formAction} className="flex flex-col gap-3">
           <Field label="Email">

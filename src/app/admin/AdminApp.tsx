@@ -9,6 +9,7 @@ import { dateKey, genId, classEffectivePrice } from "./utils";
 import { Modal } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsPanel } from "./NotificationsPanel";
+import { MoreMenu } from "./MoreMenu";
 import { CalendarView } from "./CalendarView";
 import { ClassFormModal } from "./ClassFormModal";
 import { SettingsView } from "./SettingsView";
@@ -51,6 +52,14 @@ type ClassClipboard = {
 type ClassModalState = { mode: "new"; date: Date } | { mode: "edit"; classItem: ClassItem } | null;
 type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 
+const moreMenuItems = [
+  { key: "earnings", label: "Guadagni", icon: TrendingUp },
+  { key: "notices", label: "Avvisi", icon: Bell },
+  { key: "worklog", label: "Registro", icon: History },
+  { key: "stats", label: "Statistiche", icon: BarChart3 },
+  { key: "settings", label: "Impostazioni", icon: SettingsIcon },
+];
+
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
 
@@ -73,11 +82,39 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   const [toast, setToast] = useState("");
   const [classModal, setClassModal] = useState<ClassModalState>(null);
   const [confirmDelete, setConfirmDelete] = useState<ConfirmDeleteState>(null);
+  const [clientsRefreshing, setClientsRefreshing] = useState(false);
 
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(""), 2600);
   }
+
+  // ---- aggiornamento elenco clienti ----
+  async function refreshClients() {
+    setClientsRefreshing(true);
+    try {
+      const next = await db.fetchAdminData(supabase);
+      setClients(next.clients);
+      setClasses(next.classes);
+    } catch {
+      showToast("Aggiornamento non riuscito.");
+    } finally {
+      setClientsRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (view !== "clients") return;
+    const interval = setInterval(() => {
+      db.fetchAdminData(supabase)
+        .then((next) => {
+          setClients(next.clients);
+          setClasses(next.classes);
+        })
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [view, supabase]);
 
   // ---- notifiche admin ----
   useEffect(() => {
@@ -247,6 +284,24 @@ export function AdminApp({ initial }: { initial: AdminData }) {
         if (disabled && cancelFuture) db.fetchAdminData(supabase).then((next) => setClasses(next.classes));
       })
       .catch(() => showToast("Non è stato possibile aggiornare lo stato del cliente."));
+  }
+  async function mergeClientsHandler(removeId: string, keepId: string) {
+    try {
+      const result = await db.mergeClients(supabase, keepId, removeId);
+      const next = await db.fetchAdminData(supabase);
+      setClasses(next.classes);
+      setClients(next.clients);
+      setPackages(next.packages);
+      setLedger(next.ledger);
+      setClientNotices(next.clientNotices);
+      const parts = [`${result.bookingsMoved} prenotazioni spostate`];
+      if (result.packagesMoved) parts.push(`${result.packagesMoved} pacchetti`);
+      if (result.ledgerMoved) parts.push(`${result.ledgerMoved} saldi`);
+      if (result.bookingsSkipped) parts.push(`${result.bookingsSkipped} prenotazioni scartate per doppione`);
+      showToast(`Clienti fusi: ${parts.join(", ")}.`);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "La fusione dei clienti non è riuscita.");
+    }
   }
   async function resetClientPassword(id: string): Promise<string> {
     const res = await adminResetClientPassword(id);
@@ -496,67 +551,39 @@ export function AdminApp({ initial }: { initial: AdminData }) {
               >
                 <Wallet size={15} /> <span className="hidden sm:inline">Pagamenti</span>
               </button>
-              <button
-                onClick={() => setView("earnings")}
-                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                style={{ background: view === "earnings" ? COLORS.primary : "transparent", color: view === "earnings" ? "#fff" : COLORS.ink }}
-              >
-                <TrendingUp size={15} /> <span className="hidden sm:inline">Guadagni</span>
-              </button>
-              <button
-                onClick={() => setView("notices")}
-                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                style={{ background: view === "notices" ? COLORS.primary : "transparent", color: view === "notices" ? "#fff" : COLORS.ink }}
-              >
-                <Bell size={15} /> <span className="hidden sm:inline">Avvisi</span>
-              </button>
-              <button
-                onClick={() => setView("worklog")}
-                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                style={{ background: view === "worklog" ? COLORS.primary : "transparent", color: view === "worklog" ? "#fff" : COLORS.ink }}
-              >
-                <History size={15} /> <span className="hidden sm:inline">Registro</span>
-              </button>
-              <button
-                onClick={() => setView("stats")}
-                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                style={{ background: view === "stats" ? COLORS.primary : "transparent", color: view === "stats" ? "#fff" : COLORS.ink }}
-              >
-                <BarChart3 size={15} /> <span className="hidden sm:inline">Statistiche</span>
-              </button>
-              <button
-                onClick={() => setView("settings")}
-                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                style={{ background: view === "settings" ? COLORS.primary : "transparent", color: view === "settings" ? "#fff" : COLORS.ink }}
-              >
-                <SettingsIcon size={15} /> <span className="hidden sm:inline">Impostazioni</span>
-              </button>
             </div>
-            <button
-              onClick={toggleBookingsOpen}
-              disabled={bookingsTogglePending}
-              title={bookingsOpen ? "Le clienti possono prenotare — clicca per chiudere le iscrizioni" : "Iscrizioni chiuse — clicca per riaprirle"}
-              className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium disabled:opacity-60"
-              style={{
-                border: `1px solid ${withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 33)}`,
-                color: bookingsOpen ? COLORS.success : COLORS.danger,
-                background: withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 8),
-              }}
-            >
-              {bookingsOpen ? <LockOpen size={15} /> : <Lock size={15} />}
-              <span className="hidden sm:inline">{bookingsOpen ? "Iscrizioni aperte" : "Iscrizioni chiuse"}</span>
-            </button>
-            <NotificationsPanel
-              notifications={notifications}
-              onMarkRead={markNotificationReadHandler}
-              onMarkAllRead={markAllNotificationsReadHandler}
+            <MoreMenu
+              items={moreMenuItems}
+              activeKey={view}
+              onSelect={(key) => setView(key as typeof view)}
             />
-            <ThemeToggle />
-            <form action={logout}>
-              <button type="submit" className="text-sm font-medium px-1.5" style={{ color: COLORS.inkSoft }}>
-                Esci
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={toggleBookingsOpen}
+                disabled={bookingsTogglePending}
+                title={bookingsOpen ? "Le clienti possono prenotare — clicca per chiudere le iscrizioni" : "Iscrizioni chiuse — clicca per riaprirle"}
+                className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium disabled:opacity-60"
+                style={{
+                  border: `1px solid ${withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 33)}`,
+                  color: bookingsOpen ? COLORS.success : COLORS.danger,
+                  background: withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 8),
+                }}
+              >
+                {bookingsOpen ? <LockOpen size={15} /> : <Lock size={15} />}
+                <span className="hidden sm:inline">{bookingsOpen ? "Iscrizioni aperte" : "Iscrizioni chiuse"}</span>
               </button>
-            </form>
+              <NotificationsPanel
+                notifications={notifications}
+                onMarkRead={markNotificationReadHandler}
+                onMarkAllRead={markAllNotificationsReadHandler}
+              />
+              <ThemeToggle />
+              <form action={logout}>
+                <button type="submit" className="text-sm font-medium px-1.5" style={{ color: COLORS.inkSoft }}>
+                  Esci
+                </button>
+              </form>
+            </div>
           </div>
         </div>
 
@@ -593,10 +620,13 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onUpsert={upsertClient}
             onDelete={(id) => setConfirmDelete({ type: "client", id })}
             onSetDisabled={setClientDisabledHandler}
+            onMerge={mergeClientsHandler}
             onResetPassword={resetClientPassword}
             onGetAuthStatus={getClientAuthStatus}
             onResendActivation={resendClientActivation}
             onResendPasswordReset={resendClientPasswordReset}
+            onRefresh={refreshClients}
+            refreshing={clientsRefreshing}
           />
         ) : view === "payments" ? (
           <PaymentsView

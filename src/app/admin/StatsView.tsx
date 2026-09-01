@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Eye, Users, ArrowRightLeft, UserPlus } from "lucide-react";
+import { Eye, Users, ArrowRightLeft, UserPlus, RefreshCw } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { fetchVisitorStats } from "./data";
 import type { VisitorStats } from "./types";
@@ -44,6 +44,7 @@ export function StatsView({ supabase }: { supabase: SupabaseClient }) {
   const [stats, setStats] = useState<VisitorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +65,28 @@ export function StatsView({ supabase }: { supabase: SupabaseClient }) {
     };
   }, [supabase, days]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchVisitorStats(supabase, days)
+        .then(setStats)
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [supabase, days]);
+
+  async function handleManualRefresh() {
+    setRefreshing(true);
+    try {
+      const s = await fetchVisitorStats(supabase, days);
+      setStats(s);
+      setError(false);
+    } catch {
+      setError(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   const totalPageviews = useMemo(() => (stats?.byPath ?? []).reduce((sum, p) => sum + p.views, 0), [stats]);
   const totalSignups = useMemo(() => (stats?.daily ?? []).reduce((sum, d) => sum + d.signups, 0), [stats]);
   const conversionRate = stats && stats.calendarViewers > 0 ? Math.round((stats.calendarConversions / stats.calendarViewers) * 1000) / 10 : 0;
@@ -74,17 +97,28 @@ export function StatsView({ supabase }: { supabase: SupabaseClient }) {
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 600, color: COLORS.heading }}>Statistiche visitatori</div>
-        <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
-          {RANGE_OPTIONS.map((opt) => (
-            <button
-              key={opt.key}
-              onClick={() => setDays(opt.key)}
-              className="px-3 py-1.5 text-sm font-medium whitespace-nowrap"
-              style={{ background: days === opt.key ? COLORS.primary : "transparent", color: days === opt.key ? "#fff" : COLORS.ink }}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
+            {RANGE_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => setDays(opt.key)}
+                className="px-3 py-1.5 text-sm font-medium whitespace-nowrap"
+                style={{ background: days === opt.key ? COLORS.primary : "transparent", color: days === opt.key ? "#fff" : COLORS.ink }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            title="Aggiorna statistiche"
+            className="flex items-center justify-center p-2 rounded-lg disabled:opacity-60"
+            style={{ border: `1px solid ${COLORS.border}` }}
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+          </button>
         </div>
       </div>
 

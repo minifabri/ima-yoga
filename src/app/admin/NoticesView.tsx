@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Bell, PackagePlus, Search, Send, Sparkles, Trash2, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Bell, PackagePlus, Search, Send, Sparkles, Trash2, UserCheck, X } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
+import { EmojiPicker } from "./EmojiPicker";
 import { inputStyle } from "./ui";
 import type { ClientItem, ClientNotice } from "./types";
 
@@ -21,6 +22,7 @@ export function NoticesView({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const messageRef = useRef<HTMLTextAreaElement>(null);
 
   const activeClients = useMemo(() => clients.filter((c) => !c.disabled), [clients]);
   const filteredClients = useMemo(() => {
@@ -128,14 +130,17 @@ export function NoticesView({
           </div>
 
           <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft, marginBottom: 4 }}>Messaggio</div>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={3}
-            placeholder="Scrivi l'avviso da inviare ai clienti selezionati…"
-            style={{ ...inputStyle, resize: "vertical" }}
-            className="mb-3"
-          />
+          <div className="flex items-start gap-1.5 mb-3">
+            <textarea
+              ref={messageRef}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={3}
+              placeholder="Scrivi l'avviso da inviare ai clienti selezionati…"
+              style={{ ...inputStyle, resize: "vertical", flex: 1 }}
+            />
+            <EmojiPicker targetRef={messageRef} value={message} onChange={setMessage} />
+          </div>
 
           <button
             onClick={handleSend}
@@ -167,6 +172,8 @@ export function NoticesView({
                   <PackagePlus size={15} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 2 }} />
                 ) : n.kind === "welcome" ? (
                   <Sparkles size={15} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 2 }} />
+                ) : n.kind === "waitlist_promoted" ? (
+                  <UserCheck size={15} color={COLORS.success} style={{ flexShrink: 0, marginTop: 2 }} />
                 ) : (
                   <Bell size={15} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 2 }} />
                 )}

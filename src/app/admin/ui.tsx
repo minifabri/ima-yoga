@@ -124,7 +124,7 @@ export function Modal({
           background: COLORS.card,
           borderRadius: 18,
           boxShadow: "0 16px 44px rgba(74,58,115,0.16)",
-          maxHeight: "88vh",
+          maxHeight: "88dvh",
           display: "flex",
           flexDirection: "column",
         }}

@@ -88,7 +88,7 @@ function mapClientNotice(row: {
   id: string;
   client_id: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome";
+  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted";
   read: boolean;
   created_at: string;
   profiles: { full_name: string } | null;
@@ -346,6 +346,27 @@ export async function setClientDisabled(supabase: DB, clientId: string, disabled
     p_cancel_future: cancelFuture,
   });
   if (error) throw error;
+}
+
+export type MergeClientsResult = {
+  bookingsMoved: number;
+  bookingsSkipped: number;
+  packagesMoved: number;
+  ledgerMoved: number;
+};
+
+// Fonde `removeId` (cliente creato a mano, senza account) dentro `keepId`
+// (cliente con account collegato): sposta prenotazioni/pacchetti/saldi e
+// poi elimina il profilo duplicato.
+export async function mergeClients(supabase: DB, keepId: string, removeId: string): Promise<MergeClientsResult> {
+  const { data, error } = await supabase.rpc("admin_merge_clients", { p_keep_id: keepId, p_remove_id: removeId });
+  if (error) throw error;
+  return {
+    bookingsMoved: data?.bookings_moved ?? 0,
+    bookingsSkipped: data?.bookings_skipped ?? 0,
+    packagesMoved: data?.packages_moved ?? 0,
+    ledgerMoved: data?.ledger_moved ?? 0,
+  };
 }
 
 // ---------------------------------------------------------

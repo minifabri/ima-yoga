@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus, Trash2, Eye, Megaphone } from "lucide-react";
 import { Field, IconButton, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
+import { EmojiPicker } from "./EmojiPicker";
 import { PALETTE } from "./utils";
 import type { Announcement, ClassItem, ClassType, Level, Settings } from "./types";
 
@@ -47,6 +48,7 @@ export function SettingsView({
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
   const [newAnnouncement, setNewAnnouncement] = useState("");
   const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
+  const newAnnouncementRef = useRef<HTMLInputElement>(null);
 
   function addType() {
     const name = newTypeName.trim();
@@ -391,12 +393,14 @@ export function SettingsView({
           </div>
           <div className="flex items-center gap-2">
             <input
+              ref={newAnnouncementRef}
               value={newAnnouncement}
               onChange={(e) => setNewAnnouncement(e.target.value)}
               placeholder="Es. Il 24/12 non ci sono lezioni"
               style={{ ...inputStyle, flex: 1 }}
               onKeyDown={(e) => e.key === "Enter" && addAnnouncement()}
             />
+            <EmojiPicker targetRef={newAnnouncementRef} value={newAnnouncement} onChange={setNewAnnouncement} />
             <IconButton onClick={addAnnouncement} style={{ background: COLORS.primary, color: "#fff" }}>
               <Plus size={16} />
             </IconButton>
