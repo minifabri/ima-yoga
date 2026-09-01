@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
+import { deleteOwnAccount, type DeleteAccountState } from "./actions";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { ThemeToggle } from "@/app/admin/ThemeToggle";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/admin/utils";
@@ -122,6 +123,12 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   const [reportMessage, setReportMessage] = useState("");
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportPending, setReportPending] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deleteConfirmWord, setDeleteConfirmWord] = useState("");
+  const [deleteAccountState, deleteAccountFormAction, deleteAccountPending] = useActionState<DeleteAccountState, FormData>(
+    deleteOwnAccount,
+    { error: null }
+  );
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
@@ -314,7 +321,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
     setPending(true);
     try {
       await db.cancelBooking(supabase, classId);
-      showToast("Prenotazione appassita. Rifiorirai alla prossima lezione.", "rose");
+      showToast("Prenotazione cancellata. Il tuo tappetino ti aspetta quando vuoi tornare.", "rose");
       setJustBookedId((cur) => (cur === classId ? null : cur));
       setJustCancelledId(classId);
       const next = await refreshClasses();
@@ -482,6 +489,17 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                       style={{ color: COLORS.ink }}
                     >
                       Cambia password
+                    </button>
+                    <button
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        setDeleteConfirmWord("");
+                        setDeleteAccountOpen(true);
+                      }}
+                      className="w-full text-left py-1.5 text-sm font-medium"
+                      style={{ color: COLORS.danger }}
+                    >
+                      Elimina account
                     </button>
                     <form action={logout}>
                       <button type="submit" className="w-full text-left py-1.5 text-sm font-medium" style={{ color: COLORS.danger }}>
@@ -1153,6 +1171,56 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 style={{ background: COLORS.primary }}
               >
                 {reportPending ? "Invio…" : "Invia segnalazione"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteAccountOpen && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ background: "rgba(74,58,115,0.35)", zIndex: 50 }}
+          onMouseDown={(e) => e.target === e.currentTarget && !deleteAccountPending && setDeleteAccountOpen(false)}
+        >
+          <div className="w-full p-5" style={{ maxWidth: 380, background: COLORS.card, borderRadius: 18, boxShadow: "0 16px 44px rgba(74,58,115,0.16)" }}>
+            <div className="flex items-center justify-between mb-2">
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>Elimina account</div>
+              {!deleteAccountPending && (
+                <button onClick={() => setDeleteAccountOpen(false)}>
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+            <div style={{ fontSize: 12.5, color: COLORS.inkSoft, lineHeight: 1.5 }} className="mb-3">
+              Non potrai più accedere e le tue eventuali prenotazioni future verranno cancellate. Lo storico delle lezioni svolte e i movimenti contabili restano archiviati. L&apos;operazione non è reversibile.
+            </div>
+            <form action={deleteAccountFormAction} className="flex flex-col gap-3">
+              <label className="block">
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft, marginBottom: 4 }}>
+                  Scrivi <strong>NAMASTE</strong> per confermare
+                </div>
+                <input
+                  type="text"
+                  name="confirm"
+                  value={deleteConfirmWord}
+                  onChange={(e) => setDeleteConfirmWord(e.target.value)}
+                  autoComplete="off"
+                  style={{ width: "100%", border: `1px solid ${COLORS.border}`, borderRadius: 9, padding: "8px 10px", fontSize: 13, background: COLORS.bg, color: COLORS.ink, outline: "none" }}
+                />
+              </label>
+              {deleteAccountState.error && (
+                <div className="text-sm rounded-lg px-3 py-2" style={{ background: "#F6E7E2", color: COLORS.danger }}>
+                  {deleteAccountState.error}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={deleteAccountPending || deleteConfirmWord.trim().toUpperCase() !== "NAMASTE"}
+                className="py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
+                style={{ background: COLORS.danger }}
+              >
+                {deleteAccountPending ? "Eliminazione…" : "Elimina account"}
               </button>
             </form>
           </div>
