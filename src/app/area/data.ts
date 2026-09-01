@@ -26,10 +26,10 @@ export async function fetchActiveAnnouncements(supabase: DB): Promise<Announceme
 export async function fetchMyNotices(supabase: DB): Promise<ClientNotice[]> {
   const { data } = await supabase
     .from("client_notices")
-    .select("id, message, kind")
+    .select("id, message, kind, created_at")
     .eq("read", false)
     .order("created_at", { ascending: false });
-  return data ?? [];
+  return (data ?? []).map((n) => ({ id: n.id, message: n.message, kind: n.kind, createdAt: n.created_at }));
 }
 
 export async function markNoticeRead(supabase: DB, id: string): Promise<void> {

@@ -25,6 +25,7 @@ import {
   Sparkles,
   Bug,
   UserCheck,
+  Trash2,
   AtSign,
   MessageCircle,
 } from "lucide-react";
@@ -45,6 +46,13 @@ function formatLune(amount: number): string {
   const rounded = Math.round(amount * 100) / 100;
   const label = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
   return `${label} lune`;
+}
+
+function formatNoticeDate(iso: string): string {
+  const d = new Date(iso);
+  const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = "numeric";
+  return d.toLocaleDateString("it-IT", opts);
 }
 
 function isPastClass(dateStr: string, timeStr: string): boolean {
@@ -435,17 +443,22 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                         myNotices.map((n) => (
                           <div key={n.id} className="flex items-start gap-2 px-3 py-2.5" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                             {n.kind === "package_assigned" ? (
+                              <PackagePlus size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />
+                            ) : n.kind === "welcome" ? (
                               <Sparkles size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />
                             ) : n.kind === "waitlist_promoted" ? (
                               <UserCheck size={14} color={COLORS.success} style={{ flexShrink: 0, marginTop: 1 }} />
                             ) : (
                               <Bell size={14} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1 }} />
                             )}
-                            <span className="flex-1" style={{ fontSize: 13, color: COLORS.ink }}>
-                              {n.message}
-                            </span>
-                            <button onClick={() => dismissNotice(n.id)} title="Rimuovi" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
-                              <X size={13} />
+                            <div className="flex-1 min-w-0">
+                              <div style={{ fontSize: 13, color: COLORS.ink }}>{n.message}</div>
+                              <div style={{ fontSize: 11, color: COLORS.inkSoft }} className="mt-0.5">
+                                {formatNoticeDate(n.createdAt)}
+                              </div>
+                            </div>
+                            <button onClick={() => dismissNotice(n.id)} title="Elimina" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
+                              <Trash2 size={13} />
                             </button>
                           </div>
                         ))
