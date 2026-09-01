@@ -4,12 +4,12 @@ import { redirect } from "next/navigation";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
-const DELETE_CONFIRM_WORD = "NAMASTE";
+const DELETE_CONFIRM_WORD = "UTTHITA HASTA PADANGUSTHASANA";
 
 export type DeleteAccountState = { error: string | null };
 
 export async function deleteOwnAccount(_prevState: DeleteAccountState, formData: FormData): Promise<DeleteAccountState> {
-  const confirmWord = String(formData.get("confirm") || "").trim().toUpperCase();
+  const confirmWord = String(formData.get("confirm") || "").trim();
   if (confirmWord !== DELETE_CONFIRM_WORD) {
     return { error: `Scrivi "${DELETE_CONFIRM_WORD}" per confermare.` };
   }

@@ -1211,7 +1211,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             <form action={deleteAccountFormAction} className="flex flex-col gap-3">
               <label className="block">
                 <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft, marginBottom: 4 }}>
-                  Scrivi <strong>NAMASTE</strong> per confermare
+                  Scrivi <strong>UTTHITA HASTA PADANGUSTHASANA</strong> (in maiuscolo) per confermare
                 </div>
                 <input
                   type="text"
@@ -1229,7 +1229,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
               )}
               <button
                 type="submit"
-                disabled={deleteAccountPending || deleteConfirmWord.trim().toUpperCase() !== "NAMASTE"}
+                disabled={deleteAccountPending || deleteConfirmWord.trim() !== "UTTHITA HASTA PADANGUSTHASANA"}
                 className="py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
                 style={{ background: COLORS.danger }}
               >
