@@ -9,6 +9,7 @@ import { dateKey, genId, classEffectivePrice } from "./utils";
 import { Modal } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsPanel } from "./NotificationsPanel";
+import { MoreMenu } from "./MoreMenu";
 import { CalendarView } from "./CalendarView";
 import { ClassFormModal } from "./ClassFormModal";
 import { SettingsView } from "./SettingsView";
@@ -50,6 +51,14 @@ type ClassClipboard = {
 };
 type ClassModalState = { mode: "new"; date: Date } | { mode: "edit"; classItem: ClassItem } | null;
 type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
+
+const moreMenuItems = [
+  { key: "earnings", label: "Guadagni", icon: TrendingUp },
+  { key: "notices", label: "Avvisi", icon: Bell },
+  { key: "worklog", label: "Registro", icon: History },
+  { key: "stats", label: "Statistiche", icon: BarChart3 },
+  { key: "settings", label: "Impostazioni", icon: SettingsIcon },
+];
 
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
@@ -519,67 +528,35 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 min-w-0">
-            <div className="overflow-x-auto min-w-0" style={{ WebkitOverflowScrolling: "touch" }}>
-              <div className="flex rounded-lg overflow-hidden flex-shrink-0" style={{ border: `1px solid ${COLORS.border}`, width: "max-content" }}>
-                <button
-                  onClick={() => setView("calendar")}
-                  className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                  style={{ background: view === "calendar" ? COLORS.primary : "transparent", color: view === "calendar" ? "#fff" : COLORS.ink }}
-                >
-                  <CalendarIcon size={15} /> <span className="hidden sm:inline">Calendario</span>
-                </button>
-                <button
-                  onClick={() => setView("clients")}
-                  className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                  style={{ background: view === "clients" ? COLORS.primary : "transparent", color: view === "clients" ? "#fff" : COLORS.ink }}
-                >
-                  <Users size={15} /> <span className="hidden sm:inline">Clienti</span>
-                </button>
-                <button
-                  onClick={() => setView("payments")}
-                  className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                  style={{ background: view === "payments" ? COLORS.primary : "transparent", color: view === "payments" ? "#fff" : COLORS.ink }}
-                >
-                  <Wallet size={15} /> <span className="hidden sm:inline">Pagamenti</span>
-                </button>
-                <button
-                  onClick={() => setView("earnings")}
-                  className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                  style={{ background: view === "earnings" ? COLORS.primary : "transparent", color: view === "earnings" ? "#fff" : COLORS.ink }}
-                >
-                  <TrendingUp size={15} /> <span className="hidden sm:inline">Guadagni</span>
-                </button>
-                <button
-                  onClick={() => setView("notices")}
-                  className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                  style={{ background: view === "notices" ? COLORS.primary : "transparent", color: view === "notices" ? "#fff" : COLORS.ink }}
-                >
-                  <Bell size={15} /> <span className="hidden sm:inline">Avvisi</span>
-                </button>
-                <button
-                  onClick={() => setView("worklog")}
-                  className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                  style={{ background: view === "worklog" ? COLORS.primary : "transparent", color: view === "worklog" ? "#fff" : COLORS.ink }}
-                >
-                  <History size={15} /> <span className="hidden sm:inline">Registro</span>
-                </button>
-                <button
-                  onClick={() => setView("stats")}
-                  className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                  style={{ background: view === "stats" ? COLORS.primary : "transparent", color: view === "stats" ? "#fff" : COLORS.ink }}
-                >
-                  <BarChart3 size={15} /> <span className="hidden sm:inline">Statistiche</span>
-                </button>
-                <button
-                  onClick={() => setView("settings")}
-                  className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
-                  style={{ background: view === "settings" ? COLORS.primary : "transparent", color: view === "settings" ? "#fff" : COLORS.ink }}
-                >
-                  <SettingsIcon size={15} /> <span className="hidden sm:inline">Impostazioni</span>
-                </button>
-              </div>
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
+              <button
+                onClick={() => setView("calendar")}
+                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
+                style={{ background: view === "calendar" ? COLORS.primary : "transparent", color: view === "calendar" ? "#fff" : COLORS.ink }}
+              >
+                <CalendarIcon size={15} /> <span className="hidden sm:inline">Calendario</span>
+              </button>
+              <button
+                onClick={() => setView("clients")}
+                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
+                style={{ background: view === "clients" ? COLORS.primary : "transparent", color: view === "clients" ? "#fff" : COLORS.ink }}
+              >
+                <Users size={15} /> <span className="hidden sm:inline">Clienti</span>
+              </button>
+              <button
+                onClick={() => setView("payments")}
+                className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
+                style={{ background: view === "payments" ? COLORS.primary : "transparent", color: view === "payments" ? "#fff" : COLORS.ink }}
+              >
+                <Wallet size={15} /> <span className="hidden sm:inline">Pagamenti</span>
+              </button>
             </div>
+            <MoreMenu
+              items={moreMenuItems}
+              activeKey={view}
+              onSelect={(key) => setView(key as typeof view)}
+            />
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
                 onClick={toggleBookingsOpen}

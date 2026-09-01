@@ -24,6 +24,8 @@ import {
   Bell,
   Sparkles,
   Bug,
+  AtSign,
+  MessageCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
@@ -822,6 +824,27 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             )}
           </div>
         )}
+
+        <div className="mt-8 pt-5 flex items-center justify-center gap-5" style={{ borderTop: `1px solid ${COLORS.border}` }}>
+          <a
+            href="https://www.instagram.com/ima.yo.ga/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5"
+            style={{ fontSize: 13, fontWeight: 600, color: COLORS.inkSoft }}
+          >
+            <AtSign size={16} /> Instagram
+          </a>
+          <a
+            href="https://chat.whatsapp.com/E3P9O46soqKDiUqgd3YOaf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5"
+            style={{ fontSize: 13, fontWeight: 600, color: COLORS.inkSoft }}
+          >
+            <MessageCircle size={16} /> WhatsApp
+          </a>
+        </div>
       </div>
 
       {selected && (
