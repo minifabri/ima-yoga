@@ -20,6 +20,7 @@ export type ClientNotice = {
   message: string;
   kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted";
   createdAt: string;
+  read: boolean;
 };
 
 export type PublicClass = {

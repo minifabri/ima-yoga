@@ -26,10 +26,10 @@ export async function fetchActiveAnnouncements(supabase: DB): Promise<Announceme
 export async function fetchMyNotices(supabase: DB): Promise<ClientNotice[]> {
   const { data } = await supabase
     .from("client_notices")
-    .select("id, message, kind, created_at")
-    .eq("read", false)
-    .order("created_at", { ascending: false });
-  return (data ?? []).map((n) => ({ id: n.id, message: n.message, kind: n.kind, createdAt: n.created_at }));
+    .select("id, message, kind, created_at, read")
+    .order("created_at", { ascending: false })
+    .limit(30);
+  return (data ?? []).map((n) => ({ id: n.id, message: n.message, kind: n.kind, createdAt: n.created_at, read: n.read }));
 }
 
 export async function markNoticeRead(supabase: DB, id: string): Promise<void> {
@@ -38,6 +38,10 @@ export async function markNoticeRead(supabase: DB, id: string): Promise<void> {
 
 export async function markAllNoticesRead(supabase: DB): Promise<void> {
   await supabase.from("client_notices").update({ read: true }).eq("read", false);
+}
+
+export async function deleteMyNotice(supabase: DB, id: string): Promise<void> {
+  await supabase.from("client_notices").delete().eq("id", id);
 }
 
 export async function fetchPublicClasses(supabase: DB, from: string, to: string): Promise<PublicClass[]> {

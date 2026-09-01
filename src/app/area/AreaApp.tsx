@@ -197,7 +197,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
       setBookingsOpen(open);
       setAnnouncements(notices);
       setMyNotices(personalNotices);
-      setUnreadNoticeCount(personalNotices.length);
+      setUnreadNoticeCount(personalNotices.filter((n) => !n.read).length);
     })();
   }, [supabase]);
 
@@ -207,6 +207,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
       const next = !v;
       if (next && unreadNoticeCount > 0) {
         setUnreadNoticeCount(0);
+        setMyNotices((cur) => cur.map((n) => (n.read ? n : { ...n, read: true })));
         db.markAllNoticesRead(supabase).catch(() => {});
       }
       return next;
@@ -225,9 +226,9 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
     });
   }
 
-  function dismissNotice(id: string) {
+  function deleteNotice(id: string) {
     setMyNotices((cur) => cur.filter((n) => n.id !== id));
-    db.markNoticeRead(supabase, id).catch(() => {});
+    db.deleteMyNotice(supabase, id).catch(() => {});
   }
 
   const visibleAnnouncements = announcements.filter((a) => !dismissedAnnouncementIds.includes(a.id));
@@ -441,23 +442,27 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                         </div>
                       ) : (
                         myNotices.map((n) => (
-                          <div key={n.id} className="flex items-start gap-2 px-3 py-2.5" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                          <div
+                            key={n.id}
+                            className="flex items-start gap-2 px-3 py-2.5"
+                            style={{ borderBottom: `1px solid ${COLORS.border}`, background: n.read ? "transparent" : withAlpha(COLORS.primary, 7) }}
+                          >
                             {n.kind === "package_assigned" ? (
-                              <PackagePlus size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />
+                              <PackagePlus size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                             ) : n.kind === "welcome" ? (
-                              <Sparkles size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />
+                              <Sparkles size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                             ) : n.kind === "waitlist_promoted" ? (
-                              <UserCheck size={14} color={COLORS.success} style={{ flexShrink: 0, marginTop: 1 }} />
+                              <UserCheck size={14} color={COLORS.success} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                             ) : (
-                              <Bell size={14} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1 }} />
+                              <Bell size={14} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                             )}
                             <div className="flex-1 min-w-0">
-                              <div style={{ fontSize: 13, color: COLORS.ink }}>{n.message}</div>
+                              <div style={{ fontSize: 13, color: n.read ? COLORS.inkSoft : COLORS.ink, fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
                               <div style={{ fontSize: 11, color: COLORS.inkSoft }} className="mt-0.5">
                                 {formatNoticeDate(n.createdAt)}
                               </div>
                             </div>
-                            <button onClick={() => dismissNotice(n.id)} title="Elimina" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
+                            <button onClick={() => deleteNotice(n.id)} title="Elimina" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
                               <Trash2 size={13} />
                             </button>
                           </div>
