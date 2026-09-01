@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronLeft, ChevronRight, Eye, Gift, X } from "lucide-react";
+import { ArrowLeft, AtSign, ChevronLeft, ChevronRight, Eye, Gift, MessageCircle, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { trackPageView } from "@/lib/track";
 import { COLORS, withAlpha } from "@/app/admin/colors";
@@ -172,6 +172,27 @@ export function CalendarioVisitatore() {
               </div>
             );
           })}
+        </div>
+
+        <div className="mt-8 pt-5 flex items-center justify-center gap-5" style={{ borderTop: `1px solid ${COLORS.border}` }}>
+          <a
+            href="https://www.instagram.com/ima.yo.ga/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5"
+            style={{ fontSize: 13, fontWeight: 600, color: COLORS.inkSoft }}
+          >
+            <AtSign size={16} /> Instagram
+          </a>
+          <a
+            href="https://chat.whatsapp.com/E3P9O46soqKDiUqgd3YOaf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5"
+            style={{ fontSize: 13, fontWeight: 600, color: COLORS.inkSoft }}
+          >
+            <MessageCircle size={16} /> WhatsApp
+          </a>
         </div>
       </div>
 
