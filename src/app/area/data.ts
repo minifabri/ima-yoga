@@ -36,6 +36,10 @@ export async function markNoticeRead(supabase: DB, id: string): Promise<void> {
   await supabase.from("client_notices").update({ read: true }).eq("id", id);
 }
 
+export async function markAllNoticesRead(supabase: DB): Promise<void> {
+  await supabase.from("client_notices").update({ read: true }).eq("read", false);
+}
+
 export async function fetchPublicClasses(supabase: DB, from: string, to: string): Promise<PublicClass[]> {
   const { data, error } = await supabase.rpc("public_classes", { p_from: from, p_to: to });
   if (error) throw error;

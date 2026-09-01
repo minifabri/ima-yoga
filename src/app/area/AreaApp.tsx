@@ -106,6 +106,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   const [myPackages, setMyPackages] = useState<MyPackage[]>([]);
   const [myLedger, setMyLedger] = useState<MyLedgerEntry[]>([]);
   const [myNotices, setMyNotices] = useState<ClientNotice[]>([]);
+  const [unreadNoticeCount, setUnreadNoticeCount] = useState(0);
   const [selected, setSelected] = useState<PublicClass | null>(null);
   const [justBookedId, setJustBookedId] = useState<string | null>(null);
   const [justCancelledId, setJustCancelledId] = useState<string | null>(null);
@@ -181,8 +182,21 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
       setBookingsOpen(open);
       setAnnouncements(notices);
       setMyNotices(personalNotices);
+      setUnreadNoticeCount(personalNotices.length);
     })();
   }, [supabase]);
+
+  function toggleNotifications() {
+    setProfileMenuOpen(false);
+    setNotificationsOpen((v) => {
+      const next = !v;
+      if (next && unreadNoticeCount > 0) {
+        setUnreadNoticeCount(0);
+        db.markAllNoticesRead(supabase).catch(() => {});
+      }
+      return next;
+    });
+  }
 
   function dismissAnnouncement(id: string) {
     setDismissedAnnouncementIds((cur) => {
@@ -359,16 +373,13 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             <ThemeToggle />
             <div className="relative">
               <button
-                onClick={() => {
-                  setProfileMenuOpen(false);
-                  setNotificationsOpen((v) => !v);
-                }}
+                onClick={toggleNotifications}
                 className="flex items-center justify-center rounded-lg relative"
                 style={{ width: 36, height: 36, border: `1px solid ${COLORS.border}`, color: COLORS.ink }}
                 title="Notifiche"
               >
                 <Bell size={16} />
-                {myNotices.length > 0 && (
+                {unreadNoticeCount > 0 && (
                   <span
                     className="absolute flex items-center justify-center rounded-full"
                     style={{
@@ -384,7 +395,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                       background: COLORS.danger,
                     }}
                   >
-                    {myNotices.length}
+                    {unreadNoticeCount}
                   </span>
                 )}
               </button>
@@ -426,7 +437,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                             <span className="flex-1" style={{ fontSize: 13, color: COLORS.ink }}>
                               {n.message}
                             </span>
-                            <button onClick={() => dismissNotice(n.id)} title="Segna come letta" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
+                            <button onClick={() => dismissNotice(n.id)} title="Rimuovi" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
                               <X size={13} />
                             </button>
                           </div>
