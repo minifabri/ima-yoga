@@ -616,15 +616,15 @@ export function ClassFormModal({
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-5 py-4" style={{ borderTop: `1px solid ${COLORS.border}` }}>
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-5 py-4 flex-wrap gap-2.5" style={{ borderTop: `1px solid ${COLORS.border}` }}>
+        <div className="flex items-center gap-3 flex-wrap">
           {editing && (
-            <button onClick={() => onDelete(base!.id)} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: COLORS.danger }}>
-              <Trash2 size={14} /> Elimina
+            <button onClick={() => onDelete(base!.id)} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: COLORS.danger }} title="Elimina">
+              <Trash2 size={14} /> <span className="hidden sm:inline">Elimina</span>
             </button>
           )}
           <button onClick={handleCopy} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: COLORS.primaryDark }} title="Copia questa classe per incollarla su un altro giorno">
-            <Copy size={14} /> {copied ? "Copiata ✓" : "Copia"}
+            <Copy size={14} /> <span className="hidden sm:inline">{copied ? "Copiata ✓" : "Copia"}</span>
           </button>
           <button
             onClick={() =>
@@ -636,10 +636,10 @@ export function ClassFormModal({
             style={{ color: COLORS.primaryDark }}
             title="Scarica questa classe come file .ics"
           >
-            <Download size={14} /> Calendario
+            <Download size={14} /> <span className="hidden sm:inline">Calendario</span>
           </button>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0 ml-auto">
           <button onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
             Annulla
           </button>
