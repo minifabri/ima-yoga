@@ -10,6 +10,22 @@ import { PeekCalendarLink } from "./PeekCalendarLink";
 
 const initialState: ActionState = { error: null };
 
+function NextField() {
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next");
+  return next ? <input type="hidden" name="next" value={next} /> : null;
+}
+
+function SignupLink() {
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next");
+  return (
+    <Link href={next ? `/signup?next=${encodeURIComponent(next)}` : "/signup"} style={{ color: "var(--primary-dark)", fontWeight: 600 }}>
+      Registrati
+    </Link>
+  );
+}
+
 function AccountDeletedBanner() {
   const searchParams = useSearchParams();
   if (searchParams.get("account_deleted") !== "1") return null;
@@ -50,6 +66,9 @@ export default function LoginPage() {
         </Suspense>
 
         <form action={formAction} className="flex flex-col gap-3">
+          <Suspense fallback={null}>
+            <NextField />
+          </Suspense>
           <Field label="Email">
             <input type="email" name="email" required autoComplete="email" style={inputStyle} />
           </Field>
@@ -80,9 +99,9 @@ export default function LoginPage() {
 
         <div className="mt-4 text-center" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
           Non hai un account?{" "}
-          <Link href="/signup" style={{ color: "var(--primary-dark)", fontWeight: 600 }}>
-            Registrati
-          </Link>
+          <Suspense fallback={<Link href="/signup" style={{ color: "var(--primary-dark)", fontWeight: 600 }}>Registrati</Link>}>
+            <SignupLink />
+          </Suspense>
         </div>
 
         <div className="mt-3 pt-3 text-center" style={{ borderTop: "1px solid var(--border)" }}>

@@ -9,6 +9,13 @@ export type ActionState = { error: string | null };
 export type ForgotPasswordState = { error: string | null; sent: boolean };
 export type SignupState = { error: string | null; needsConfirmation: boolean };
 
+// Dove tornare dopo login/registrazione (es. la pagina di un evento da cui
+// si è partiti per accedere) — solo un percorso relativo, per evitare open redirect.
+function safeNext(formData: FormData): string {
+  const next = String(formData.get("next") || "");
+  return next.startsWith("/") && !next.startsWith("//") ? next : "/";
+}
+
 export async function login(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const supabase = await createClient();
 
@@ -21,7 +28,7 @@ export async function login(_prevState: ActionState, formData: FormData): Promis
     return { error: "Email o password non corretti." };
   }
 
-  redirect("/");
+  redirect(safeNext(formData));
 }
 
 export async function signup(_prevState: SignupState, formData: FormData): Promise<SignupState> {
@@ -65,7 +72,7 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
     return { error: null, needsConfirmation: true };
   }
 
-  redirect("/");
+  redirect(safeNext(formData));
 }
 
 export async function requestPasswordReset(_prevState: ForgotPasswordState, formData: FormData): Promise<ForgotPasswordState> {

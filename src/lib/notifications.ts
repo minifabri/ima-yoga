@@ -36,6 +36,62 @@ export async function notifyClassFull(details: { className: string; date: string
   }
 }
 
+// Conferma di prenotazione a un evento, sia per registrati che per ospiti
+// (che non hanno un'area personale dove vedere lo stato della prenotazione).
+export async function sendEventBookingConfirmationEmail(details: {
+  to: string;
+  fullName: string;
+  eventName: string;
+  date: string; // yyyy-mm-dd
+  time: string; // HH:mm
+  status: "booked" | "waitlist";
+  plusOne: boolean;
+  plusOneName?: string | null;
+  price: number;
+  isGuest: boolean;
+}): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !details.to) return false;
+
+  const dateLabel = new Date(`${details.date}T00:00:00`).toLocaleDateString("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const totalPrice = details.price * (details.plusOne ? 2 : 1);
+  const statusLine =
+    details.status === "waitlist"
+      ? "Sei in <strong>lista d'attesa</strong>: ti avviseremo se si libera un posto."
+      : "La tua prenotazione è confermata.";
+  const guestLine = details.isGuest
+    ? `<p style="color:#867CA0; font-size:12.5px;">Per modificare o cancellare la prenotazione, scrivici direttamente rispondendo a questa email.</p>`
+    : "";
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        to: details.to,
+        subject: `Prenotazione evento — ${details.eventName}`,
+        html: `
+          <div style="font-family:Helvetica,Arial,sans-serif; font-size:14px; color:#362D4A; line-height:1.6;">
+            <p>Ciao ${details.fullName},</p>
+            <p>${statusLine}</p>
+            <p><strong>${details.eventName}</strong><br/>${dateLabel} alle ${details.time}${details.plusOne ? `<br/>+1: ${details.plusOneName}` : ""}</p>
+            <p>Totale: €${totalPrice.toFixed(2)}</p>
+            ${guestLine}
+          </div>
+        `,
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 // Promemoria al cliente ~24h prima della lezione (vedi cron in
 // app/api/cron/class-reminders). Ritorna true solo se l'invio è andato a
 // buon fine, così il chiamante marca reminder_sent_at solo in quel caso.

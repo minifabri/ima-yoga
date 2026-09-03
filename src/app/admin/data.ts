@@ -6,6 +6,8 @@ import type {
   ClassType,
   ClientItem,
   ClientNotice,
+  EventBookingItem,
+  EventItem,
   Expense,
   LedgerEntry,
   Level,
@@ -672,4 +674,137 @@ export async function fetchVisitorStats(supabase: DB, days: number): Promise<Vis
     calendarViewers: d.calendar_viewers ?? 0,
     calendarConversions: d.calendar_conversions ?? 0,
   };
+}
+
+// ---------------------------------------------------------
+// Eventi
+// ---------------------------------------------------------
+function mapEvent(row: {
+  id: string;
+  slug: string;
+  name: string;
+  description_html: string;
+  image_light_url: string | null;
+  image_dark_url: string | null;
+  event_date: string;
+  event_time: string;
+  capacity: number;
+  price: number;
+  allow_plus_one: boolean;
+  bookings_open: boolean;
+  published: boolean;
+}): EventItem {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    descriptionHtml: row.description_html,
+    imageLightUrl: row.image_light_url,
+    imageDarkUrl: row.image_dark_url,
+    date: row.event_date,
+    time: (row.event_time || "").slice(0, 5),
+    capacity: row.capacity,
+    price: Number(row.price),
+    allowPlusOne: row.allow_plus_one,
+    bookingsOpen: row.bookings_open,
+    published: row.published,
+  };
+}
+
+export async function fetchEvents(supabase: DB): Promise<EventItem[]> {
+  const { data, error } = await supabase.from("events").select("*").order("event_date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapEvent);
+}
+
+export async function saveEvent(
+  supabase: DB,
+  event: Omit<EventItem, "id"> & { id?: string }
+): Promise<EventItem> {
+  const payload = {
+    slug: event.slug,
+    name: event.name,
+    description_html: event.descriptionHtml,
+    image_light_url: event.imageLightUrl,
+    image_dark_url: event.imageDarkUrl,
+    event_date: event.date,
+    event_time: event.time,
+    capacity: event.capacity,
+    price: event.price,
+    allow_plus_one: event.allowPlusOne,
+    bookings_open: event.bookingsOpen,
+    published: event.published,
+  };
+  const query = event.id
+    ? supabase.from("events").update(payload).eq("id", event.id).select().single()
+    : supabase.from("events").insert(payload).select().single();
+  const { data, error } = await query;
+  if (error) throw error;
+  return mapEvent(data);
+}
+
+export async function deleteEvent(supabase: DB, id: string) {
+  const { error } = await supabase.from("events").delete().eq("id", id);
+  if (error) throw error;
+}
+
+function mapEventBooking(row: {
+  id: string;
+  event_id: string;
+  client_id: string | null;
+  guest_full_name: string | null;
+  guest_email: string | null;
+  plus_one: boolean;
+  plus_one_name: string | null;
+  status: "booked" | "waitlist";
+  payment_status: "unpaid" | "paid";
+  price: number;
+  created_at: string;
+  profiles: { full_name: string } | null;
+}): EventBookingItem {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    clientId: row.client_id,
+    guestFullName: row.guest_full_name,
+    guestEmail: row.guest_email,
+    displayName: row.profiles?.full_name || row.guest_full_name || "—",
+    plusOne: row.plus_one,
+    plusOneName: row.plus_one_name,
+    status: row.status,
+    paymentStatus: row.payment_status,
+    price: Number(row.price),
+    createdAt: row.created_at,
+  };
+}
+
+export async function fetchEventBookings(supabase: DB, eventId: string): Promise<EventBookingItem[]> {
+  const { data, error } = await supabase
+    .from("event_bookings")
+    .select("*, profiles(full_name)")
+    .eq("event_id", eventId)
+    .order("created_at");
+  if (error) throw error;
+  return (data ?? []).map(mapEventBooking);
+}
+
+export async function markEventBookingPaid(supabase: DB, bookingId: string, paid: boolean) {
+  const { error } = await supabase.from("event_bookings").update({ payment_status: paid ? "paid" : "unpaid" }).eq("id", bookingId);
+  if (error) throw error;
+}
+
+export async function deleteEventBooking(supabase: DB, bookingId: string) {
+  const { error } = await supabase.from("event_bookings").delete().eq("id", bookingId);
+  if (error) throw error;
+}
+
+// Carica l'immagine su Supabase Storage (bucket pubblico "event-images",
+// scrittura riservata all'admin via RLS) e restituisce l'URL pubblico.
+export async function uploadEventImage(supabase: DB, eventSlug: string, variant: "light" | "dark", file: File): Promise<string> {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${eventSlug}/${variant}-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("event-images").upload(path, file, { upsert: true, cacheControl: "3600" });
+  if (error) throw error;
+  const { data } = supabase.storage.from("event-images").getPublicUrl(path);
+  return data.publicUrl;
 }

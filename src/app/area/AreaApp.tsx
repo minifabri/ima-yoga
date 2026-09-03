@@ -38,7 +38,7 @@ import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/adm
 import * as db from "./data";
 import { downloadIcsFile } from "@/lib/ics";
 import { notifyClassFull } from "@/lib/notifications";
-import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
+import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyEventBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
 
 const DISMISSED_ANNOUNCEMENTS_KEY = "ima-yoga-dismissed-announcements";
 
@@ -112,6 +112,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
     }
   });
   const [myBookings, setMyBookings] = useState<MyBooking[]>([]);
+  const [myEventBookings, setMyEventBookings] = useState<MyEventBooking[]>([]);
   const [myPackages, setMyPackages] = useState<MyPackage[]>([]);
   const [myLedger, setMyLedger] = useState<MyLedgerEntry[]>([]);
   const [myNotices, setMyNotices] = useState<ClientNotice[]>([]);
@@ -242,14 +243,29 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   }, [days, supabase]);
 
   async function refreshMine() {
-    const [bookings, packages, ledger] = await Promise.all([
+    const [bookings, eventBookings, packages, ledger] = await Promise.all([
       db.fetchMyBookings(supabase),
+      db.fetchMyEventBookings(supabase),
       db.fetchMyPackages(supabase),
       db.fetchMyLedger(supabase),
     ]);
     setMyBookings(bookings);
+    setMyEventBookings(eventBookings);
     setMyPackages(packages);
     setMyLedger(ledger);
+  }
+
+  async function handleCancelEvent(eventId: string) {
+    setPending(true);
+    try {
+      await db.cancelMyEventBooking(supabase, eventId);
+      setMyEventBookings((cur) => cur.filter((b) => b.eventId !== eventId));
+      showToast("Prenotazione evento cancellata.");
+    } catch {
+      showToast("Errore nella cancellazione.");
+    } finally {
+      setPending(false);
+    }
   }
 
   useEffect(() => {
@@ -859,6 +875,44 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 </div>
               )}
             </div>
+
+            {myEventBookings.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles size={16} color={COLORS.heading} />
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 600, color: COLORS.heading }}>I tuoi eventi</div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {myEventBookings.map((b) => (
+                    <div key={b.id} className="flex items-center justify-between p-3 rounded-xl flex-wrap gap-2" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                          {b.date} · {b.time} — {b.eventName}
+                          {b.plusOne && <span style={{ fontWeight: 500, color: COLORS.inkSoft }}> · +1 {b.plusOneName}</span>}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
+                          {b.status === "waitlist" ? (
+                            <span style={{ color: COLORS.gold, fontWeight: 700 }}>In lista d&apos;attesa</span>
+                          ) : b.paymentStatus === "paid" ? (
+                            <span style={{ color: COLORS.success, fontWeight: 600 }}>Pagato</span>
+                          ) : (
+                            <span style={{ color: COLORS.danger, fontWeight: 600 }}>Da saldare {formatLune(b.price * (b.plusOne ? 2 : 1))}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        disabled={pending}
+                        onClick={() => handleCancelEvent(b.eventId)}
+                        className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
+                        style={{ color: COLORS.danger, border: `1px solid ${withAlpha(COLORS.danger, 33)}` }}
+                      >
+                        <X size={12} /> Cancella
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen, PartyPopper } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS, withAlpha } from "./colors";
@@ -19,6 +19,7 @@ import { EarningsView } from "./EarningsView";
 import { NoticesView } from "./NoticesView";
 import { WorklogView } from "./WorklogView";
 import { StatsView } from "./StatsView";
+import { EventsView } from "./EventsView";
 import * as db from "./data";
 import { adminResetClientPassword, adminGetClientAuthStatus, adminResendActivationEmail, adminResendPasswordReset } from "./actions";
 import { notifyClassFull } from "@/lib/notifications";
@@ -53,6 +54,7 @@ type ClassModalState = { mode: "new"; date: Date } | { mode: "edit"; classItem: 
 type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 
 const moreMenuItems = [
+  { key: "events", label: "Eventi", icon: PartyPopper },
   { key: "earnings", label: "Guadagni", icon: TrendingUp },
   { key: "notices", label: "Avvisi", icon: Bell },
   { key: "worklog", label: "Registro", icon: History },
@@ -63,7 +65,7 @@ const moreMenuItems = [
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
 
-  const [view, setView] = useState<"calendar" | "clients" | "payments" | "earnings" | "notices" | "worklog" | "stats" | "settings">("calendar");
+  const [view, setView] = useState<"calendar" | "clients" | "payments" | "events" | "earnings" | "notices" | "worklog" | "stats" | "settings">("calendar");
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>(initial.classTypes);
   const [levels, setLevels] = useState<Level[]>(initial.levels);
@@ -645,6 +647,8 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onDeleteLedgerEntry={deleteLedgerEntryItem}
             onMarkClassPaymentPaid={markClassPaymentPaid}
           />
+        ) : view === "events" ? (
+          <EventsView supabase={supabase} />
         ) : view === "earnings" ? (
           <EarningsView
             classes={classes}

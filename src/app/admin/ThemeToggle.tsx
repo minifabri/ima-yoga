@@ -21,6 +21,13 @@ function getServerSnapshot(): Theme {
   return "dark";
 }
 
+// Riutilizzabile ovunque serva sapere il tema corrente (es. per scegliere
+// quale variante chiara/scura di un'immagine mostrare), senza dover
+// duplicare la sottoscrizione fatta qui sotto da ThemeToggle.
+export function useTheme(): Theme {
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}
+
 function applyTheme(theme: Theme) {
   document.documentElement.setAttribute("data-theme", theme);
   try {

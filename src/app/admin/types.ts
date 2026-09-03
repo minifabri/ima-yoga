@@ -140,6 +140,37 @@ export type VisitorStats = {
   calendarConversions: number;
 };
 
+export type EventItem = {
+  id: string;
+  slug: string;
+  name: string;
+  descriptionHtml: string;
+  imageLightUrl: string | null;
+  imageDarkUrl: string | null;
+  date: string; // yyyy-mm-dd
+  time: string; // HH:mm
+  capacity: number; // 0 = nessun limite
+  price: number;
+  allowPlusOne: boolean;
+  bookingsOpen: boolean;
+  published: boolean;
+};
+
+export type EventBookingItem = {
+  id: string;
+  eventId: string;
+  clientId: string | null;
+  guestFullName: string | null;
+  guestEmail: string | null;
+  displayName: string;
+  plusOne: boolean;
+  plusOneName: string | null;
+  status: "booked" | "waitlist";
+  paymentStatus: "unpaid" | "paid";
+  price: number;
+  createdAt: string;
+};
+
 export type AdminData = {
   classTypes: ClassType[];
   levels: Level[];

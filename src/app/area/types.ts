@@ -69,3 +69,17 @@ export type MyLedgerEntry = {
   note: string;
   date: string;
 };
+
+export type MyEventBooking = {
+  id: string;
+  eventId: string;
+  eventName: string;
+  eventSlug: string;
+  date: string;
+  time: string;
+  status: "booked" | "waitlist";
+  paymentStatus: "unpaid" | "paid";
+  price: number;
+  plusOne: boolean;
+  plusOneName: string | null;
+};
