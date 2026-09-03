@@ -58,16 +58,17 @@ export async function sendEventBookingConfirmationEmail(details: {
     day: "numeric",
     month: "long",
   });
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ima-yoga.vercel.app";
   const statusLine =
     details.status === "waitlist"
       ? "Sei in <strong>lista d'attesa</strong>: ti avviseremo se si libera un posto."
       : "La tua prenotazione è confermata.";
-  // Solo chi non ha un account non ha un'area personale dove vedere lo stato
-  // della prenotazione: per un registrato questa riga sarebbe fuori luogo
-  // (può gestirsela da sola dalla sua area).
-  const guestLine = details.isGuest
-    ? `<p style="color:#867CA0; font-size:12.5px;">Per modificare o cancellare la prenotazione, scrivici direttamente rispondendo a questa email.</p>`
-    : "";
+  // Chi ha un account può gestire/cancellare la prenotazione da solo dalla
+  // propria area; chi ha prenotato da ospite non ha un'area dove farlo, e
+  // deve invece scrivere direttamente.
+  const manageLine = details.isGuest
+    ? `<p style="color:#867CA0; font-size:12.5px;">Per modificare o cancellare la prenotazione, scrivici direttamente.</p>`
+    : `<p style="color:#867CA0; font-size:12.5px;">Puoi gestire o cancellare la prenotazione dalla <a href="${siteUrl}/area" style="color:#8E72C7; font-weight:600;">tua area</a>.</p>`;
   const imageBlock = details.imageUrl
     ? `<img src="${details.imageUrl}" alt="" style="max-width:100%; border-radius:12px; margin-bottom:16px; display:block;" />`
     : "";
@@ -86,7 +87,7 @@ export async function sendEventBookingConfirmationEmail(details: {
             <p>Ciao ${details.fullName},</p>
             <p>${statusLine}</p>
             <p><strong>${details.eventName}</strong><br/>${dateLabel} alle ${details.time}${details.plusOne ? `<br/>+1: ${details.plusOneName}` : ""}</p>
-            ${guestLine}
+            ${manageLine}
           </div>
         `,
       }),
