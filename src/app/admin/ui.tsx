@@ -135,44 +135,62 @@ export function Modal({
   );
 }
 
-// Interruttore acceso/spento inequivocabile (posizione + colore), a differenza
-// dei chip testuali usati altrove che a volte cambiano solo di una lettera
-// tra stato attivo/disattivo e sono facili da fraintendere a colpo d'occhio.
-export function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+// Interruttore acceso/spento inequivocabile: non solo posizione e colore del
+// cursore (che sul tema chiaro, con la pista "spenta" quasi bianca su sfondo
+// bianco, restavano poco leggibili), ma anche un'etichetta Sì/No esplicita —
+// a differenza dei chip testuali usati altrove che a volte cambiano solo di
+// una lettera tra stato attivo/disattivo e sono facili da fraintendere.
+export function Switch({
+  checked,
+  onChange,
+  label,
+  onText = "Sì",
+  offText = "No",
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  onText?: string;
+  offText?: string;
+}) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className="flex items-center gap-2"
+      className="flex items-center gap-2.5"
     >
       <span
         style={{
-          width: 34,
-          height: 20,
+          width: 36,
+          height: 21,
           borderRadius: 999,
           position: "relative",
           flexShrink: 0,
-          background: checked ? COLORS.primary : COLORS.border,
-          transition: "background .15s",
+          background: checked ? COLORS.primary : COLORS.subtle,
+          border: `1.5px solid ${checked ? COLORS.primary : COLORS.inkSoft}`,
+          transition: "background .15s, border-color .15s",
         }}
       >
         <span
           style={{
             position: "absolute",
-            top: 2,
-            left: checked ? 16 : 2,
+            top: 1,
+            left: checked ? 16 : 1,
             width: 16,
             height: 16,
             borderRadius: "50%",
             background: "#fff",
             transition: "left .15s",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
           }}
         />
       </span>
-      <span style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.ink, textAlign: "left" }}>{label}</span>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.ink, textAlign: "left" }}>
+        {label}{" "}
+        <span style={{ fontWeight: 800, color: checked ? COLORS.success : COLORS.inkSoft }}>· {checked ? onText : offText}</span>
+      </span>
     </button>
   );
 }

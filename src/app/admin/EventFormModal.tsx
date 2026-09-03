@@ -213,7 +213,9 @@ export function EventFormModal({
           <Switch
             checked={imageFit === "cover"}
             onChange={(v) => setImageFit(v ? "cover" : "contain")}
-            label={imageFit === "cover" ? "Ritaglia per riempire la cornice" : "Adatta senza tagliare (può lasciare bande ai lati)"}
+            label="Immagine evento"
+            onText="Ritaglia per riempire"
+            offText="Adatta senza tagliare"
           />
         </div>
 
