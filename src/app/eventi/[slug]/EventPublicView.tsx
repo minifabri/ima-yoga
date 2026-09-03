@@ -20,18 +20,20 @@ function formatDateLabel(dateStr: string): string {
 export function EventPublicView({
   event,
   loggedIn,
-  isClientProfile,
+  profileRole,
   clientFullName,
   clientEmail,
 }: {
   event: PublicEventData;
   loggedIn: boolean;
-  isClientProfile: boolean;
+  profileRole: "admin" | "client" | null;
   clientFullName: string;
   clientEmail: string;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const theme = useTheme();
+  const isClientProfile = profileRole === "client";
+  const isAdminProfile = profileRole === "admin";
 
   const [myStatus, setMyStatus] = useState(event.myStatus);
   const [myPlusOne, setMyPlusOne] = useState(event.myPlusOne ?? false);
@@ -219,9 +221,13 @@ export function EventPublicView({
           />
         )}
 
-        {loggedIn && !isClientProfile ? (
+        {isAdminProfile ? (
           <div className="p-4 rounded-2xl text-center" style={{ background: COLORS.subtle, fontSize: 13, color: COLORS.inkSoft }}>
             Stai visualizzando questa pagina con un account admin: la prenotazione non è disponibile da qui.
+          </div>
+        ) : loggedIn && !isClientProfile ? (
+          <div className="p-4 rounded-2xl text-center" style={{ background: COLORS.subtle, fontSize: 13, color: COLORS.inkSoft }}>
+            Non troviamo un profilo cliente collegato al tuo account. Scrivici direttamente e ti aiutiamo a sistemarlo.
           </div>
         ) : !event.bookingsOpen ? (
           <div className="p-4 rounded-2xl text-center" style={{ background: COLORS.subtle, fontSize: 13.5, color: COLORS.inkSoft }}>

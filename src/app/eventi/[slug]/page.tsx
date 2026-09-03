@@ -89,7 +89,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
     <EventPublicView
       event={event}
       loggedIn={!!user}
-      isClientProfile={!!profile && profile.role === "client"}
+      profileRole={profile?.role ?? null}
       clientFullName={profile?.full_name || ""}
       clientEmail={user?.email || ""}
     />
