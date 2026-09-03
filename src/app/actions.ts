@@ -69,6 +69,15 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   // sessione: il profilo (trigger handle_new_user) esiste già, ma l'accesso
   // resta bloccato finché non si clicca il link ricevuto via email.
   if (!data.session) {
+    // Trucco per riconoscere un'email già registrata E già confermata:
+    // per non permettere di scoprire quali email esistono, Supabase non
+    // restituisce un errore in questo caso, ma un utente "finto" con
+    // identities vuoto — indistinguibile altrimenti da una registrazione
+    // riuscita, e per questo il sistema sembrava "non accorgersi" che
+    // l'account esisteva già.
+    if (data.user && data.user.identities?.length === 0) {
+      return { error: "Questo indirizzo email è già registrato. Prova ad accedere, oppure recupera la password se non la ricordi.", needsConfirmation: false };
+    }
     return { error: null, needsConfirmation: true };
   }
 

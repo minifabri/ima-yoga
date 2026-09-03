@@ -50,6 +50,7 @@ export function EventPublicView({
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   const imageUrl = (theme === "dark" ? event.imageDarkUrl : event.imageLightUrl) || event.imageLightUrl || event.imageDarkUrl;
 
@@ -97,6 +98,7 @@ export function EventPublicView({
 
   async function handleCancelRegistered() {
     setSubmitting(true);
+    setConfirmCancel(false);
     try {
       const { error } = await supabase.rpc("cancel_event_booking", { p_event_id: event.id });
       if (error) throw error;
@@ -243,12 +245,15 @@ export function EventPublicView({
                 <UserPlus size={12} className="inline mr-1" /> +1: {myPlusOneName}
               </div>
             )}
-            <div style={{ fontSize: 12.5, color: COLORS.inkSoft }} className="mb-3">
+            <div style={{ fontSize: 12.5, color: COLORS.inkSoft }} className="mb-1">
               Totale: €{(event.price * (myPlusOne ? 2 : 1)).toFixed(2)}
+            </div>
+            <div style={{ fontSize: 12, color: COLORS.inkSoft }} className="mb-3">
+              Riceverai anche una mail di conferma.
             </div>
             <button
               disabled={submitting}
-              onClick={handleCancelRegistered}
+              onClick={() => setConfirmCancel(true)}
               className="flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg disabled:opacity-60"
               style={{ color: COLORS.danger, border: `1px solid ${withAlpha(COLORS.danger, 33)}` }}
             >
@@ -347,6 +352,40 @@ export function EventPublicView({
           </div>
         )}
       </div>
+
+      {confirmCancel && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ background: "rgba(74,58,115,0.35)", zIndex: 50 }}
+          onMouseDown={(e) => e.target === e.currentTarget && setConfirmCancel(false)}
+        >
+          <div className="w-full p-5" style={{ maxWidth: 360, background: COLORS.card, borderRadius: 18, boxShadow: "0 16px 44px rgba(74,58,115,0.16)" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }} className="mb-1">
+              Cancellare la prenotazione?
+            </div>
+            <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-4">
+              {event.name} — {formatDateLabel(event.date)} · {event.time}. L&apos;azione non può essere annullata.
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmCancel(false)}
+                className="px-3 py-2 rounded-lg text-sm font-medium"
+                style={{ border: `1px solid ${COLORS.border}` }}
+              >
+                Torna indietro
+              </button>
+              <button
+                disabled={submitting}
+                onClick={handleCancelRegistered}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
+                style={{ background: COLORS.danger }}
+              >
+                Cancella prenotazione
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
