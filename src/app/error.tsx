@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { Wind } from "lucide-react";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -15,8 +15,16 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         className="w-full p-6 rounded-2xl text-center"
         style={{ maxWidth: 380, background: "var(--card)", border: "1px solid var(--border)" }}
       >
-        <div className="mb-4 flex justify-center">
-          <Wind size={40} style={{ color: "var(--primary)" }} />
+        <div className="mb-2 flex justify-center">
+          <Image
+            src="/courtesy/errore-geode.png"
+            alt=""
+            width={470}
+            height={573}
+            priority
+            className="w-full h-auto"
+            style={{ maxWidth: 190 }}
+          />
         </div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 500, color: "var(--heading)" }}>
           Un piccolo squilibrio
