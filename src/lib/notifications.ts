@@ -84,7 +84,7 @@ export async function sendEventBookingConfirmationEmail(details: {
         html: `
           <div style="font-family:Helvetica,Arial,sans-serif; font-size:14px; color:#362D4A; line-height:1.6; max-width:480px;">
             ${imageBlock}
-            <p>Ciao ${details.fullName},</p>
+            <p>Ciao ${details.fullName.split(" ")[0]},</p>
             <p>${statusLine}</p>
             <p><strong>${details.eventName}</strong><br/>${dateLabel} alle ${details.time}${details.plusOne ? `<br/>+1: ${details.plusOneName}` : ""}</p>
             ${manageLine}
