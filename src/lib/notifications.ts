@@ -47,7 +47,7 @@ export async function sendEventBookingConfirmationEmail(details: {
   status: "booked" | "waitlist";
   plusOne: boolean;
   plusOneName?: string | null;
-  price: number;
+  imageUrl?: string | null;
   isGuest: boolean;
 }): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -58,13 +58,18 @@ export async function sendEventBookingConfirmationEmail(details: {
     day: "numeric",
     month: "long",
   });
-  const totalPrice = details.price * (details.plusOne ? 2 : 1);
   const statusLine =
     details.status === "waitlist"
       ? "Sei in <strong>lista d'attesa</strong>: ti avviseremo se si libera un posto."
       : "La tua prenotazione è confermata.";
+  // Solo chi non ha un account non ha un'area personale dove vedere lo stato
+  // della prenotazione: per un registrato questa riga sarebbe fuori luogo
+  // (può gestirsela da sola dalla sua area).
   const guestLine = details.isGuest
     ? `<p style="color:#867CA0; font-size:12.5px;">Per modificare o cancellare la prenotazione, scrivici direttamente rispondendo a questa email.</p>`
+    : "";
+  const imageBlock = details.imageUrl
+    ? `<img src="${details.imageUrl}" alt="" style="max-width:100%; border-radius:12px; margin-bottom:16px; display:block;" />`
     : "";
 
   try {
@@ -76,11 +81,11 @@ export async function sendEventBookingConfirmationEmail(details: {
         to: details.to,
         subject: `Prenotazione evento — ${details.eventName}`,
         html: `
-          <div style="font-family:Helvetica,Arial,sans-serif; font-size:14px; color:#362D4A; line-height:1.6;">
+          <div style="font-family:Helvetica,Arial,sans-serif; font-size:14px; color:#362D4A; line-height:1.6; max-width:480px;">
+            ${imageBlock}
             <p>Ciao ${details.fullName},</p>
             <p>${statusLine}</p>
             <p><strong>${details.eventName}</strong><br/>${dateLabel} alle ${details.time}${details.plusOne ? `<br/>+1: ${details.plusOneName}` : ""}</p>
-            <p>Totale: €${totalPrice.toFixed(2)}</p>
             ${guestLine}
           </div>
         `,
