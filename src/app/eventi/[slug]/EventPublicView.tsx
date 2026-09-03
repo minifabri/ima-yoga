@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Calendar, Clock, MapPin, UserPlus, X, Users, EyeOff, Check, AlertCircle } from "lucide-react";
+import { Calendar, Clock, MapPin, UserPlus, X, Users, EyeOff, Check, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { sendEventBookingConfirmationEmail } from "@/lib/notifications";
 import { COLORS, withAlpha } from "@/app/admin/colors";
@@ -162,10 +162,7 @@ export function EventPublicView({
   return (
     <main className="flex-1 flex flex-col p-5" style={{ background: COLORS.bg, minHeight: "100vh" }}>
       <div className="w-full mx-auto" style={{ maxWidth: 620 }}>
-        <div className="flex items-center justify-between mb-4">
-          <Link href="/" className="inline-flex items-center gap-1 text-sm" style={{ color: COLORS.inkSoft }}>
-            <ArrowLeft size={15} /> Fai un passo indietro
-          </Link>
+        <div className="flex items-center justify-end mb-4">
           <ThemeToggle size={34} />
         </div>
 
