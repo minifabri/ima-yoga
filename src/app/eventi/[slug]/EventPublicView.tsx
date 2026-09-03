@@ -84,7 +84,6 @@ export function EventPublicView({
         status,
         plusOne,
         plusOneName: plusOne ? plusOneName.trim() : null,
-        imageUrl: event.imageLightUrl || event.imageDarkUrl,
         isGuest: false,
       }).catch(() => {});
     } catch (e) {
@@ -137,7 +136,6 @@ export function EventPublicView({
         status,
         plusOne,
         plusOneName: plusOne ? plusOneName.trim() : null,
-        imageUrl: event.imageLightUrl || event.imageDarkUrl,
         isGuest: true,
       }).catch(() => {});
     } catch (e) {

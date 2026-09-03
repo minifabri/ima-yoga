@@ -47,7 +47,6 @@ export async function sendEventBookingConfirmationEmail(details: {
   status: "booked" | "waitlist";
   plusOne: boolean;
   plusOneName?: string | null;
-  imageUrl?: string | null;
   isGuest: boolean;
 }): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -59,19 +58,23 @@ export async function sendEventBookingConfirmationEmail(details: {
     month: "long",
   });
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ima-yoga.vercel.app";
-  const statusLine =
-    details.status === "waitlist"
-      ? "Sei in <strong>lista d'attesa</strong>: ti avviseremo se si libera un posto."
-      : "La tua prenotazione è confermata.";
+  const isWaitlist = details.status === "waitlist";
+  const statusLine = isWaitlist
+    ? "Sei in <strong>lista d'attesa</strong>: ti avviseremo se si libera un posto."
+    : "La tua prenotazione è confermata.";
   // Chi ha un account può gestire/cancellare la prenotazione da solo dalla
-  // propria area; chi ha prenotato da ospite non ha un'area dove farlo, e
-  // deve invece scrivere direttamente.
-  const manageLine = details.isGuest
-    ? `<p style="color:#867CA0; font-size:12.5px;">Per modificare o cancellare la prenotazione, scrivici direttamente.</p>`
-    : `<p style="color:#867CA0; font-size:12.5px;">Puoi gestire o cancellare la prenotazione dalla <a href="${siteUrl}/area" style="color:#8E72C7; font-weight:600;">tua area</a>.</p>`;
-  const imageBlock = details.imageUrl
-    ? `<img src="${details.imageUrl}" alt="" style="max-width:100%; border-radius:12px; margin-bottom:16px; display:block;" />`
+  // propria area (e per lui vale la pena mostrare il bottone per andarci);
+  // chi ha prenotato da ospite non ha un'area dove farlo, e deve invece
+  // scrivere direttamente.
+  const manageParagraph = details.isGuest
+    ? `<p style="font-size:14px; line-height:1.6; color:#362D4A; margin:0 0 28px 0; text-align:left;">Per modificare o cancellare la prenotazione, scrivici direttamente.</p>`
     : "";
+  const areaButton = details.isGuest
+    ? ""
+    : `<a href="${siteUrl}/area"
+         style="display:inline-block; background:#8E72C7; color:#FFFFFF; text-decoration:none; font-size:14px; font-weight:600; padding:12px 28px; border-radius:10px;">
+        Vai alla tua area
+      </a>`;
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -82,12 +85,41 @@ export async function sendEventBookingConfirmationEmail(details: {
         to: details.to,
         subject: `Prenotazione evento — ${details.eventName}`,
         html: `
-          <div style="font-family:Helvetica,Arial,sans-serif; font-size:14px; color:#362D4A; line-height:1.6; max-width:480px;">
-            ${imageBlock}
-            <p>Ciao ${details.fullName.split(" ")[0]},</p>
-            <p>${statusLine}</p>
-            <p><strong>${details.eventName}</strong><br/>${dateLabel} alle ${details.time}${details.plusOne ? `<br/>+1: ${details.plusOneName}` : ""}</p>
-            ${manageLine}
+          <div style="background-color:#FAF7F2; padding:40px 16px; font-family:Helvetica, Arial, sans-serif;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:420px; margin:0 auto; background:#FFFFFF; border-radius:18px; overflow:hidden; border:1px solid #E4DAF0;">
+              <tr>
+                <td style="padding:36px 32px 28px 32px; text-align:center;">
+                  <div style="font-family:Georgia,'Times New Roman',serif; font-size:30px; color:#4A3A73; margin-bottom:4px;">
+                    ima yoga
+                  </div>
+                  <div style="font-size:11px; letter-spacing:2px; text-transform:uppercase; color:#D6B36A; font-weight:700; margin-bottom:28px;">
+                    ${isWaitlist ? "Lista d'attesa" : "Prenotazione evento"}
+                  </div>
+
+                  <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 8px 0; text-align:left;">
+                    Ciao ${details.fullName.split(" ")[0]}!
+                  </p>
+                  <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 20px 0; text-align:left;">
+                    ${statusLine}
+                  </p>
+                  <p style="font-size:14px; line-height:1.6; color:#362D4A; margin:0 0 28px 0; text-align:left;">
+                    <strong>${details.eventName}</strong><br/>${dateLabel} alle ${details.time}${details.plusOne ? `<br/>+1: ${details.plusOneName}` : ""}
+                  </p>
+                  ${manageParagraph}
+
+                  ${areaButton}
+
+                  <p style="font-size:14px; line-height:1.6; color:#362D4A; margin:28px 0 0 0;">
+                    A presto ✨
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:18px 32px; background:#F2EDF9; text-align:center;">
+                  <span style="font-size:11px; color:#867CA0;">ima yoga</span>
+                </td>
+              </tr>
+            </table>
           </div>
         `,
       }),
