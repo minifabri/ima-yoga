@@ -7,6 +7,7 @@ export type PublicEventData = {
   imageDarkUrl: string | null;
   date: string; // yyyy-mm-dd
   time: string; // HH:mm
+  location: string;
   capacity: number; // 0 = nessun limite
   price: number; // a persona
   allowPlusOne: boolean;

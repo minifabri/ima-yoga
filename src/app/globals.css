@@ -281,3 +281,20 @@ body {
     visibility: visible;
   }
 }
+
+/* Testo generato dall'editor rich text (Tiptap): usata sia dentro l'editor
+   stesso sia ovunque si mostri l'HTML salvato (descrizione evento, avvisi),
+   così i link restano riconoscibili in entrambi i contesti e in entrambi i temi. */
+.rich-content a {
+  color: var(--primary-dark);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rich-content p + p {
+  margin-top: 0.6em;
+}
+.rich-content ul,
+.rich-content ol {
+  padding-left: 1.3em;
+}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, PartyPopper, AlertCircle, Check } from "lucide-react";
+import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Check } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { EventFormModal } from "./EventFormModal";
 import { EventBookingsPanel } from "./EventBookingsPanel";
@@ -68,7 +68,7 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
         <div style={{ fontSize: 13, color: COLORS.inkSoft }}>Caricamento…</div>
       ) : sorted.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-14" style={{ color: COLORS.inkSoft }}>
-          <PartyPopper size={28} className="mb-2" />
+          <Ticket size={28} className="mb-2" />
           <div style={{ fontSize: 13.5 }}>Nessun evento creato finora.</div>
         </div>
       ) : (
@@ -83,7 +83,7 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={ev.imageLightUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
-                  <PartyPopper size={18} color={COLORS.inkSoft} />
+                  <Ticket size={18} color={COLORS.inkSoft} />
                 )}
               </div>
 
@@ -101,7 +101,8 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
                   )}
                 </div>
                 <div style={{ fontSize: 12, color: COLORS.inkSoft }}>
-                  {ev.date} · {ev.time} · €{ev.price.toFixed(2)} {ev.capacity > 0 ? `· ${ev.capacity} posti` : "· posti illimitati"}
+                  {ev.date} · {ev.time}
+                  {ev.location ? ` · ${ev.location}` : ""} · €{ev.price.toFixed(2)} {ev.capacity > 0 ? `· ${ev.capacity} posti` : "· posti illimitati"}
                 </div>
               </div>
 

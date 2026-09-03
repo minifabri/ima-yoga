@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X, Trash2, Eye, EyeOff, ExternalLink, UserPlus, Lock, LockOpen, Image as ImageIcon } from "lucide-react";
-import { Modal, Field, inputStyle } from "./ui";
+import { X, Trash2, Eye, EyeOff, ExternalLink, Lock, LockOpen, Image as ImageIcon } from "lucide-react";
+import { Modal, Field, Switch, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { slugify } from "./utils";
 import { RichTextEditor } from "./RichTextEditor";
@@ -86,6 +86,7 @@ export function EventFormModal({
   const [imageDarkUrl, setImageDarkUrl] = useState<string | null>(base?.imageDarkUrl || null);
   const [date, setDate] = useState(base?.date || "");
   const [time, setTime] = useState(base?.time || "19:00");
+  const [location, setLocation] = useState(base?.location || "");
   const [capacity, setCapacity] = useState<number | string>(base?.capacity ?? 0);
   const [price, setPrice] = useState<number | string>(base?.price ?? 0);
   const [allowPlusOne, setAllowPlusOne] = useState(base?.allowPlusOne ?? true);
@@ -131,6 +132,7 @@ export function EventFormModal({
         imageDarkUrl,
         date,
         time,
+        location: location.trim(),
         capacity: Number(capacity) || 0,
         price: Number(price) || 0,
         allowPlusOne,
@@ -214,7 +216,11 @@ export function EventFormModal({
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-3">
+        <Field label="Luogo (facoltativo)">
+          <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Es. Studio ima yoga" style={inputStyle} />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3 mb-3 mt-1">
           <Field label="Capienza (0 = nessun limite)">
             <input type="number" min={0} value={capacity} onChange={(e) => setCapacity(e.target.value)} style={inputStyle} />
           </Field>
@@ -223,20 +229,11 @@ export function EventFormModal({
           </Field>
         </div>
 
+        <div className="mb-3">
+          <Switch checked={allowPlusOne} onChange={setAllowPlusOne} label="Consenti ai partecipanti di aggiungere un +1" />
+        </div>
+
         <div className="flex items-center gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => setAllowPlusOne((v) => !v)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"
-            style={{
-              border: `1px solid ${allowPlusOne ? COLORS.primary : COLORS.border}`,
-              color: allowPlusOne ? COLORS.primaryDark : COLORS.inkSoft,
-              background: allowPlusOne ? withAlpha(COLORS.primary, 12) : "transparent",
-            }}
-          >
-            <UserPlus size={13} />
-            {allowPlusOne ? "Consente +1" : "Consenti +1"}
-          </button>
           <button
             type="button"
             onClick={() => setBookingsOpen((v) => !v)}

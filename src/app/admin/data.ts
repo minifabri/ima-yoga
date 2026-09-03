@@ -688,6 +688,7 @@ function mapEvent(row: {
   image_dark_url: string | null;
   event_date: string;
   event_time: string;
+  location: string | null;
   capacity: number;
   price: number;
   allow_plus_one: boolean;
@@ -703,6 +704,7 @@ function mapEvent(row: {
     imageDarkUrl: row.image_dark_url,
     date: row.event_date,
     time: (row.event_time || "").slice(0, 5),
+    location: row.location ?? "",
     capacity: row.capacity,
     price: Number(row.price),
     allowPlusOne: row.allow_plus_one,
@@ -729,6 +731,7 @@ export async function saveEvent(
     image_dark_url: event.imageDarkUrl,
     event_date: event.date,
     event_time: event.time,
+    location: event.location || null,
     capacity: event.capacity,
     price: event.price,
     allow_plus_one: event.allowPlusOne,

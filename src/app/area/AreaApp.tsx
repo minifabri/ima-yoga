@@ -556,7 +556,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 style={{ background: withAlpha(COLORS.gold, 14), color: COLORS.primaryDark, border: `1px solid ${withAlpha(COLORS.gold, 33)}` }}
               >
                 <Megaphone size={15} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />
-                <span className="flex-1">{a.message}</span>
+                <span className="flex-1 rich-content" dangerouslySetInnerHTML={{ __html: a.message }} />
                 <button onClick={() => dismissAnnouncement(a.id)} title="Chiudi" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
                   <X size={14} />
                 </button>

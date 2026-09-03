@@ -1,19 +1,17 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Plus, Trash2, Eye, Megaphone } from "lucide-react";
+import { useState } from "react";
+import { Plus, Trash2, Eye } from "lucide-react";
 import { Field, IconButton, inputStyle } from "./ui";
-import { COLORS, withAlpha } from "./colors";
-import { EmojiPicker } from "./EmojiPicker";
+import { COLORS } from "./colors";
 import { PALETTE } from "./utils";
-import type { Announcement, ClassItem, ClassType, Level, Settings } from "./types";
+import type { ClassItem, ClassType, Level, Settings } from "./types";
 
 export function SettingsView({
   classTypes,
   levels,
   classes,
   defaults,
-  announcements,
   onAddType,
   onUpdateType,
   onRemoveType,
@@ -21,15 +19,11 @@ export function SettingsView({
   onRemoveLevel,
   onUpdateLevel,
   onSaveDefaults,
-  onAddAnnouncement,
-  onUpdateAnnouncement,
-  onRemoveAnnouncement,
 }: {
   classTypes: ClassType[];
   levels: Level[];
   classes: ClassItem[];
   defaults: Settings;
-  announcements: Announcement[];
   onAddType: (name: string, color: string) => Promise<void>;
   onUpdateType: (id: string, patch: Partial<Pick<ClassType, "name" | "color" | "packageEligible" | "defaultCapacity" | "description">>) => Promise<void>;
   onRemoveType: (id: string) => Promise<void>;
@@ -37,18 +31,12 @@ export function SettingsView({
   onRemoveLevel: (id: string) => Promise<void>;
   onUpdateLevel: (id: string, name: string) => Promise<void>;
   onSaveDefaults: (defaults: Settings) => Promise<void>;
-  onAddAnnouncement: (message: string) => Promise<void>;
-  onUpdateAnnouncement: (id: string, patch: Partial<Pick<Announcement, "message" | "active">>) => void;
-  onRemoveAnnouncement: (id: string) => void;
 }) {
   const [def, setDef] = useState<Settings>(defaults);
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypeColor, setNewTypeColor] = useState(PALETTE[0].hex);
   const [newLevelName, setNewLevelName] = useState("");
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
-  const [newAnnouncement, setNewAnnouncement] = useState("");
-  const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
-  const newAnnouncementRef = useRef<HTMLInputElement>(null);
 
   function addType() {
     const name = newTypeName.trim();
@@ -61,12 +49,6 @@ export function SettingsView({
     if (!name) return;
     onAddLevel(name);
     setNewLevelName("");
-  }
-  function addAnnouncement() {
-    const message = newAnnouncement.trim();
-    if (!message) return;
-    onAddAnnouncement(message);
-    setNewAnnouncement("");
   }
   function saveDefaults() {
     onSaveDefaults({
@@ -339,69 +321,6 @@ export function SettingsView({
           <div className="flex items-center gap-2">
             <input value={newLevelName} onChange={(e) => setNewLevelName(e.target.value)} placeholder="Es. Open level" style={{ ...inputStyle, flex: 1 }} onKeyDown={(e) => e.key === "Enter" && addLevel()} />
             <IconButton onClick={addLevel} style={{ background: COLORS.primary, color: "#fff" }}>
-              <Plus size={16} />
-            </IconButton>
-          </div>
-        </div>
-
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }} className="mb-1 flex items-center gap-1.5">
-            <Megaphone size={14} /> Avvisi per i clienti
-          </div>
-          <div style={{ fontSize: 11.5, color: COLORS.inkSoft }} className="mb-2">
-            Appaiono come banner nell&apos;area clienti; ogni cliente può chiuderlo, resta comunque visibile agli altri finché non lo disattivi qui.
-          </div>
-          <div className="flex flex-col gap-1.5 mb-3">
-            {announcements.map((a) => {
-              const isEditing = editingAnnouncementId === a.id;
-              return (
-                <div key={a.id} className="rounded-lg" style={{ border: `1px solid ${a.active ? withAlpha(COLORS.gold, 40) : COLORS.border}` }}>
-                  <div className="flex items-center gap-2 px-2.5 py-2">
-                    <button onClick={() => setEditingAnnouncementId(isEditing ? null : a.id)} className="flex-1 text-left truncate" style={{ fontSize: 12.5, color: a.active ? COLORS.ink : COLORS.inkSoft }}>
-                      {a.message}
-                    </button>
-                    <button
-                      onClick={() => onUpdateAnnouncement(a.id, { active: !a.active })}
-                      title={a.active ? "Clicca per disattivare" : "Clicca per attivare"}
-                      style={{ fontSize: 10.5, fontWeight: 700, color: a.active ? COLORS.gold : COLORS.inkSoft, whiteSpace: "nowrap" }}
-                    >
-                      {a.active ? "Attivo" : "Spento"}
-                    </button>
-                    <button onClick={() => onRemoveAnnouncement(a.id)} title="Elimina" style={{ color: COLORS.danger }}>
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                  {isEditing && (
-                    <div className="px-2.5 pb-2.5">
-                      <textarea
-                        key={a.id}
-                        defaultValue={a.message}
-                        onBlur={(e) => {
-                          const message = e.target.value.trim();
-                          if (message && message !== a.message) onUpdateAnnouncement(a.id, { message });
-                          else e.target.value = a.message;
-                        }}
-                        rows={2}
-                        style={{ ...inputStyle, fontSize: 12, resize: "vertical" }}
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {announcements.length === 0 && <div style={{ fontSize: 12, color: COLORS.inkSoft }}>Nessun avviso ancora.</div>}
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              ref={newAnnouncementRef}
-              value={newAnnouncement}
-              onChange={(e) => setNewAnnouncement(e.target.value)}
-              placeholder="Es. Il 24/12 non ci sono lezioni"
-              style={{ ...inputStyle, flex: 1 }}
-              onKeyDown={(e) => e.key === "Enter" && addAnnouncement()}
-            />
-            <EmojiPicker targetRef={newAnnouncementRef} value={newAnnouncement} onChange={setNewAnnouncement} />
-            <IconButton onClick={addAnnouncement} style={{ background: COLORS.primary, color: "#fff" }}>
               <Plus size={16} />
             </IconButton>
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen, PartyPopper } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS, withAlpha } from "./colors";
@@ -54,9 +54,9 @@ type ClassModalState = { mode: "new"; date: Date } | { mode: "edit"; classItem: 
 type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 
 const moreMenuItems = [
-  { key: "events", label: "Eventi", icon: PartyPopper },
+  { key: "events", label: "Eventi", icon: Ticket },
   { key: "earnings", label: "Guadagni", icon: TrendingUp },
-  { key: "notices", label: "Avvisi", icon: Bell },
+  { key: "notices", label: "Avvisi e comunicazioni", icon: Bell },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
   { key: "settings", label: "Impostazioni", icon: SettingsIcon },
@@ -661,8 +661,12 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           <NoticesView
             clients={clients}
             clientNotices={clientNotices}
+            announcements={announcements}
             onSendNotice={sendPersonalNotices}
             onDeleteNotice={deleteClientNoticeItem}
+            onAddAnnouncement={addAnnouncementItem}
+            onUpdateAnnouncement={updateAnnouncementItem}
+            onRemoveAnnouncement={deleteAnnouncementItem}
           />
         ) : view === "worklog" ? (
           <WorklogView supabase={supabase} />
@@ -674,7 +678,6 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             levels={levels}
             classes={classes}
             defaults={settings}
-            announcements={announcements}
             onAddType={addClassType}
             onUpdateType={updateClassType}
             onRemoveType={removeType}
@@ -682,9 +685,6 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onRemoveLevel={removeLevel}
             onUpdateLevel={updateLevel}
             onSaveDefaults={saveDefaults}
-            onAddAnnouncement={addAnnouncementItem}
-            onUpdateAnnouncement={updateAnnouncementItem}
-            onRemoveAnnouncement={deleteAnnouncementItem}
           />
         )}
       </div>

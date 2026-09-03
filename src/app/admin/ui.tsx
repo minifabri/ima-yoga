@@ -135,6 +135,48 @@ export function Modal({
   );
 }
 
+// Interruttore acceso/spento inequivocabile (posizione + colore), a differenza
+// dei chip testuali usati altrove che a volte cambiano solo di una lettera
+// tra stato attivo/disattivo e sono facili da fraintendere a colpo d'occhio.
+export function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex items-center gap-2"
+    >
+      <span
+        style={{
+          width: 34,
+          height: 20,
+          borderRadius: 999,
+          position: "relative",
+          flexShrink: 0,
+          background: checked ? COLORS.primary : COLORS.border,
+          transition: "background .15s",
+        }}
+      >
+        <span
+          style={{
+            position: "absolute",
+            top: 2,
+            left: checked ? 16 : 2,
+            width: 16,
+            height: 16,
+            borderRadius: "50%",
+            background: "#fff",
+            transition: "left .15s",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+          }}
+        />
+      </span>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.ink, textAlign: "left" }}>{label}</span>
+    </button>
+  );
+}
+
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block mb-1">

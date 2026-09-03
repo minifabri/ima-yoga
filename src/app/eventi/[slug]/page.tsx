@@ -12,6 +12,7 @@ type EventRpcRow = {
   image_dark_url: string | null;
   event_date: string;
   event_time: string;
+  location: string | null;
   capacity: number;
   price: number;
   allow_plus_one: boolean;
@@ -58,6 +59,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
     imageDarkUrl: data.image_dark_url,
     date: data.event_date,
     time: (data.event_time || "").slice(0, 5),
+    location: data.location || "",
     capacity: data.capacity,
     price: Number(data.price),
     allowPlusOne: data.allow_plus_one,

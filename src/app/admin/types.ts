@@ -149,6 +149,7 @@ export type EventItem = {
   imageDarkUrl: string | null;
   date: string; // yyyy-mm-dd
   time: string; // HH:mm
+  location: string;
   capacity: number; // 0 = nessun limite
   price: number;
   allowPlusOne: boolean;

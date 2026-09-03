@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Calendar, Clock, UserPlus, X, Users, EyeOff, Check, AlertCircle } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, UserPlus, X, Users, EyeOff, Check, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { sendEventBookingConfirmationEmail } from "@/lib/notifications";
 import { COLORS, withAlpha } from "@/app/admin/colors";
@@ -169,9 +169,12 @@ export function EventPublicView({
         )}
 
         {imageUrl && (
-          <div className="mb-5 rounded-2xl overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
+          <div
+            className="mb-5 rounded-2xl overflow-hidden flex items-center justify-center"
+            style={{ border: `1px solid ${COLORS.border}`, background: COLORS.subtle }}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt={event.name} style={{ width: "100%", maxHeight: 320, objectFit: "cover", display: "block" }} />
+            <img src={imageUrl} alt={event.name} style={{ maxWidth: "100%", maxHeight: 480, width: "auto", height: "auto", display: "block" }} />
           </div>
         )}
 
@@ -185,6 +188,11 @@ export function EventPublicView({
           <span className="inline-flex items-center gap-1">
             <Clock size={14} /> {event.time}
           </span>
+          {event.location && (
+            <span className="inline-flex items-center gap-1">
+              <MapPin size={14} /> {event.location}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center justify-center mb-6">
@@ -199,7 +207,7 @@ export function EventPublicView({
 
         {event.descriptionHtml && (
           <div
-            className="mb-7 p-4 rounded-2xl"
+            className="mb-7 p-4 rounded-2xl rich-content"
             style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, fontSize: 13.5, color: COLORS.ink, lineHeight: 1.6 }}
             dangerouslySetInnerHTML={{ __html: event.descriptionHtml }}
           />
