@@ -1081,9 +1081,9 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
             {!selected.myStatus && justCancelledId === selected.id && (
               <div className="booking-celebration-text mb-3 text-center">
                 <div style={{ fontSize: 26, lineHeight: 1 }} className="mb-1">
-                  🥀
+                  🤍
                 </div>
-                <div style={{ fontSize: 13, color: COLORS.inkSoft }}>Prenotazione appassita. Rifiorirai alla prossima lezione.</div>
+                <div style={{ fontSize: 13, color: COLORS.inkSoft }}>Prenotazione cancellata. Ti aspetto alla prossima lezione.</div>
               </div>
             )}
 
