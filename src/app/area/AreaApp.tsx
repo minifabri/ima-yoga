@@ -113,6 +113,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   });
   const [myBookings, setMyBookings] = useState<MyBooking[]>([]);
   const [myEventBookings, setMyEventBookings] = useState<MyEventBooking[]>([]);
+  const [confirmCancelEvent, setConfirmCancelEvent] = useState<MyEventBooking | null>(null);
   const [myPackages, setMyPackages] = useState<MyPackage[]>([]);
   const [myLedger, setMyLedger] = useState<MyLedgerEntry[]>([]);
   const [myNotices, setMyNotices] = useState<ClientNotice[]>([]);
@@ -257,6 +258,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
 
   async function handleCancelEvent(eventId: string) {
     setPending(true);
+    setConfirmCancelEvent(null);
     try {
       await db.cancelMyEventBooking(supabase, eventId);
       setMyEventBookings((cur) => cur.filter((b) => b.eventId !== eventId));
@@ -902,7 +904,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                       </div>
                       <button
                         disabled={pending}
-                        onClick={() => handleCancelEvent(b.eventId)}
+                        onClick={() => setConfirmCancelEvent(b)}
                         className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
                         style={{ color: COLORS.danger, border: `1px solid ${withAlpha(COLORS.danger, 33)}` }}
                       >
@@ -1295,6 +1297,40 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 {deleteAccountPending ? "Eliminazione…" : "Elimina account"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {confirmCancelEvent && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ background: "rgba(74,58,115,0.35)", zIndex: 50 }}
+          onMouseDown={(e) => e.target === e.currentTarget && setConfirmCancelEvent(null)}
+        >
+          <div className="w-full p-5" style={{ maxWidth: 360, background: COLORS.card, borderRadius: 18, boxShadow: "0 16px 44px rgba(74,58,115,0.16)" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }} className="mb-1">
+              Cancellare la prenotazione?
+            </div>
+            <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-4">
+              {confirmCancelEvent.eventName} — {confirmCancelEvent.date} · {confirmCancelEvent.time}. L&apos;azione non può essere annullata.
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmCancelEvent(null)}
+                className="px-3 py-2 rounded-lg text-sm font-medium"
+                style={{ border: `1px solid ${COLORS.border}` }}
+              >
+                Torna indietro
+              </button>
+              <button
+                disabled={pending}
+                onClick={() => handleCancelEvent(confirmCancelEvent.eventId)}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
+                style={{ background: COLORS.danger }}
+              >
+                Cancella prenotazione
+              </button>
+            </div>
           </div>
         </div>
       )}
