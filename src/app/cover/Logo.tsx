@@ -9,7 +9,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
       <Image src="/images/ima-logo.svg" alt="" width={34} height={34} priority className="cover-logo-mark" />
       {!compact && (
         <span className="cover-logo-word">
-          IMA <span className="cover-logo-word-thin">YOGA</span>
+          ima <span className="cover-logo-word-thin">yoga</span>
         </span>
       )}
     </Link>

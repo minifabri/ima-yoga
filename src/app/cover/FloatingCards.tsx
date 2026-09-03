@@ -10,33 +10,38 @@ type CardPose = { left: number; top: number; rot: number; scale: number };
 // 2. LINE — le carte si raccolgono su un'unica riga orizzontale, ordinata.
 // 3. CIRCLE — si dispongono a cerchio; la prima carta (Lezioni) resta al
 //    centro, più grande, come carta "in rilievo".
+// Colonna sinistra (indici pari 0/2/4/6, 4 carte) e colonna destra
+// (indici dispari 1/3/5, 3 carte), a scacchiera intorno alla figura centrale.
 const COLUMN_POSITIONS: CardPose[] = [
-  { left: 9, top: 15, rot: 0, scale: 1 },
-  { left: 91, top: 15, rot: 0, scale: 1 },
-  { left: 6, top: 48, rot: 0, scale: 1 },
-  { left: 94, top: 48, rot: 0, scale: 1 },
-  { left: 9, top: 79, rot: 0, scale: 1 },
-  { left: 91, top: 79, rot: 0, scale: 1 },
+  { left: 23, top: 14, rot: 0, scale: 1 },
+  { left: 77, top: 22, rot: 0, scale: 1 },
+  { left: 19, top: 38, rot: 0, scale: 1 },
+  { left: 81, top: 50, rot: 0, scale: 1 },
+  { left: 19, top: 62, rot: 0, scale: 1 },
+  { left: 77, top: 78, rot: 0, scale: 1 },
+  { left: 23, top: 86, rot: 0, scale: 1 },
 ];
 
 const LINE_POSITIONS: CardPose[] = [
-  { left: 10, top: 58, rot: 0, scale: 1.1 },
-  { left: 26, top: 58, rot: 0, scale: 1.1 },
-  { left: 42, top: 58, rot: 0, scale: 1.1 },
-  { left: 58, top: 58, rot: 0, scale: 1.1 },
-  { left: 74, top: 58, rot: 0, scale: 1.1 },
-  { left: 90, top: 58, rot: 0, scale: 1.1 },
+  { left: 13, top: 58, rot: 0, scale: 1.1 },
+  { left: 25, top: 58, rot: 0, scale: 1.1 },
+  { left: 37, top: 58, rot: 0, scale: 1.1 },
+  { left: 50, top: 58, rot: 0, scale: 1.1 },
+  { left: 63, top: 58, rot: 0, scale: 1.1 },
+  { left: 75, top: 58, rot: 0, scale: 1.1 },
+  { left: 87, top: 58, rot: 0, scale: 1.1 },
 ];
 
-// Pentagono intorno al centro (50%, 52%) per le carte 1..5, più la carta 0
+// Esagono intorno al centro (50%, 52%) per le carte 1..6, più la carta 0
 // ferma al centro, in rilievo.
 const CIRCLE_POSITIONS: CardPose[] = [
   { left: 50, top: 52, rot: 0, scale: 1.65 },
-  { left: 50, top: 24, rot: -4, scale: 1.05 },
-  { left: 78.5, top: 43.5, rot: 4, scale: 1.05 },
-  { left: 67.5, top: 74.5, rot: 3, scale: 1.05 },
-  { left: 32.5, top: 74.5, rot: -3, scale: 1.05 },
-  { left: 21.5, top: 43.5, rot: -4, scale: 1.05 },
+  { left: 50, top: 29, rot: -4, scale: 1.05 },
+  { left: 72, top: 40.5, rot: 4, scale: 1.05 },
+  { left: 72, top: 63.5, rot: 3, scale: 1.05 },
+  { left: 50, top: 75, rot: -3, scale: 1.05 },
+  { left: 28, top: 63.5, rot: -4, scale: 1.05 },
+  { left: 28, top: 40.5, rot: 4, scale: 1.05 },
 ];
 
 const T1_START = 0.12;
@@ -67,10 +72,12 @@ function poseForProgress(i: number, progress: number): CardPose {
 
 export function FloatingCards({
   selectedId,
+  flippingId,
   onSelect,
   scrollProgress,
 }: {
   selectedId: string | null;
+  flippingId: string | null;
   onSelect: (id: string) => void;
   scrollProgress: number;
 }) {
@@ -97,6 +104,7 @@ export function FloatingCards({
                 index={i}
                 active={selectedId === section.id}
                 dimmed={selectedId !== null && selectedId !== section.id}
+                flipping={flippingId === section.id}
                 onSelect={onSelect}
               />
             </div>
@@ -107,7 +115,15 @@ export function FloatingCards({
       {/* Mobile: griglia verticale a due colonne — niente scroll orizzontale */}
       <div className="cover-cards-grid">
         {CARD_SECTIONS.map((section, i) => (
-          <TarotCard key={section.id} section={section} index={i} active={selectedId === section.id} dimmed={false} onSelect={onSelect} />
+          <TarotCard
+            key={section.id}
+            section={section}
+            index={i}
+            active={selectedId === section.id}
+            dimmed={false}
+            flipping={flippingId === section.id}
+            onSelect={onSelect}
+          />
         ))}
       </div>
     </div>

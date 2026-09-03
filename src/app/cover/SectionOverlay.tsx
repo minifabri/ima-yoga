@@ -8,6 +8,7 @@ import type { CardSection } from "./data";
 import { CONTACT } from "./data";
 import { CosmicBackground } from "./CosmicBackground";
 import { ContactForm } from "./ContactForm";
+import { useTheme } from "./hooks";
 
 const isInternal = (href: string) => href.startsWith("/");
 
@@ -22,6 +23,8 @@ export function SectionOverlay({
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
+  const image = theme === "light" ? (section.imageLight ?? section.image) : section.image;
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -75,7 +78,7 @@ export function SectionOverlay({
         <div className="cover-overlay-grid">
           <div className="cover-overlay-visual">
             <div className="cover-overlay-image-wrap" style={{ aspectRatio: `${section.imageWidth} / ${section.imageHeight}` }}>
-              <Image src={section.image} alt="" fill sizes="(min-width: 900px) 40vw, 90vw" className="cover-overlay-image" />
+              <Image src={image} alt="" fill quality={95} unoptimized sizes="(min-width: 900px) 40vw, 90vw" className="cover-overlay-image" />
             </div>
           </div>
 

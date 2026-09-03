@@ -90,6 +90,34 @@ export function CalendarioIcon({ size }: { size?: number }) {
   );
 }
 
+export function EventiIcon({ size }: { size?: number }) {
+  return (
+    <IconFrame size={size}>
+      <path
+        d="M32 18c3 4 8 6 8 12 0 5-4 9-8 9s-8-4-8-9c0-6 5-8 8-12z"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M32 18c-4 2-13 2-16 10 4-3 10-3 16 1 6-4 12-4 16-1-3-8-12-8-16-10z"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 52c6-6 12-2 16-6s2-8 8-8 6 6 10 8 10 0 12 4"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+        fill="none"
+        opacity="0.75"
+      />
+      <path d="M32 4l1.6 4L38 9.6 34 11l-1.6 4-1.6-4L27 9.6 31 8z" fill="currentColor" opacity="0.85" />
+    </IconFrame>
+  );
+}
+
 export function ContattiIcon({ size }: { size?: number }) {
   return (
     <IconFrame size={size}>

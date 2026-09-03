@@ -18,22 +18,22 @@ export function useReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, getReducedMotionSnapshot, getReducedMotionServerSnapshot);
 }
 
-// Parallax leggerissimo legato al puntatore: ritorna uno scostamento -1..1 su
-// entrambi gli assi. Disattivato su touch/mobile e con reduced-motion.
-export function usePointerParallax(enabled: boolean) {
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  useEffect(() => {
-    if (!enabled) return;
-    function onMove(e: PointerEvent) {
-      if (e.pointerType !== "mouse") return;
-      const x = (e.clientX / window.innerWidth) * 2 - 1;
-      const y = (e.clientY / window.innerHeight) * 2 - 1;
-      setPos({ x, y });
-    }
-    window.addEventListener("pointermove", onMove);
-    return () => window.removeEventListener("pointermove", onMove);
-  }, [enabled]);
-  return pos;
+// Tema corrente (letto dall'attributo data-theme su <html>, cambiato dal
+// ThemeToggle): usato per scegliere la variante chiara delle carte.
+function subscribeTheme(callback: () => void) {
+  const observer = new MutationObserver(callback);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  return () => observer.disconnect();
+}
+function getThemeSnapshot(): "light" | "dark" {
+  return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+}
+function getThemeServerSnapshot(): "light" | "dark" {
+  return "dark";
+}
+
+export function useTheme(): "light" | "dark" {
+  return useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeServerSnapshot);
 }
 
 // Avanzamento (0..1) dello scroll attraverso l'elemento indicato: 0 quando il

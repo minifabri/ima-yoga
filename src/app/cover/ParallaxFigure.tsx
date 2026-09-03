@@ -1,29 +1,37 @@
 "use client";
 
 import Image from "next/image";
-import { usePointerParallax } from "./hooks";
+import { useTheme } from "./hooks";
 
-export function ParallaxFigure({ parallaxEnabled }: { parallaxEnabled: boolean }) {
-  const pos = usePointerParallax(parallaxEnabled);
+const DARK = { src: "/figura-meditazione.png", width: 1187, height: 1325 };
+const LIGHT = { src: "/figura-meditazione-light.png", width: 1227, height: 1199 };
 
+export function ParallaxFigure() {
+  const theme = useTheme();
+  const figure = theme === "light" ? LIGHT : DARK;
   return (
-    <div className="cover-figure-wrap" aria-hidden="true">
+    <div
+      className="cover-figure-wrap"
+      aria-hidden="true"
+      style={{ aspectRatio: `${figure.width} / ${figure.height}` }}
+    >
       <Image
-        src="/figura-meditazione.png"
+        src={figure.src}
         alt=""
-        width={442}
-        height={529}
+        width={figure.width}
+        height={figure.height}
         priority
+        quality={95}
         sizes="(min-width: 900px) 560px, 78vw"
         className="cover-figure-img"
-        style={{ transform: `translate(${pos.x * 5}px, ${pos.y * 5}px)` }}
       />
-      <div className="cover-figure-reflection" style={{ transform: `translate(${pos.x * 5}px, ${pos.y * 3}px)` }}>
+      <div className="cover-figure-reflection">
         <Image
-          src="/figura-meditazione.png"
+          src={figure.src}
           alt=""
-          width={442}
-          height={529}
+          width={figure.width}
+          height={figure.height}
+          quality={95}
           sizes="(min-width: 900px) 560px, 78vw"
           className="cover-figure-img"
         />

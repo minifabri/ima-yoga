@@ -12,9 +12,11 @@ import { getSection } from "./data";
 import { useReducedMotion, useScrollProgress } from "./hooks";
 
 const CLOSE_DURATION = 480;
+const FLIP_DURATION = 600;
 
 export function Cover() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [flippingId, setFlippingId] = useState<string | null>(null);
   const [phase, setPhase] = useState<"open" | "closing">("open");
   const reducedMotion = useReducedMotion();
   const heroRef = useRef<HTMLElement | null>(null);
@@ -31,10 +33,22 @@ export function Cover() {
     }
   }, []);
 
+  // La carta cliccata fa un breve "flip" (vedi .is-flipping in globals.css)
+  // prima che la sezione si apra — con reduced-motion si salta e si apre subito.
   function openSection(id: string) {
-    setSelectedId(id);
-    setPhase("open");
-    history.replaceState(null, "", `#${id}`);
+    if (reducedMotion) {
+      setSelectedId(id);
+      setPhase("open");
+      history.replaceState(null, "", `#${id}`);
+      return;
+    }
+    setFlippingId(id);
+    window.setTimeout(() => {
+      setFlippingId(null);
+      setSelectedId(id);
+      setPhase("open");
+      history.replaceState(null, "", `#${id}`);
+    }, FLIP_DURATION);
   }
 
   function closeSection() {
@@ -43,6 +57,24 @@ export function Cover() {
       setSelectedId(null);
       history.replaceState(null, "", "#top");
     }, CLOSE_DURATION);
+  }
+
+  // "Ordina le carte": scorre fino al punto in cui le carte sono già
+  // raccolte in riga orizzontale (metà della sosta "linea" in FloatingCards),
+  // come se l'utente avesse scrollato fin lì da solo. Su mobile non esiste
+  // questa messa in scena (griglia statica): scorre solo fino alle carte.
+  function scrollToLine() {
+    const el = heroRef.current;
+    if (!el) return;
+    if (window.innerWidth < 860) {
+      document.getElementById("carte")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const total = rect.height - window.innerHeight;
+    if (total <= 0) return;
+    const target = window.scrollY + rect.top + total * 0.5;
+    window.scrollTo({ top: target, behavior: "smooth" });
   }
 
   const section = getSection(selectedId);
@@ -54,15 +86,11 @@ export function Cover() {
           <CosmicBackground variant="hero" />
           {!reducedMotion && <Particles />}
 
-          <div className="cover-side-text" aria-hidden="true">
-            PRESENZA · EQUILIBRIO · TRASFORMAZIONE
-          </div>
-
           <Header onOpenSection={openSection} />
 
           <div className={`cover-scene${selectedId ? " has-selection" : ""}`}>
-            <Hero parallaxEnabled={!reducedMotion} scrollProgress={scrollProgress} />
-            <FloatingCards selectedId={selectedId} onSelect={openSection} scrollProgress={scrollProgress} />
+            <Hero scrollProgress={scrollProgress} onOrderCards={scrollToLine} />
+            <FloatingCards selectedId={selectedId} flippingId={flippingId} onSelect={openSection} scrollProgress={scrollProgress} />
           </div>
         </div>
       </section>

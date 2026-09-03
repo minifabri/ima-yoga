@@ -88,6 +88,12 @@ body {
   pointer-events: none;
   z-index: 0;
 }
+/* La section overlay scorre al suo interno (contenuto più alto di 100vh):
+   lo sfondo resta agganciato al viewport, altrimenti oltre la prima
+   schermata si vede lo stacco netto col colore pieno sotto (bg finiva a 100vh). */
+.cosmic-bg-section {
+  position: fixed;
+}
 
 .cosmic-layer {
   position: absolute;
@@ -398,25 +404,6 @@ body {
   margin: 4px 0;
 }
 
-.cover-side-text {
-  display: none;
-}
-@media (min-width: 1100px) {
-  .cover-side-text {
-    display: block;
-    position: absolute;
-    right: 22px;
-    top: 50%;
-    transform: translateY(-50%) rotate(180deg);
-    writing-mode: vertical-rl;
-    font-size: 10.5px;
-    letter-spacing: 3px;
-    color: var(--ink-soft);
-    opacity: 0.6;
-    z-index: 5;
-  }
-}
-
 /* ---- hero ---- */
 
 .cover-scene {
@@ -447,14 +434,43 @@ body {
 
 .cover-figure-wrap {
   position: relative;
-  width: min(400px, 56vw);
-  aspect-ratio: 442 / 529;
+  /* Altezza fissa (non larghezza): dark e light hanno proporzioni diverse,
+     ma così la figura "appare" della stessa taglia in entrambi i temi —
+     l'aspect-ratio (impostato inline da ParallaxFigure.tsx in base
+     all'immagine attiva) determina la larghezza di conseguenza. */
+  height: min(256px, 38vw);
+  width: auto;
+  max-width: 90vw;
   margin-bottom: 6px;
   transition: opacity 0.5s ease, transform 0.5s ease;
 }
 .has-selection .cover-figure-wrap {
   opacity: 0.35;
   transform: scale(0.96);
+}
+
+/* Aura che si espande leggermente al passaggio del mouse — niente movimento,
+   solo un bagliore che respira intorno alla figura. */
+.cover-figure-wrap::after {
+  content: "";
+  position: absolute;
+  inset: -60%;
+  z-index: -1;
+  background: radial-gradient(circle, color-mix(in srgb, var(--gold) 26%, transparent) 0%, transparent 65%);
+  opacity: 0;
+  transform: scale(0.55);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+  pointer-events: none;
+}
+.cover-figure-wrap:hover::after {
+  opacity: 1;
+  transform: scale(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cover-figure-wrap::after {
+    transition: opacity 0.3s ease;
+    transform: none;
+  }
 }
 
 .cover-figure-img {
@@ -527,6 +543,14 @@ body {
   letter-spacing: 2.5px;
   text-transform: uppercase;
   text-decoration: none;
+  background: none;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+.cover-scroll-hint:hover,
+.cover-scroll-hint:focus-visible {
+  color: var(--gold);
 }
 .cover-scroll-hint svg {
   animation: cover-scroll-bounce 2.2s ease-in-out infinite;
@@ -583,13 +607,17 @@ body {
 .tarot-card {
   position: relative;
   display: block;
-  width: clamp(88px, 7.6vw, 132px);
+  width: clamp(96px, 8.4vw, 144px);
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
+  perspective: 900px;
   filter: drop-shadow(0 10px 24px rgba(10, 6, 25, 0.45));
   transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), filter 0.45s ease, opacity 0.45s ease;
+}
+.tarot-card.is-flipping {
+  z-index: 40;
 }
 
 .tarot-card-float {
@@ -620,19 +648,41 @@ body {
   --tilt: 2deg;
 }
 
+/* Al click, la carta fa un singolo mezzo giro su se stessa e sfuma prima
+   che si apra la sezione — sostituisce per un attimo il fluttuare lento di
+   base. Un solo rotateY(180deg), non un giro completo: più elegante. */
+@keyframes card-flip {
+  0% {
+    transform: rotateY(0deg) scale(1);
+    opacity: 1;
+  }
+  60% {
+    transform: rotateY(180deg) scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: rotateY(180deg) scale(0.85);
+    opacity: 0;
+  }
+}
+.tarot-card.is-flipping .tarot-card-float {
+  animation: card-flip 0.6s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
 .tarot-card-img {
   display: block;
   object-fit: cover;
   object-position: center;
   border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
-  transition: border-color 0.4s ease;
 }
 
-.tarot-card:hover .tarot-card-float,
-.tarot-card:focus-visible .tarot-card-float,
-.tarot-card.is-active .tarot-card-float {
+.tarot-card:hover:not(.is-flipping) .tarot-card-float,
+.tarot-card:focus-visible:not(.is-flipping) .tarot-card-float {
   animation-play-state: paused;
+}
+.tarot-card.is-active:not(.is-flipping) .tarot-card-float {
+  animation-play-state: paused;
+  opacity: 0;
 }
 .tarot-card:hover,
 .tarot-card:focus-visible,
@@ -641,11 +691,6 @@ body {
   filter: drop-shadow(0 20px 36px rgba(10, 6, 25, 0.55))
     drop-shadow(0 0 22px color-mix(in srgb, var(--primary) 45%, transparent));
   z-index: 30;
-}
-.tarot-card:hover .tarot-card-img,
-.tarot-card:focus-visible .tarot-card-img,
-.tarot-card.is-active .tarot-card-img {
-  border-color: var(--gold);
 }
 .tarot-card:focus-visible {
   outline: none;
@@ -681,7 +726,8 @@ body {
   }
 }
 .cover-cards-grid .tarot-card {
-  width: 100%;
+  width: 62%;
+  margin: 0 auto;
 }
 .cover-cards-grid .tarot-card-float {
   animation-delay: calc(var(--card-index, 0) * 0.3s);
