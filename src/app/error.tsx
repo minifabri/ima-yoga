@@ -1,0 +1,50 @@
+"use client";
+
+import { useEffect } from "react";
+import Link from "next/link";
+import { Wind } from "lucide-react";
+
+export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
+  return (
+    <main className="flex-1 flex items-center justify-center p-5" style={{ background: "var(--bg)" }}>
+      <div
+        className="w-full p-6 rounded-2xl text-center"
+        style={{ maxWidth: 380, background: "var(--card)", border: "1px solid var(--border)" }}
+      >
+        <div className="mb-4 flex justify-center">
+          <Wind size={40} style={{ color: "var(--primary)" }} />
+        </div>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 500, color: "var(--heading)" }}>
+          Un piccolo squilibrio
+        </div>
+        <div className="mt-3" style={{ fontSize: 14, color: "var(--ink)" }}>
+          Anche il respiro più fluido, a volte, s&apos;inceppa.
+        </div>
+        <div className="mt-1" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+          Ritrova il centro e riprova, oppure torna alla base.
+        </div>
+        <div className="mt-5 flex gap-3 justify-center">
+          <button
+            type="button"
+            onClick={() => reset()}
+            className="py-2.5 px-5 rounded-lg text-sm font-semibold text-white"
+            style={{ background: "var(--primary)" }}
+          >
+            Riprova
+          </button>
+          <Link
+            href="/"
+            className="py-2.5 px-5 rounded-lg text-sm font-semibold flex items-center"
+            style={{ border: "1px solid var(--border)", color: "var(--ink)" }}
+          >
+            Home
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+}
