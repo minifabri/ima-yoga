@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Clock, MapPin, UserPlus, X, Users, EyeOff, Check, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -50,6 +50,14 @@ export function EventPublicView({
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // L'errore (es. "indica il nome del tuo +1") altrimenti restava a schermo
+  // finché non si riprovava a confermare — sparisce da solo dopo qualche secondo.
+  useEffect(() => {
+    if (!error) return;
+    const timeout = setTimeout(() => setError(""), 4000);
+    return () => clearTimeout(timeout);
+  }, [error]);
   const [confirmCancel, setConfirmCancel] = useState(false);
 
   const imageUrl = (theme === "dark" ? event.imageDarkUrl : event.imageLightUrl) || event.imageLightUrl || event.imageDarkUrl;
