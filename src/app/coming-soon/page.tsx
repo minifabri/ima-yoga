@@ -28,9 +28,6 @@ export default function ComingSoonPage() {
         <div className="mt-3" style={{ fontSize: 14, color: "var(--ink)" }}>
           La sfera di cristallo vede qualcosa di bello in arrivo.
         </div>
-        <div className="mt-1" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-          Ancora un po&apos; di pazienza cosmica.
-        </div>
       </div>
     </main>
   );

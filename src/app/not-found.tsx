@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 
 export default function NotFound() {
   return (
@@ -20,18 +19,11 @@ export default function NotFound() {
           />
         </div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 500, color: "var(--heading)" }}>
-          404
+          ima yoga
         </div>
         <div className="mt-3" style={{ fontSize: 14, color: "var(--ink)" }}>
           Ops, questa pagina ha raggiunto il Nirvana prima di te.
         </div>
-        <Link
-          href="/"
-          className="mt-5 inline-block py-2.5 px-6 rounded-lg text-sm font-semibold text-white"
-          style={{ background: "var(--primary)" }}
-        >
-          Torna alla home
-        </Link>
       </div>
     </main>
   );

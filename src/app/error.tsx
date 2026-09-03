@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import Image from "next/image";
-import Link from "next/link";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -27,28 +26,19 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           />
         </div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 500, color: "var(--heading)" }}>
-          Qualcosa si è rotto, ma con stile
+          ima yoga
         </div>
         <div className="mt-3" style={{ fontSize: 14, color: "var(--ink)" }}>
           Riprova, l&apos;universo di solito si corregge da solo.
         </div>
-        <div className="mt-5 flex gap-3 justify-center">
-          <button
-            type="button"
-            onClick={() => reset()}
-            className="py-2.5 px-5 rounded-lg text-sm font-semibold text-white"
-            style={{ background: "var(--primary)" }}
-          >
-            Riprova
-          </button>
-          <Link
-            href="/"
-            className="py-2.5 px-5 rounded-lg text-sm font-semibold flex items-center"
-            style={{ border: "1px solid var(--border)", color: "var(--ink)" }}
-          >
-            Home
-          </Link>
-        </div>
+        <button
+          type="button"
+          onClick={() => reset()}
+          className="mt-5 py-2.5 px-6 rounded-lg text-sm font-semibold text-white"
+          style={{ background: "var(--primary)" }}
+        >
+          Riprova
+        </button>
       </div>
     </main>
   );
