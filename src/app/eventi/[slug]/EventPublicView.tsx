@@ -262,28 +262,30 @@ export function EventPublicView({
           </div>
         ) : loggedIn && isClientProfile ? (
           <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-            <div className="flex items-center justify-between mb-3">
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.heading }}>Prenota il tuo posto</span>
-              <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.primaryDark }}>€{event.price.toFixed(2)}</span>
+            <div className="flex items-center gap-1.5 mb-3" style={{ fontSize: 12, fontWeight: 600, color: COLORS.success }}>
+              <Check size={13} /> Ciao {clientFullName.split(" ")[0]}, hai eseguito l&apos;accesso
+            </div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.heading }} className="mb-3">
+              Prenota il tuo posto
             </div>
             {event.allowPlusOne && (
               <PlusOneFields plusOne={plusOne} setPlusOne={setPlusOne} plusOneName={plusOneName} setPlusOneName={setPlusOneName} />
             )}
             {error && <ErrorBox>{error}</ErrorBox>}
+            <TotalRow price={event.price} plusOne={plusOne} />
             <button
               disabled={submitting}
               onClick={handleBookRegistered}
-              className="w-full mt-3 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
+              className="w-full py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
               style={{ background: COLORS.primary }}
             >
-              {submitting ? "Confermo…" : `Conferma prenotazione · €${(event.price * (plusOne ? 2 : 1)).toFixed(2)}`}
+              {submitting ? "Confermo…" : "Conferma prenotazione"}
             </button>
           </div>
         ) : showGuestForm ? (
           <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-            <div className="flex items-center justify-between mb-3">
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.heading }}>Prenota come ospite</span>
-              <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.primaryDark }}>€{event.price.toFixed(2)}</span>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.heading }} className="mb-3">
+              Prenota come ospite
             </div>
             <Field label="Nome e cognome">
               <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} style={inputStyle} />
@@ -295,7 +297,8 @@ export function EventPublicView({
               <PlusOneFields plusOne={plusOne} setPlusOne={setPlusOne} plusOneName={plusOneName} setPlusOneName={setPlusOneName} />
             )}
             {error && <ErrorBox>{error}</ErrorBox>}
-            <div className="flex gap-2 mt-3">
+            <TotalRow price={event.price} plusOne={plusOne} />
+            <div className="flex gap-2">
               <button onClick={() => setShowGuestForm(false)} className="px-3.5 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
                 Indietro
               </button>
@@ -305,7 +308,7 @@ export function EventPublicView({
                 className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
                 style={{ background: COLORS.primary }}
               >
-                {submitting ? "Confermo…" : `Conferma prenotazione · €${(event.price * (plusOne ? 2 : 1)).toFixed(2)}`}
+                {submitting ? "Confermo…" : "Conferma prenotazione"}
               </button>
             </div>
           </div>
@@ -344,6 +347,19 @@ export function EventPublicView({
   );
 }
 
+function TotalRow({ price, plusOne }: { price: number; plusOne: boolean }) {
+  return (
+    <div className="flex items-center justify-between mb-3 pt-1" style={{ borderTop: `1px solid ${COLORS.border}` }}>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.inkSoft }} className="pt-2">
+        Totale{plusOne ? " (2 persone)" : ""}
+      </span>
+      <span style={{ fontSize: 17, fontWeight: 700, color: COLORS.primaryDark }} className="pt-2">
+        €{(price * (plusOne ? 2 : 1)).toFixed(2)}
+      </span>
+    </div>
+  );
+}
+
 function PlusOneFields({
   plusOne,
   setPlusOne,
@@ -367,7 +383,7 @@ function PlusOneFields({
           background: plusOne ? withAlpha(COLORS.primary, 12) : "transparent",
         }}
       >
-        <UserPlus size={13} /> {plusOne ? "Porto un +1" : "Aggiungi un +1"}
+        <UserPlus size={13} /> {plusOne ? "+1 aggiunto" : "Aggiungi un +1"}
       </button>
       {plusOne && (
         <Field label="Nome del tuo +1">
