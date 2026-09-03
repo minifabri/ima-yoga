@@ -1212,7 +1212,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
               </button>
             </div>
             <div style={{ fontSize: 12.5, color: COLORS.inkSoft, lineHeight: 1.4 }} className="mb-3">
-              Anche i guru possono sbagliare, ogni tanto — raccontaci cosa non ha funzionato.
+              Anche i guru possono sbagliare, ogni tanto: raccontaci cosa non ha funzionato.
             </div>
             <form onSubmit={handleSubmitReport} className="flex flex-col gap-3">
               <textarea

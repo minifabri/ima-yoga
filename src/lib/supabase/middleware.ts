@@ -1,9 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Pagine/rotte sempre raggiungibili anche a sito in manutenzione: /login serve
-// all'admin per autenticarsi, /api/* copre il cron dei promemoria lezione.
-const MAINTENANCE_EXEMPT_PATHS = ["/manutenzione", "/login"];
+// Pagine/rotte sempre raggiungibili anche a sito bloccato (manutenzione o
+// coming soon): /login serve all'admin per autenticarsi, /api/* copre il
+// cron dei promemoria lezione.
+const MAINTENANCE_EXEMPT_PATHS = ["/manutenzione", "/coming-soon", "/login"];
 
 function isMaintenanceExempt(pathname: string) {
   return MAINTENANCE_EXEMPT_PATHS.includes(pathname) || pathname.startsWith("/api/");
@@ -36,7 +37,10 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (process.env.MAINTENANCE_MODE === "true" && !isMaintenanceExempt(request.nextUrl.pathname)) {
+  const comingSoon = process.env.COMING_SOON_MODE === "true";
+  const maintenance = process.env.MAINTENANCE_MODE === "true";
+
+  if ((comingSoon || maintenance) && !isMaintenanceExempt(request.nextUrl.pathname)) {
     let isAdmin = false;
     if (user) {
       const { data: profile } = await supabase
@@ -47,7 +51,7 @@ export async function updateSession(request: NextRequest) {
       isAdmin = profile?.role === "admin";
     }
     if (!isAdmin) {
-      return NextResponse.redirect(new URL("/manutenzione", request.url));
+      return NextResponse.redirect(new URL(comingSoon ? "/coming-soon" : "/manutenzione", request.url));
     }
   }
 

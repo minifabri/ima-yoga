@@ -12,11 +12,11 @@ export default function NotFound() {
           <Image
             src="/courtesy/404-finestra.png"
             alt=""
-            width={640}
-            height={426}
+            width={426}
+            height={640}
             priority
             className="w-full h-auto"
-            style={{ maxWidth: 260 }}
+            style={{ maxWidth: 190 }}
           />
         </div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 500, color: "var(--heading)" }}>
@@ -26,7 +26,7 @@ export default function NotFound() {
           Ops, questa pagina ha raggiunto il Nirvana prima di te.
         </div>
         <div className="mt-1" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-          Torna al tappetino: ripartiamo da qui.
+          Nel frattempo, il tappetino resta al suo posto.
         </div>
         <Link
           href="/"

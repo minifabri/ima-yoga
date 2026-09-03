@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndProfile } from "@/lib/supabase/profile";
 import { EventPublicView } from "./EventPublicView";
@@ -38,11 +39,21 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
           className="w-full p-6 rounded-2xl text-center"
           style={{ maxWidth: 380, background: "var(--card)", border: "1px solid var(--border)" }}
         >
+          <div className="mb-2 flex justify-center">
+            <Image
+              src="/courtesy/evento-candela.png"
+              alt=""
+              width={426}
+              height={640}
+              className="w-full h-auto"
+              style={{ maxWidth: 150 }}
+            />
+          </div>
           <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600, color: "var(--heading)" }} className="mb-2">
             Evento non trovato
           </div>
           <div style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
-            Questo evento non esiste, non è ancora stato pubblicato, oppure si è già svolto.
+            La sfera di cristallo non lo vede: non esiste, non è ancora stato pubblicato, oppure è già tornato all&apos;universo.
           </div>
         </div>
       </main>

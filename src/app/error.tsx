@@ -27,13 +27,10 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           />
         </div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 500, color: "var(--heading)" }}>
-          Un piccolo squilibrio
+          Qualcosa si è rotto, ma con stile
         </div>
         <div className="mt-3" style={{ fontSize: 14, color: "var(--ink)" }}>
-          Anche il respiro più fluido, a volte, s&apos;inceppa.
-        </div>
-        <div className="mt-1" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-          Ritrova il centro e riprova, oppure torna alla base.
+          Riprova, l&apos;universo di solito si corregge da solo.
         </div>
         <div className="mt-5 flex gap-3 justify-center">
           <button
