@@ -26,6 +26,18 @@ function SignupLink() {
   );
 }
 
+function PeekCalendarSection() {
+  const searchParams = useSearchParams();
+  // Non ha senso proporre di "sbirciare senza accedere" a chi sta accedendo
+  // per tornare a fare qualcosa di specifico (es. prenotare un evento).
+  if (searchParams.get("next")) return null;
+  return (
+    <div className="mt-3 pt-3 text-center" style={{ borderTop: "1px solid var(--border)" }}>
+      <PeekCalendarLink />
+    </div>
+  );
+}
+
 function AccountDeletedBanner() {
   const searchParams = useSearchParams();
   if (searchParams.get("account_deleted") !== "1") return null;
@@ -104,9 +116,9 @@ export default function LoginPage() {
           </Suspense>
         </div>
 
-        <div className="mt-3 pt-3 text-center" style={{ borderTop: "1px solid var(--border)" }}>
-          <PeekCalendarLink />
-        </div>
+        <Suspense fallback={null}>
+          <PeekCalendarSection />
+        </Suspense>
       </div>
     </main>
   );
