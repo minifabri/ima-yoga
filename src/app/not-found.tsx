@@ -25,9 +25,6 @@ export default function NotFound() {
         <div className="mt-3" style={{ fontSize: 14, color: "var(--ink)" }}>
           Ops, questa pagina ha raggiunto il Nirvana prima di te.
         </div>
-        <div className="mt-1" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-          Nel frattempo, il tappetino resta al suo posto.
-        </div>
         <Link
           href="/"
           className="mt-5 inline-block py-2.5 px-6 rounded-lg text-sm font-semibold text-white"
