@@ -5,6 +5,7 @@ export type PublicEventData = {
   descriptionHtml: string;
   imageLightUrl: string | null;
   imageDarkUrl: string | null;
+  imageFit: "contain" | "cover";
   date: string; // yyyy-mm-dd
   time: string; // HH:mm
   location: string;

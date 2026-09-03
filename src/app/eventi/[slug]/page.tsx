@@ -10,6 +10,7 @@ type EventRpcRow = {
   description_html: string;
   image_light_url: string | null;
   image_dark_url: string | null;
+  image_fit: "contain" | "cover";
   event_date: string;
   event_time: string;
   location: string | null;
@@ -57,6 +58,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
     descriptionHtml: data.description_html,
     imageLightUrl: data.image_light_url,
     imageDarkUrl: data.image_dark_url,
+    imageFit: data.image_fit,
     date: data.event_date,
     time: (data.event_time || "").slice(0, 5),
     location: data.location || "",

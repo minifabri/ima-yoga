@@ -84,6 +84,7 @@ export function EventFormModal({
   const [descriptionHtml, setDescriptionHtml] = useState(base?.descriptionHtml || "");
   const [imageLightUrl, setImageLightUrl] = useState<string | null>(base?.imageLightUrl || null);
   const [imageDarkUrl, setImageDarkUrl] = useState<string | null>(base?.imageDarkUrl || null);
+  const [imageFit, setImageFit] = useState<"contain" | "cover">(base?.imageFit || "contain");
   const [date, setDate] = useState(base?.date || "");
   const [time, setTime] = useState(base?.time || "19:00");
   const [location, setLocation] = useState(base?.location || "");
@@ -130,6 +131,7 @@ export function EventFormModal({
         descriptionHtml,
         imageLightUrl,
         imageDarkUrl,
+        imageFit,
         date,
         time,
         location: location.trim(),
@@ -205,6 +207,14 @@ export function EventFormModal({
         <div className="grid grid-cols-2 gap-3 mb-3 mt-1">
           <ImageUploadField label="Immagine (tema chiaro)" url={imageLightUrl} pending={uploadingLight} onUpload={(f) => handleUpload("light", f)} />
           <ImageUploadField label="Immagine (tema scuro)" url={imageDarkUrl} pending={uploadingDark} onUpload={(f) => handleUpload("dark", f)} />
+        </div>
+
+        <div className="mb-3">
+          <Switch
+            checked={imageFit === "cover"}
+            onChange={(v) => setImageFit(v ? "cover" : "contain")}
+            label={imageFit === "cover" ? "Ritaglia per riempire la cornice" : "Adatta senza tagliare (può lasciare bande ai lati)"}
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-3">

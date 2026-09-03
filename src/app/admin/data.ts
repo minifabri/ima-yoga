@@ -686,6 +686,7 @@ function mapEvent(row: {
   description_html: string;
   image_light_url: string | null;
   image_dark_url: string | null;
+  image_fit: "contain" | "cover";
   event_date: string;
   event_time: string;
   location: string | null;
@@ -702,6 +703,7 @@ function mapEvent(row: {
     descriptionHtml: row.description_html,
     imageLightUrl: row.image_light_url,
     imageDarkUrl: row.image_dark_url,
+    imageFit: row.image_fit,
     date: row.event_date,
     time: (row.event_time || "").slice(0, 5),
     location: row.location ?? "",
@@ -729,6 +731,7 @@ export async function saveEvent(
     description_html: event.descriptionHtml,
     image_light_url: event.imageLightUrl,
     image_dark_url: event.imageDarkUrl,
+    image_fit: event.imageFit,
     event_date: event.date,
     event_time: event.time,
     location: event.location || null,

@@ -174,7 +174,15 @@ export function EventPublicView({
             style={{ border: `1px solid ${COLORS.border}`, background: COLORS.subtle }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt={event.name} style={{ maxWidth: "100%", maxHeight: 480, width: "auto", height: "auto", display: "block" }} />
+            <img
+              src={imageUrl}
+              alt={event.name}
+              style={
+                event.imageFit === "cover"
+                  ? { width: "100%", height: 320, objectFit: "cover", display: "block" }
+                  : { maxWidth: "100%", maxHeight: 480, width: "auto", height: "auto", display: "block" }
+              }
+            />
           </div>
         )}
 
