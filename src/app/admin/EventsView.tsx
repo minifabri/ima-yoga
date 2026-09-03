@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Check } from "lucide-react";
+import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Check, Lock, LockOpen, Archive, ArchiveRestore } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { EventFormModal } from "./EventFormModal";
 import { EventBookingsPanel } from "./EventBookingsPanel";
-import { deleteEvent, fetchEvents, saveEvent } from "./data";
+import { deleteEvent, fetchEvents, saveEvent, setEventArchived, setEventBookingsOpen } from "./data";
 import type { EventItem } from "./types";
 
 type ModalState = { mode: "new" } | { mode: "edit"; event: EventItem } | null;
@@ -42,7 +42,30 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
     deleteEvent(supabase, id).catch(() => showToast("Eliminazione non riuscita."));
   }
 
-  const sorted = [...events].sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  function toggleBookingsOpen(ev: EventItem) {
+    const next = !ev.bookingsOpen;
+    setEvents((cur) => cur.map((e) => (e.id === ev.id ? { ...e, bookingsOpen: next } : e)));
+    setEventBookingsOpen(supabase, ev.id, next).catch(() => {
+      setEvents((cur) => cur.map((e) => (e.id === ev.id ? { ...e, bookingsOpen: ev.bookingsOpen } : e)));
+      showToast("Errore nel cambiare lo stato delle iscrizioni.");
+    });
+  }
+
+  function toggleArchived(ev: EventItem) {
+    const next = !ev.archived;
+    setEvents((cur) => cur.map((e) => (e.id === ev.id ? { ...e, archived: next } : e)));
+    setEventArchived(supabase, ev.id, next)
+      .then(() => showToast(next ? "Evento archiviato." : "Evento riattivato."))
+      .catch(() => {
+        setEvents((cur) => cur.map((e) => (e.id === ev.id ? { ...e, archived: ev.archived } : e)));
+        showToast("Errore nell'archiviazione.");
+      });
+  }
+
+  const sorted = [...events].sort((a, b) => {
+    if (a.archived !== b.archived) return a.archived ? 1 : -1;
+    return (b.date + b.time).localeCompare(a.date + a.time);
+  });
 
   return (
     <div>
@@ -74,7 +97,11 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
       ) : (
         <div className="flex flex-col gap-2.5">
           {sorted.map((ev) => (
-            <div key={ev.id} className="flex items-center gap-3 p-3.5 rounded-xl flex-wrap" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+            <div
+              key={ev.id}
+              className="flex items-center gap-3 p-3.5 rounded-xl flex-wrap"
+              style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, opacity: ev.archived ? 0.6 : 1 }}
+            >
               <div
                 className="flex items-center justify-center rounded-lg flex-shrink-0 overflow-hidden"
                 style={{ width: 48, height: 48, background: COLORS.subtle }}
@@ -90,7 +117,14 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
               <div style={{ flex: 1, minWidth: 160 }}>
                 <div className="flex items-center gap-1.5" style={{ fontSize: 14, fontWeight: 600 }}>
                   {ev.name}
-                  {ev.published ? (
+                  {ev.archived ? (
+                    <span
+                      className="inline-flex items-center rounded-full"
+                      style={{ fontSize: 10, fontWeight: 700, color: COLORS.inkSoft, background: COLORS.subtle, padding: "1px 7px" }}
+                    >
+                      Archiviato
+                    </span>
+                  ) : ev.published ? (
                     <span title="Pubblicato" className="inline-flex">
                       <Eye size={13} color={COLORS.success} />
                     </span>
@@ -107,16 +141,34 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
               </div>
 
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <a
-                  href={`/eventi/${ev.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Apri pagina pubblica"
-                  className="flex items-center justify-center rounded-lg"
-                  style={{ width: 34, height: 34, border: `1px solid ${COLORS.border}`, color: COLORS.primaryDark }}
-                >
-                  <ExternalLink size={14} />
-                </a>
+                {!ev.archived && (
+                  <>
+                    <button
+                      onClick={() => toggleBookingsOpen(ev)}
+                      title={ev.bookingsOpen ? "Iscrizioni aperte — clicca per chiudere" : "Iscrizioni chiuse — clicca per riaprire"}
+                      className="flex items-center justify-center rounded-lg"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        border: `1px solid ${withAlpha(ev.bookingsOpen ? COLORS.success : COLORS.danger, 33)}`,
+                        color: ev.bookingsOpen ? COLORS.success : COLORS.danger,
+                        background: withAlpha(ev.bookingsOpen ? COLORS.success : COLORS.danger, 8),
+                      }}
+                    >
+                      {ev.bookingsOpen ? <LockOpen size={14} /> : <Lock size={14} />}
+                    </button>
+                    <a
+                      href={`/eventi/${ev.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Apri pagina pubblica"
+                      className="flex items-center justify-center rounded-lg"
+                      style={{ width: 34, height: 34, border: `1px solid ${COLORS.border}`, color: COLORS.primaryDark }}
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                  </>
+                )}
                 <button
                   onClick={() => setBookingsFor(ev)}
                   title="Prenotazioni e pagamenti"
@@ -124,6 +176,14 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
                   style={{ border: `1px solid ${withAlpha(COLORS.primary, 33)}`, color: COLORS.primaryDark }}
                 >
                   <Users size={14} /> Prenotazioni
+                </button>
+                <button
+                  onClick={() => toggleArchived(ev)}
+                  title={ev.archived ? "Riattiva evento" : "Archivia evento (resta lo storico, sparisce dalla pagina pubblica)"}
+                  className="flex items-center justify-center rounded-lg"
+                  style={{ width: 34, height: 34, border: `1px solid ${COLORS.border}` }}
+                >
+                  {ev.archived ? <ArchiveRestore size={14} /> : <Archive size={14} />}
                 </button>
                 <button
                   onClick={() => setModal({ mode: "edit", event: ev })}

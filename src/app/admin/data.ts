@@ -695,6 +695,7 @@ function mapEvent(row: {
   allow_plus_one: boolean;
   bookings_open: boolean;
   published: boolean;
+  archived: boolean;
 }): EventItem {
   return {
     id: row.id,
@@ -712,6 +713,7 @@ function mapEvent(row: {
     allowPlusOne: row.allow_plus_one,
     bookingsOpen: row.bookings_open,
     published: row.published,
+    archived: row.archived,
   };
 }
 
@@ -751,6 +753,19 @@ export async function saveEvent(
 
 export async function deleteEvent(supabase: DB, id: string) {
   const { error } = await supabase.from("events").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function setEventBookingsOpen(supabase: DB, id: string, bookingsOpen: boolean) {
+  const { error } = await supabase.from("events").update({ bookings_open: bookingsOpen }).eq("id", id);
+  if (error) throw error;
+}
+
+// Un evento archiviato mantiene tutto lo storico (prenotazioni, pagamenti)
+// ma sparisce dalla pagina pubblica per chiunque — a differenza di
+// deleteEvent, che cancella tutto per sempre.
+export async function setEventArchived(supabase: DB, id: string, archived: boolean) {
+  const { error } = await supabase.from("events").update({ archived }).eq("id", id);
   if (error) throw error;
 }
 

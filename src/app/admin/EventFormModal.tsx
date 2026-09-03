@@ -153,6 +153,7 @@ export function EventFormModal({
         allowPlusOne,
         bookingsOpen,
         published,
+        archived: base?.archived ?? false,
       });
     } catch {
       setError("Il salvataggio non è riuscito.");
