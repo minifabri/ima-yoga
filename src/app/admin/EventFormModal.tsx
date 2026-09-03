@@ -98,9 +98,22 @@ export function EventFormModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Slug automatico "nome-evento-data" finché non lo si modifica a mano
+  // (da quel momento resta fisso, anche se nome o data cambiano ancora).
+  function recomputeSlug(nextName: string, nextDate: string) {
+    if (slugTouched) return;
+    const base = slugify(nextName);
+    setSlug(nextDate ? `${base}-${nextDate}` : base);
+  }
+
   function handleNameChange(v: string) {
     setName(v);
-    if (!slugTouched) setSlug(slugify(v));
+    recomputeSlug(v, date);
+  }
+
+  function handleDateChange(v: string) {
+    setDate(v);
+    recomputeSlug(name, v);
   }
 
   async function handleUpload(variant: "light" | "dark", file: File) {
@@ -221,7 +234,7 @@ export function EventFormModal({
 
         <div className="grid grid-cols-2 gap-3 mb-3">
           <Field label="Data">
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
+            <input type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} style={inputStyle} />
           </Field>
           <Field label="Orario">
             <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={inputStyle} />
