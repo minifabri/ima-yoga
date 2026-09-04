@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { AlertTriangle, BellRing, CalendarPlus, CalendarX, Check, UserPlus } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import type { NotificationItem, NotificationType } from "./types";
@@ -35,7 +35,7 @@ export function NotificationsPanel({
   const rootRef = useRef<HTMLDivElement>(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
 
     function computePosition() {
