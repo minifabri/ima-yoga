@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, Vault, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, ArrowLeft } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
@@ -57,7 +57,7 @@ type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 
 const moreMenuItems = [
   { key: "events", label: "Eventi", icon: Ticket },
-  { key: "earnings", label: "Guadagni", icon: Vault },
+  { key: "earnings", label: "Guadagni", icon: PiggyBank },
   { key: "tools", label: "Strumenti", icon: Calculator },
   { key: "notices", label: "Avvisi e comunicazioni", icon: Bell },
   { key: "worklog", label: "Registro", icon: History },
@@ -76,7 +76,7 @@ const mobileHubPrimaryItems = [
   { key: "settings", label: "Impostazioni", icon: SettingsIcon },
 ];
 const mobileHubSecondaryItems = [
-  { key: "earnings", label: "Guadagni", icon: Vault },
+  { key: "earnings", label: "Guadagni", icon: PiggyBank },
   { key: "tools", label: "Strumenti", icon: Calculator },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
@@ -704,6 +704,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           />
         ) : view === "payments" ? (
           <PaymentsView
+            supabase={supabase}
             clients={clients}
             classes={classes}
             packages={packagesWithUsage}
