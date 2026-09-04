@@ -615,11 +615,13 @@ export function AdminApp({ initial }: { initial: AdminData }) {
               </button>
             )}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <NotificationsPanel
-                notifications={notifications}
-                onMarkRead={markNotificationReadHandler}
-                onMarkAllRead={markAllNotificationsReadHandler}
-              />
+              <div className="hidden md:block">
+                <NotificationsPanel
+                  notifications={notifications}
+                  onMarkRead={markNotificationReadHandler}
+                  onMarkAllRead={markAllNotificationsReadHandler}
+                />
+              </div>
               <ThemeToggle />
               <form action={logout}>
                 <button type="submit" className="text-sm font-medium px-1.5" style={{ color: COLORS.inkSoft }}>
