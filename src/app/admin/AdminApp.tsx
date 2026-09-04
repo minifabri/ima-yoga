@@ -186,6 +186,24 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     }
     return seen.slice(0, 8);
   }, [classes]);
+  const upcomingClasses = useMemo(() => {
+    const todayStr = dateKey(new Date());
+    return [...classes]
+      .filter((c) => c.date >= todayStr)
+      .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+      .slice(0, 4)
+      .map((c) => ({
+        id: c.id,
+        date: c.date,
+        time: c.time,
+        typeName: typeById[c.typeId]?.name || "Classe",
+        typeColor: typeById[c.typeId]?.color || COLORS.primary,
+        levelName: levelById[c.levelId]?.name || "",
+        capacity: c.capacity,
+        booked: c.clientIds.length,
+        waiting: c.waitlistIds.length,
+      }));
+  }, [classes, typeById, levelById]);
   const packagesWithUsage = useMemo<PackageWithUsage[]>(() => {
     const todayKey = dateKey(new Date());
     const usageByPkg: Record<string, { reserved: number; used: number }> = {};
@@ -252,6 +270,11 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     }
     const [y, m] = upcoming[0].date.split("-").map(Number);
     setViewDate(new Date(y, m - 1, 1));
+  }
+  function openCalendarAtDate(dateStr: string) {
+    const [y, m] = dateStr.split("-").map(Number);
+    setViewDate(new Date(y, m - 1, 1));
+    setView("calendar");
   }
   function copyClass(item: ClassClipboard) {
     setClipboard(item);
@@ -640,6 +663,12 @@ export function AdminApp({ initial }: { initial: AdminData }) {
                 primaryItems={mobileHubPrimaryItems}
                 secondaryItems={mobileHubSecondaryItems}
                 onSelect={(key) => setView(key as typeof view)}
+                notifications={notifications}
+                onMarkNotificationRead={markNotificationReadHandler}
+                onMarkAllNotificationsRead={markAllNotificationsReadHandler}
+                upcomingClasses={upcomingClasses}
+                onOpenClassDate={openCalendarAtDate}
+                onGoToCalendar={() => setView("calendar")}
               />
             </div>
           </>

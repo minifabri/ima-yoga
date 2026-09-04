@@ -5,14 +5,14 @@ import { AlertTriangle, BellRing, CalendarPlus, CalendarX, Check, UserPlus } fro
 import { COLORS, withAlpha } from "./colors";
 import type { NotificationItem, NotificationType } from "./types";
 
-const TYPE_META: Record<NotificationType, { icon: typeof UserPlus; color: string }> = {
+export const TYPE_META: Record<NotificationType, { icon: typeof UserPlus; color: string }> = {
   registration: { icon: UserPlus, color: COLORS.primary },
   enrollment: { icon: CalendarPlus, color: COLORS.success },
   cancellation: { icon: CalendarX, color: COLORS.gold },
   issue_report: { icon: AlertTriangle, color: COLORS.danger },
 };
 
-function formatWhen(iso: string): string {
+export function formatWhen(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
