@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Eye } from "lucide-react";
+import { Plus, Trash2, Eye, Lock, LockOpen } from "lucide-react";
 import { Field, IconButton, inputStyle } from "./ui";
-import { COLORS } from "./colors";
+import { COLORS, withAlpha } from "./colors";
 import { PALETTE } from "./utils";
 import type { ClassItem, ClassType, Level, Settings } from "./types";
 
@@ -19,6 +19,9 @@ export function SettingsView({
   onRemoveLevel,
   onUpdateLevel,
   onSaveDefaults,
+  bookingsOpen,
+  bookingsTogglePending,
+  onToggleBookingsOpen,
 }: {
   classTypes: ClassType[];
   levels: Level[];
@@ -31,6 +34,9 @@ export function SettingsView({
   onRemoveLevel: (id: string) => Promise<void>;
   onUpdateLevel: (id: string, name: string) => Promise<void>;
   onSaveDefaults: (defaults: Settings) => Promise<void>;
+  bookingsOpen: boolean;
+  bookingsTogglePending: boolean;
+  onToggleBookingsOpen: () => void;
 }) {
   const [def, setDef] = useState<Settings>(defaults);
   const [newTypeName, setNewTypeName] = useState("");
@@ -67,6 +73,29 @@ export function SettingsView({
       </div>
 
       <div style={{ maxWidth: 640 }}>
+        <div className="mb-6">
+          <div style={{ fontSize: 13, fontWeight: 600 }} className="mb-2">
+            Iscrizioni alle classi
+          </div>
+          <button
+            onClick={onToggleBookingsOpen}
+            disabled={bookingsTogglePending}
+            title={bookingsOpen ? "Le clienti possono prenotare — clicca per chiudere le iscrizioni" : "Iscrizioni chiuse — clicca per riaprirle"}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-60"
+            style={{
+              border: `1px solid ${withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 33)}`,
+              color: bookingsOpen ? COLORS.success : COLORS.danger,
+              background: withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 8),
+            }}
+          >
+            {bookingsOpen ? <LockOpen size={15} /> : <Lock size={15} />}
+            {bookingsOpen ? "Iscrizioni aperte" : "Iscrizioni chiuse"}
+          </button>
+          <div style={{ fontSize: 11.5, color: COLORS.inkSoft }} className="mt-1.5">
+            Controllo generale: quando sono chiuse, le clienti non possono prenotare nessuna classe.
+          </div>
+        </div>
+
         <div className="mb-6">
           <div style={{ fontSize: 13, fontWeight: 600 }} className="mb-2">
             Predefiniti per una nuova classe

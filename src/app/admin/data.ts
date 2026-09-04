@@ -809,6 +809,13 @@ export async function fetchEventBookings(supabase: DB, eventId: string): Promise
   return (data ?? []).map(mapEventBooking);
 }
 
+// Tutte le prenotazioni di tutti gli eventi (usato per calcolare gli incassi in EarningsView).
+export async function fetchAllEventBookings(supabase: DB): Promise<EventBookingItem[]> {
+  const { data, error } = await supabase.from("event_bookings").select("*, profiles(full_name)").order("created_at");
+  if (error) throw error;
+  return (data ?? []).map(mapEventBooking);
+}
+
 export async function markEventBookingPaid(supabase: DB, bookingId: string, paid: boolean) {
   const { error } = await supabase.from("event_bookings").update({ payment_status: paid ? "paid" : "unpaid" }).eq("id", bookingId);
   if (error) throw error;

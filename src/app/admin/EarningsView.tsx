@@ -1,14 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Wallet, Receipt, Plus, Trash2 } from "lucide-react";
 import { IconButton, inputStyle } from "./ui";
 import { COLORS } from "./colors";
 import { MONTHS } from "./utils";
-import type { ClassItem, Expense, PackageItem } from "./types";
+import { fetchAllEventBookings, fetchEvents } from "./data";
+import type { ClassItem, EventBookingItem, EventItem, Expense, PackageItem } from "./types";
+
+type PeriodMode = "month" | "year" | "total";
 
 function monthKeyOf(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function yearKeyOf(d: Date): string {
+  return String(d.getFullYear());
 }
 
 function StatCard({
@@ -42,37 +50,61 @@ function StatCard({
 }
 
 export function EarningsView({
+  supabase,
   classes,
   packages,
   expenses,
   onAddExpense,
   onDeleteExpense,
 }: {
+  supabase: SupabaseClient;
   classes: ClassItem[];
   packages: PackageItem[];
   expenses: Expense[];
   onAddExpense: (args: { amount: number; note: string; date: string }) => void;
   onDeleteExpense: (id: string) => void;
 }) {
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("month");
   const [viewDate, setViewDate] = useState(new Date());
   const [addOpen, setAddOpen] = useState(false);
   const [expDate, setExpDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [expAmount, setExpAmount] = useState("");
   const [expNote, setExpNote] = useState("");
 
-  const monthKey = monthKeyOf(viewDate);
-  const monthLabel = `${MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [eventBookings, setEventBookings] = useState<EventBookingItem[]>([]);
+  const [eventsError, setEventsError] = useState(false);
 
-  function shiftMonth(delta: number) {
-    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + delta, 1));
+  useEffect(() => {
+    Promise.all([fetchEvents(supabase), fetchAllEventBookings(supabase)])
+      .then(([ev, bookings]) => {
+        setEvents(ev);
+        setEventBookings(bookings);
+      })
+      .catch(() => setEventsError(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function inPeriod(dateStr: string): boolean {
+    if (periodMode === "total") return true;
+    if (periodMode === "year") return dateStr.startsWith(yearKeyOf(viewDate));
+    return dateStr.startsWith(monthKeyOf(viewDate));
+  }
+
+  const periodLabel =
+    periodMode === "total" ? "Storico completo" : periodMode === "year" ? String(viewDate.getFullYear()) : `${MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
+
+  function shiftPeriod(delta: number) {
+    if (periodMode === "year") setViewDate(new Date(viewDate.getFullYear() + delta, viewDate.getMonth(), 1));
+    else setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + delta, 1));
   }
 
   const classFigures = useMemo(() => {
-    function compute(filterMonth: string | null) {
+    function compute(predicate: (date: string) => boolean) {
       let collected = 0;
       let owed = 0;
       classes.forEach((c) => {
-        if (filterMonth && !c.date.startsWith(filterMonth)) return;
+        if (!predicate(c.date)) return;
         Object.values(c.payments || {}).forEach((pay) => {
           if (pay.status === "package") return;
           collected += pay.amount || 0;
@@ -81,33 +113,56 @@ export function EarningsView({
       });
       return { collected, owed };
     }
-    return { month: compute(monthKey), all: compute(null) };
-  }, [classes, monthKey]);
+    return { period: compute(inPeriod), all: compute(() => true) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classes, periodMode, viewDate]);
 
   const packageFigures = useMemo(() => {
-    function compute(filterMonth: string | null) {
+    function compute(predicate: (date: string) => boolean) {
       let collected = 0;
       let owed = 0;
       packages.forEach((p) => {
-        if (filterMonth && !p.date.startsWith(filterMonth)) return;
+        if (!predicate(p.date)) return;
         collected += p.paidAmount || 0;
         owed += Math.max(0, (p.price || 0) - (p.paidAmount || 0));
       });
       return { collected, owed };
     }
-    return { month: compute(monthKey), all: compute(null) };
-  }, [packages, monthKey]);
+    return { period: compute(inPeriod), all: compute(() => true) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages, periodMode, viewDate]);
 
-  const expensesMonth = useMemo(() => expenses.filter((e) => e.date.startsWith(monthKey)), [expenses, monthKey]);
-  const expensesMonthTotal = useMemo(() => expensesMonth.reduce((s, e) => s + (e.amount || 0), 0), [expensesMonth]);
+  const eventDateById = useMemo(() => Object.fromEntries(events.map((e) => [e.id, e.date])), [events]);
+
+  const eventFigures = useMemo(() => {
+    function compute(predicate: (date: string) => boolean) {
+      let collected = 0;
+      let owed = 0;
+      eventBookings.forEach((b) => {
+        if (b.status !== "booked") return;
+        const evDate = eventDateById[b.eventId];
+        if (!evDate || !predicate(evDate)) return;
+        const amount = b.price * (b.plusOne ? 2 : 1);
+        if (b.paymentStatus === "paid") collected += amount;
+        else owed += amount;
+      });
+      return { collected, owed };
+    }
+    return { period: compute(inPeriod), all: compute(() => true) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventBookings, eventDateById, periodMode, viewDate]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const expensesPeriod = useMemo(() => expenses.filter((e) => inPeriod(e.date)), [expenses, periodMode, viewDate]);
+  const expensesPeriodTotal = useMemo(() => expensesPeriod.reduce((s, e) => s + (e.amount || 0), 0), [expensesPeriod]);
   const expensesAllTotal = useMemo(() => expenses.reduce((s, e) => s + (e.amount || 0), 0), [expenses]);
 
-  const collectedMonth = classFigures.month.collected + packageFigures.month.collected;
-  const potentialMonth = classFigures.month.owed + packageFigures.month.owed;
-  const netMonth = collectedMonth - expensesMonthTotal;
+  const collectedPeriod = classFigures.period.collected + packageFigures.period.collected + eventFigures.period.collected;
+  const potentialPeriod = classFigures.period.owed + packageFigures.period.owed + eventFigures.period.owed;
+  const netPeriod = collectedPeriod - expensesPeriodTotal;
 
-  const collectedAll = classFigures.all.collected + packageFigures.all.collected;
-  const potentialAll = classFigures.all.owed + packageFigures.all.owed;
+  const collectedAll = classFigures.all.collected + packageFigures.all.collected + eventFigures.all.collected;
+  const potentialAll = classFigures.all.owed + packageFigures.all.owed + eventFigures.all.owed;
   const netAll = collectedAll - expensesAllTotal;
 
   const sortedExpenses = [...expenses].sort((a, b) => b.date.localeCompare(a.date));
@@ -124,52 +179,80 @@ export function EarningsView({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 600, textTransform: "capitalize", color: COLORS.heading }}>
-          {monthLabel}
+          {periodLabel}
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={() => setViewDate(new Date())} className="px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
-            Oggi
-          </button>
-          <IconButton onClick={() => shiftMonth(-1)} style={{ border: `1px solid ${COLORS.border}` }}>
-            <ChevronLeft size={16} />
-          </IconButton>
-          <IconButton onClick={() => shiftMonth(1)} style={{ border: `1px solid ${COLORS.border}` }}>
-            <ChevronRight size={16} />
-          </IconButton>
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
+            {([
+              ["month", "Mensile"],
+              ["year", "Annuale"],
+              ["total", "Totale"],
+            ] as [PeriodMode, string][]).map(([mode, label]) => (
+              <button
+                key={mode}
+                onClick={() => setPeriodMode(mode)}
+                className="px-2.5 py-1.5 text-xs sm:text-sm font-medium"
+                style={{ background: periodMode === mode ? COLORS.primary : "transparent", color: periodMode === mode ? "#fff" : COLORS.ink }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {periodMode !== "total" && (
+            <div className="flex items-center gap-1">
+              <button onClick={() => setViewDate(new Date())} className="px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
+                {periodMode === "year" ? "Quest'anno" : "Oggi"}
+              </button>
+              <IconButton onClick={() => shiftPeriod(-1)} style={{ border: `1px solid ${COLORS.border}` }}>
+                <ChevronLeft size={16} />
+              </IconButton>
+              <IconButton onClick={() => shiftPeriod(1)} style={{ border: `1px solid ${COLORS.border}` }}>
+                <ChevronRight size={16} />
+              </IconButton>
+            </div>
+          )}
         </div>
       </div>
+
+      {eventsError && (
+        <div className="mb-3 px-1" style={{ fontSize: 11.5, color: COLORS.danger }}>
+          Incassi eventi non disponibili al momento — i totali qui sotto non li includono.
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
         <StatCard
           icon={<TrendingUp size={13} />}
           label="Incassato"
-          amount={collectedMonth}
+          amount={collectedPeriod}
           color={COLORS.success}
-          breakdown={`Lezioni €${classFigures.month.collected.toFixed(2)} · Pacchetti €${packageFigures.month.collected.toFixed(2)}`}
+          breakdown={`Lezioni €${classFigures.period.collected.toFixed(2)} · Pacchetti €${packageFigures.period.collected.toFixed(2)} · Eventi €${eventFigures.period.collected.toFixed(2)}`}
         />
         <StatCard
           icon={<Wallet size={13} />}
           label="Potenziale"
-          amount={potentialMonth}
+          amount={potentialPeriod}
           color={COLORS.gold}
-          breakdown="Ancora da riscuotere"
+          breakdown={`Lezioni €${classFigures.period.owed.toFixed(2)} · Pacchetti €${packageFigures.period.owed.toFixed(2)} · Eventi €${eventFigures.period.owed.toFixed(2)}`}
         />
-        <StatCard icon={<Receipt size={13} />} label="Spese" amount={expensesMonthTotal} color={COLORS.danger} />
+        <StatCard icon={<Receipt size={13} />} label="Spese" amount={expensesPeriodTotal} color={COLORS.danger} />
         <StatCard
           icon={<TrendingDown size={13} />}
           label="Netto"
-          amount={netMonth}
-          color={netMonth >= 0 ? COLORS.primaryDark : COLORS.danger}
+          amount={netPeriod}
+          color={netPeriod >= 0 ? COLORS.primaryDark : COLORS.danger}
           breakdown="Incassato − spese"
         />
       </div>
 
-      <div className="mb-6 px-1" style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
-        Totale complessivo: incassato €{collectedAll.toFixed(2)} · potenziale €{potentialAll.toFixed(2)} · spese €{expensesAllTotal.toFixed(2)} · netto{" "}
-        <span style={{ fontWeight: 700, color: netAll >= 0 ? COLORS.success : COLORS.danger }}>€{netAll.toFixed(2)}</span>
-      </div>
+      {periodMode !== "total" && (
+        <div className="mb-6 px-1" style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
+          Totale complessivo: incassato €{collectedAll.toFixed(2)} · potenziale €{potentialAll.toFixed(2)} · spese €{expensesAllTotal.toFixed(2)} · netto{" "}
+          <span style={{ fontWeight: 700, color: netAll >= 0 ? COLORS.success : COLORS.danger }}>€{netAll.toFixed(2)}</span>
+        </div>
+      )}
 
       <div>
         <div className="flex items-center justify-between mb-2">

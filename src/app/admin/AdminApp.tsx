@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen, Ticket } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, Vault, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
-import { COLORS, withAlpha } from "./colors";
+import { COLORS } from "./colors";
 import { dateKey, genId, classEffectivePrice } from "./utils";
 import { Modal } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
@@ -55,7 +55,7 @@ type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 
 const moreMenuItems = [
   { key: "events", label: "Eventi", icon: Ticket },
-  { key: "earnings", label: "Guadagni", icon: TrendingUp },
+  { key: "earnings", label: "Guadagni", icon: Vault },
   { key: "notices", label: "Avvisi e comunicazioni", icon: Bell },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
@@ -560,20 +560,6 @@ export function AdminApp({ initial }: { initial: AdminData }) {
               onSelect={(key) => setView(key as typeof view)}
             />
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button
-                onClick={toggleBookingsOpen}
-                disabled={bookingsTogglePending}
-                title={bookingsOpen ? "Le clienti possono prenotare — clicca per chiudere le iscrizioni" : "Iscrizioni chiuse — clicca per riaprirle"}
-                className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium disabled:opacity-60"
-                style={{
-                  border: `1px solid ${withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 33)}`,
-                  color: bookingsOpen ? COLORS.success : COLORS.danger,
-                  background: withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 8),
-                }}
-              >
-                {bookingsOpen ? <LockOpen size={15} /> : <Lock size={15} />}
-                <span className="hidden sm:inline">{bookingsOpen ? "Iscrizioni aperte" : "Iscrizioni chiuse"}</span>
-              </button>
               <NotificationsPanel
                 notifications={notifications}
                 onMarkRead={markNotificationReadHandler}
@@ -651,6 +637,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           <EventsView supabase={supabase} />
         ) : view === "earnings" ? (
           <EarningsView
+            supabase={supabase}
             classes={classes}
             packages={packages}
             expenses={expenses}
@@ -685,6 +672,9 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onRemoveLevel={removeLevel}
             onUpdateLevel={updateLevel}
             onSaveDefaults={saveDefaults}
+            bookingsOpen={bookingsOpen}
+            bookingsTogglePending={bookingsTogglePending}
+            onToggleBookingsOpen={toggleBookingsOpen}
           />
         )}
       </div>
