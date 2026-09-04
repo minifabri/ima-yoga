@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Check, Lock, LockOpen, Archive, ArchiveRestore, Calculator, X } from "lucide-react";
+import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Check, Lock, LockOpen, Archive, ArchiveRestore, Calculator, ArrowLeft } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
-import { Modal } from "./ui";
 import { EventFormModal } from "./EventFormModal";
 import { EventBookingsPanel } from "./EventBookingsPanel";
 import { EventBudgetCalculator, computeTotals } from "./EventBudgetCalculator";
@@ -86,6 +85,32 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
     if (a.archived !== b.archived) return a.archived ? 1 : -1;
     return (b.date + b.time).localeCompare(a.date + a.time);
   });
+
+  if (budgetFor) {
+    return (
+      <div>
+        <button onClick={() => setBudgetFor(null)} className="flex items-center gap-1.5 mb-4 text-sm font-medium" style={{ color: COLORS.inkSoft }}>
+          <ArrowLeft size={15} /> Torna agli eventi
+        </button>
+        <div className="mb-4">
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600, color: COLORS.heading }}>Conti — {budgetFor.name}</div>
+          <div style={{ fontSize: 12, color: COLORS.inkSoft }}>
+            {budgetFor.date} · {budgetFor.time}
+          </div>
+        </div>
+        <EventBudgetCalculator
+          supabase={supabase}
+          budget={budgetByEventId[budgetFor.id] || null}
+          initialEvent={budgetFor}
+          events={events}
+          budgets={budgets}
+          onSaved={handleBudgetSaved}
+          onDeleted={handleBudgetDeleted}
+          onClose={() => setBudgetFor(null)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -253,33 +278,6 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
       )}
 
       {bookingsFor && <EventBookingsPanel event={bookingsFor} onClose={() => setBookingsFor(null)} />}
-
-      {budgetFor && (
-        <Modal onClose={() => setBudgetFor(null)} width={760}>
-          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-            <div>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>Conti — {budgetFor.name}</div>
-              <div style={{ fontSize: 12, color: COLORS.inkSoft }}>
-                {budgetFor.date} · {budgetFor.time}
-              </div>
-            </div>
-            <button onClick={() => setBudgetFor(null)} className="flex items-center justify-center" style={{ width: 36, height: 36 }}>
-              <X size={18} />
-            </button>
-          </div>
-          <div className="p-5 overflow-y-auto" style={{ flex: 1 }}>
-            <EventBudgetCalculator
-              supabase={supabase}
-              budget={budgetByEventId[budgetFor.id] || null}
-              initialEvent={budgetFor}
-              events={events}
-              budgets={budgets}
-              onSaved={handleBudgetSaved}
-              onDeleted={handleBudgetDeleted}
-            />
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }

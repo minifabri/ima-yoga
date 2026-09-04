@@ -271,8 +271,15 @@ function ProfitChart({ items, days, ticketPrice, totals }: { items: BudgetLineIt
     }
 
     draw();
-    window.addEventListener("resize", draw);
-    return () => window.removeEventListener("resize", draw);
+    // ResizeObserver invece del solo evento "resize" della finestra: il canvas
+    // può cambiare larghezza anche senza che la finestra si ridimensioni (es.
+    // passaggio da elenco a dettaglio nella stessa pagina, tastiera mobile che
+    // si apre/chiude) — con solo "resize" restava disegnato alla larghezza 0
+    // o sbagliata rilevata al primo mount.
+    const container = canvas.parentElement;
+    const observer = new ResizeObserver(() => draw());
+    if (container) observer.observe(container);
+    return () => observer.disconnect();
   }, [items, days, ticketPrice, totals]);
 
   return (

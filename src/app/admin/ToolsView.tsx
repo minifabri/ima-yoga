@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Plus, X, Link2, Calculator as CalculatorIcon, AlertCircle } from "lucide-react";
+import { Plus, ArrowLeft, Link2, Calculator as CalculatorIcon, AlertCircle, Trash2 } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
-import { Modal } from "./ui";
 import { EventBudgetCalculator, computeTotals } from "./EventBudgetCalculator";
-import { fetchEventBudgets, fetchEvents } from "./data";
+import { deleteEventBudget, fetchEventBudgets, fetchEvents } from "./data";
 import type { EventBudget, EventItem } from "./types";
 
 const fmtEUR = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
@@ -17,6 +16,8 @@ export function ToolsView({ supabase }: { supabase: SupabaseClient }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [editing, setEditing] = useState<EventBudget | "new" | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [rowError, setRowError] = useState("");
 
   useEffect(() => {
     Promise.all([fetchEventBudgets(supabase), fetchEvents(supabase)])
@@ -40,7 +41,39 @@ export function ToolsView({ supabase }: { supabase: SupabaseClient }) {
     setEditing(null);
   }
 
+  function handleRowDelete(id: string) {
+    setBudgets((cur) => cur.filter((b) => b.id !== id));
+    setConfirmDeleteId(null);
+    deleteEventBudget(supabase, id).catch(() => setRowError("Errore nell'eliminazione del conto."));
+  }
+
   const sorted = [...budgets].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+  if (editing) {
+    return (
+      <div>
+        <button
+          onClick={() => setEditing(null)}
+          className="flex items-center gap-1.5 mb-4 text-sm font-medium"
+          style={{ color: COLORS.inkSoft }}
+        >
+          <ArrowLeft size={15} /> Torna ai conti
+        </button>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600, color: COLORS.heading }} className="mb-4">
+          {editing === "new" ? "Nuovo conto" : editing.name || "Conto"}
+        </div>
+        <EventBudgetCalculator
+          supabase={supabase}
+          budget={editing === "new" ? null : editing}
+          events={events}
+          budgets={budgets}
+          onSaved={handleSaved}
+          onDeleted={handleDeleted}
+          onClose={() => setEditing(null)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -64,6 +97,11 @@ export function ToolsView({ supabase }: { supabase: SupabaseClient }) {
           <AlertCircle size={15} /> Errore nel caricamento dei conti salvati.
         </div>
       )}
+      {rowError && (
+        <div className="mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2" style={{ background: withAlpha(COLORS.danger, 10), color: COLORS.danger }}>
+          <AlertCircle size={15} /> {rowError}
+        </div>
+      )}
 
       {loading ? (
         <div style={{ fontSize: 13, color: COLORS.inkSoft }}>Caricamento…</div>
@@ -78,58 +116,50 @@ export function ToolsView({ supabase }: { supabase: SupabaseClient }) {
             const totals = computeTotals(b.items, b.days, b.ticketPrice, b.participants);
             const ev = b.eventId ? eventById[b.eventId] : null;
             return (
-              <button
+              <div
                 key={b.id}
-                onClick={() => setEditing(b)}
-                className="flex items-center gap-3 p-3.5 rounded-xl flex-wrap text-left"
+                className="flex items-center gap-3 p-3.5 rounded-xl flex-wrap"
                 style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}
               >
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <div className="flex items-center gap-1.5 flex-wrap" style={{ fontSize: 14, fontWeight: 600 }}>
-                    {b.name || "Conto senza nome"}
-                    {ev && (
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full"
-                        style={{ fontSize: 10.5, fontWeight: 600, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 10), padding: "1px 8px" }}
-                      >
-                        <Link2 size={10} /> {ev.name}
-                      </span>
-                    )}
+                <button onClick={() => setEditing(b)} className="flex items-center gap-3 flex-1 text-left" style={{ minWidth: 160 }}>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <div className="flex items-center gap-1.5 flex-wrap" style={{ fontSize: 14, fontWeight: 600 }}>
+                      {b.name || "Conto senza nome"}
+                      {ev && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full"
+                          style={{ fontSize: 10.5, fontWeight: 600, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 10), padding: "1px 8px" }}
+                        >
+                          <Link2 size={10} /> {ev.name}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 12, color: COLORS.inkSoft }}>
+                      {totals.participants} partecipanti · biglietto {fmtEUR.format(totals.price)} · {b.days} {b.days === 1 ? "giorno" : "giorni"}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: COLORS.inkSoft }}>
-                    {totals.participants} partecipanti · biglietto {fmtEUR.format(totals.price)} · {b.days} {b.days === 1 ? "giorno" : "giorni"}
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: totals.profit >= 0 ? COLORS.success : COLORS.danger }}>
+                    {fmtEUR.format(totals.profit)}
                   </div>
-                </div>
-                <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: totals.profit >= 0 ? COLORS.success : COLORS.danger }}>
-                  {fmtEUR.format(totals.profit)}
-                </div>
-              </button>
+                </button>
+                {confirmDeleteId === b.id ? (
+                  <button onClick={() => handleRowDelete(b.id)} className="text-xs font-semibold px-2.5 py-1.5 rounded-lg text-white flex-shrink-0" style={{ background: COLORS.danger }}>
+                    Conferma
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDeleteId(b.id)}
+                    title="Elimina conto"
+                    className="flex items-center justify-center rounded-lg flex-shrink-0"
+                    style={{ width: 30, height: 30, color: COLORS.inkSoft }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
-      )}
-
-      {editing && (
-        <Modal onClose={() => setEditing(null)} width={760}>
-          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>
-              {editing === "new" ? "Nuovo conto" : editing.name || "Conto"}
-            </div>
-            <button onClick={() => setEditing(null)} className="flex items-center justify-center" style={{ width: 36, height: 36 }}>
-              <X size={18} />
-            </button>
-          </div>
-          <div className="p-5 overflow-y-auto" style={{ flex: 1 }}>
-            <EventBudgetCalculator
-              supabase={supabase}
-              budget={editing === "new" ? null : editing}
-              events={events}
-              budgets={budgets}
-              onSaved={handleSaved}
-              onDeleted={handleDeleted}
-            />
-          </div>
-        </Modal>
       )}
     </div>
   );

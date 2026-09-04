@@ -6,8 +6,9 @@ import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Wallet, Receipt, P
 import { IconButton, inputStyle } from "./ui";
 import { COLORS } from "./colors";
 import { MONTHS } from "./utils";
-import { fetchAllEventBookings, fetchEvents } from "./data";
-import type { ClassItem, EventBookingItem, EventItem, Expense, PackageItem } from "./types";
+import { fetchAllEventBookings, fetchEventBudgets, fetchEvents } from "./data";
+import { computeTotals } from "./EventBudgetCalculator";
+import type { ClassItem, EventBookingItem, EventBudget, EventItem, Expense, PackageItem } from "./types";
 
 type PeriodMode = "month" | "year" | "total";
 
@@ -73,13 +74,15 @@ export function EarningsView({
 
   const [events, setEvents] = useState<EventItem[]>([]);
   const [eventBookings, setEventBookings] = useState<EventBookingItem[]>([]);
+  const [eventBudgets, setEventBudgets] = useState<EventBudget[]>([]);
   const [eventsError, setEventsError] = useState(false);
 
   useEffect(() => {
-    Promise.all([fetchEvents(supabase), fetchAllEventBookings(supabase)])
-      .then(([ev, bookings]) => {
+    Promise.all([fetchEvents(supabase), fetchAllEventBookings(supabase), fetchEventBudgets(supabase)])
+      .then(([ev, bookings, budgets]) => {
         setEvents(ev);
         setEventBookings(bookings);
+        setEventBudgets(budgets);
       })
       .catch(() => setEventsError(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -154,8 +157,29 @@ export function EarningsView({
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const expensesPeriod = useMemo(() => expenses.filter((e) => inPeriod(e.date)), [expenses, periodMode, viewDate]);
-  const expensesPeriodTotal = useMemo(() => expensesPeriod.reduce((s, e) => s + (e.amount || 0), 0), [expensesPeriod]);
-  const expensesAllTotal = useMemo(() => expenses.reduce((s, e) => s + (e.amount || 0), 0), [expenses]);
+  const manualExpensesPeriodTotal = useMemo(() => expensesPeriod.reduce((s, e) => s + (e.amount || 0), 0), [expensesPeriod]);
+  const manualExpensesAllTotal = useMemo(() => expenses.reduce((s, e) => s + (e.amount || 0), 0), [expenses]);
+
+  // Un conto collegato a un evento è "attivo": le sue spese preventivate
+  // contano come spese vere, attribuite al mese/anno dell'evento — un conto
+  // libero (senza evento) resta solo una simulazione e non conta.
+  const eventBudgetFigures = useMemo(() => {
+    function compute(predicate: (date: string) => boolean) {
+      let costs = 0;
+      eventBudgets.forEach((b) => {
+        if (!b.eventId) return;
+        const evDate = eventDateById[b.eventId];
+        if (!evDate || !predicate(evDate)) return;
+        costs += computeTotals(b.items, b.days, b.ticketPrice, b.participants).costs;
+      });
+      return costs;
+    }
+    return { period: compute(inPeriod), all: compute(() => true) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventBudgets, eventDateById, periodMode, viewDate]);
+
+  const expensesPeriodTotal = manualExpensesPeriodTotal + eventBudgetFigures.period;
+  const expensesAllTotal = manualExpensesAllTotal + eventBudgetFigures.all;
 
   const collectedPeriod = classFigures.period.collected + packageFigures.period.collected + eventFigures.period.collected;
   const potentialPeriod = classFigures.period.owed + packageFigures.period.owed + eventFigures.period.owed;
@@ -237,7 +261,13 @@ export function EarningsView({
           color={COLORS.gold}
           breakdown={`Lezioni €${classFigures.period.owed.toFixed(2)} · Pacchetti €${packageFigures.period.owed.toFixed(2)} · Eventi €${eventFigures.period.owed.toFixed(2)}`}
         />
-        <StatCard icon={<Receipt size={13} />} label="Spese" amount={expensesPeriodTotal} color={COLORS.danger} />
+        <StatCard
+          icon={<Receipt size={13} />}
+          label="Spese"
+          amount={expensesPeriodTotal}
+          color={COLORS.danger}
+          breakdown={`Manuali €${manualExpensesPeriodTotal.toFixed(2)} · Conti eventi €${eventBudgetFigures.period.toFixed(2)}`}
+        />
         <StatCard
           icon={<TrendingDown size={13} />}
           label="Netto"
