@@ -1,21 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Check, Lock, LockOpen, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Check, Lock, LockOpen, Archive, ArchiveRestore, Calculator, X } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
+import { Modal } from "./ui";
 import { EventFormModal } from "./EventFormModal";
 import { EventBookingsPanel } from "./EventBookingsPanel";
-import { deleteEvent, fetchEvents, saveEvent, setEventArchived, setEventBookingsOpen } from "./data";
-import type { EventItem } from "./types";
+import { EventBudgetCalculator, computeTotals } from "./EventBudgetCalculator";
+import { deleteEvent, fetchEventBudgets, fetchEvents, saveEvent, setEventArchived, setEventBookingsOpen } from "./data";
+import type { EventBudget, EventItem } from "./types";
 
 type ModalState = { mode: "new" } | { mode: "edit"; event: EventItem } | null;
 
+const fmtEUR = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+
 export function EventsView({ supabase }: { supabase: SupabaseClient }) {
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [budgets, setBudgets] = useState<EventBudget[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<ModalState>(null);
   const [bookingsFor, setBookingsFor] = useState<EventItem | null>(null);
+  const [budgetFor, setBudgetFor] = useState<EventItem | null>(null);
   const [toast, setToast] = useState("");
 
   function showToast(msg: string) {
@@ -28,8 +34,22 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
       .then(setEvents)
       .catch(() => showToast("Errore nel caricamento degli eventi."))
       .finally(() => setLoading(false));
+    fetchEventBudgets(supabase)
+      .then(setBudgets)
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const budgetByEventId = useMemo(() => Object.fromEntries(budgets.filter((b) => b.eventId).map((b) => [b.eventId as string, b])), [budgets]);
+
+  function handleBudgetSaved(b: EventBudget) {
+    setBudgets((cur) => (cur.some((x) => x.id === b.id) ? cur.map((x) => (x.id === b.id ? b : x)) : [b, ...cur]));
+    setBudgetFor(null);
+  }
+  function handleBudgetDeleted(id: string) {
+    setBudgets((cur) => cur.filter((b) => b.id !== id));
+    setBudgetFor(null);
+  }
 
   async function handleSave(event: Omit<EventItem, "id"> & { id?: string }) {
     const saved = await saveEvent(supabase, event);
@@ -138,6 +158,16 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
                   {ev.date} · {ev.time}
                   {ev.location ? ` · ${ev.location}` : ""} · €{ev.price.toFixed(2)} {ev.capacity > 0 ? `· ${ev.capacity} posti` : "· posti illimitati"}
                 </div>
+                {budgetByEventId[ev.id] &&
+                  (() => {
+                    const b = budgetByEventId[ev.id];
+                    const t = computeTotals(b.items, b.days, b.ticketPrice, b.participants);
+                    return (
+                      <div className="mt-1 inline-flex items-center gap-1" style={{ fontSize: 11, fontWeight: 600, color: t.profit >= 0 ? COLORS.success : COLORS.danger }}>
+                        <Calculator size={11} /> Preventivo: guadagno netto {fmtEUR.format(t.profit)}
+                      </div>
+                    );
+                  })()}
               </div>
 
               <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -169,6 +199,14 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
                     </a>
                   </>
                 )}
+                <button
+                  onClick={() => setBudgetFor(ev)}
+                  title="Calcola conti (incassi, spese, pareggio)"
+                  className="flex items-center justify-center rounded-lg"
+                  style={{ width: 34, height: 34, border: `1px solid ${COLORS.border}` }}
+                >
+                  <Calculator size={14} />
+                </button>
                 <button
                   onClick={() => setBookingsFor(ev)}
                   title="Prenotazioni e pagamenti"
@@ -215,6 +253,33 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
       )}
 
       {bookingsFor && <EventBookingsPanel event={bookingsFor} onClose={() => setBookingsFor(null)} />}
+
+      {budgetFor && (
+        <Modal onClose={() => setBudgetFor(null)} width={760}>
+          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+            <div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>Conti — {budgetFor.name}</div>
+              <div style={{ fontSize: 12, color: COLORS.inkSoft }}>
+                {budgetFor.date} · {budgetFor.time}
+              </div>
+            </div>
+            <button onClick={() => setBudgetFor(null)} className="flex items-center justify-center" style={{ width: 36, height: 36 }}>
+              <X size={18} />
+            </button>
+          </div>
+          <div className="p-5 overflow-y-auto" style={{ flex: 1 }}>
+            <EventBudgetCalculator
+              supabase={supabase}
+              budget={budgetByEventId[budgetFor.id] || null}
+              initialEvent={budgetFor}
+              events={events}
+              budgets={budgets}
+              onSaved={handleBudgetSaved}
+              onDeleted={handleBudgetDeleted}
+            />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

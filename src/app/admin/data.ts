@@ -2,11 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AdminData,
   Announcement,
+  BudgetLineItem,
   ClassItem,
   ClassType,
   ClientItem,
   ClientNotice,
   EventBookingItem,
+  EventBudget,
   EventItem,
   Expense,
   LedgerEntry,
@@ -835,4 +837,69 @@ export async function uploadEventImage(supabase: DB, eventSlug: string, variant:
   if (error) throw error;
   const { data } = supabase.storage.from("event-images").getPublicUrl(path);
   return data.publicUrl;
+}
+
+function mapEventBudget(row: {
+  id: string;
+  event_id: string | null;
+  name: string;
+  days: number;
+  ticket_price: number;
+  participants: number;
+  items: BudgetLineItem[];
+  created_at: string;
+  updated_at: string;
+}): EventBudget {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    name: row.name,
+    days: row.days,
+    ticketPrice: Number(row.ticket_price),
+    participants: row.participants,
+    items: row.items || [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function fetchEventBudgets(supabase: DB): Promise<EventBudget[]> {
+  const { data, error } = await supabase.from("event_budgets").select("*").order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapEventBudget);
+}
+
+// Un conto collegato a un evento è unico: se ne esiste già uno per
+// quell'evento e non stiamo passando un id specifico, lo aggiorna invece
+// di crearne un secondo.
+export async function saveEventBudget(
+  supabase: DB,
+  budget: Omit<EventBudget, "id" | "createdAt" | "updatedAt"> & { id?: string }
+): Promise<EventBudget> {
+  const payload = {
+    event_id: budget.eventId,
+    name: budget.name,
+    days: budget.days,
+    ticket_price: budget.ticketPrice,
+    participants: budget.participants,
+    items: budget.items,
+  };
+
+  let targetId = budget.id;
+  if (!targetId && budget.eventId) {
+    const { data: existing } = await supabase.from("event_budgets").select("id").eq("event_id", budget.eventId).maybeSingle();
+    if (existing) targetId = existing.id;
+  }
+
+  const query = targetId
+    ? supabase.from("event_budgets").update(payload).eq("id", targetId).select().single()
+    : supabase.from("event_budgets").insert(payload).select().single();
+  const { data, error } = await query;
+  if (error) throw error;
+  return mapEventBudget(data);
+}
+
+export async function deleteEventBudget(supabase: DB, id: string) {
+  const { error } = await supabase.from("event_budgets").delete().eq("id", id);
+  if (error) throw error;
 }

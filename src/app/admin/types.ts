@@ -174,6 +174,26 @@ export type EventBookingItem = {
   createdAt: string;
 };
 
+export type BudgetLineItem = {
+  id: string;
+  name: string;
+  amount: number;
+  per: "person" | "total";
+  freq: "day" | "once";
+};
+
+export type EventBudget = {
+  id: string;
+  eventId: string | null;
+  name: string;
+  days: number;
+  ticketPrice: number;
+  participants: number;
+  items: BudgetLineItem[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AdminData = {
   classTypes: ClassType[];
   levels: Level[];

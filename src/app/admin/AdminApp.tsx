@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, Vault, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, Vault, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
@@ -20,6 +20,7 @@ import { NoticesView } from "./NoticesView";
 import { WorklogView } from "./WorklogView";
 import { StatsView } from "./StatsView";
 import { EventsView } from "./EventsView";
+import { ToolsView } from "./ToolsView";
 import * as db from "./data";
 import { adminResetClientPassword, adminGetClientAuthStatus, adminResendActivationEmail, adminResendPasswordReset } from "./actions";
 import { notifyClassFull } from "@/lib/notifications";
@@ -56,6 +57,7 @@ type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 const moreMenuItems = [
   { key: "events", label: "Eventi", icon: Ticket },
   { key: "earnings", label: "Guadagni", icon: Vault },
+  { key: "tools", label: "Strumenti", icon: Calculator },
   { key: "notices", label: "Avvisi e comunicazioni", icon: Bell },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
@@ -65,7 +67,7 @@ const moreMenuItems = [
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
 
-  const [view, setView] = useState<"calendar" | "clients" | "payments" | "events" | "earnings" | "notices" | "worklog" | "stats" | "settings">("calendar");
+  const [view, setView] = useState<"calendar" | "clients" | "payments" | "events" | "earnings" | "tools" | "notices" | "worklog" | "stats" | "settings">("calendar");
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>(initial.classTypes);
   const [levels, setLevels] = useState<Level[]>(initial.levels);
@@ -644,6 +646,8 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onAddExpense={addExpenseHandler}
             onDeleteExpense={deleteExpenseItem}
           />
+        ) : view === "tools" ? (
+          <ToolsView supabase={supabase} />
         ) : view === "notices" ? (
           <NoticesView
             clients={clients}
