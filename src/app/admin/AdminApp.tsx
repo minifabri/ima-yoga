@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, Vault, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, Vault, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
@@ -10,6 +10,7 @@ import { Modal } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { MoreMenu } from "./MoreMenu";
+import { MobileHub } from "./MobileHub";
 import { CalendarView } from "./CalendarView";
 import { ClassFormModal } from "./ClassFormModal";
 import { SettingsView } from "./SettingsView";
@@ -64,10 +65,27 @@ const moreMenuItems = [
   { key: "settings", label: "Impostazioni", icon: SettingsIcon },
 ];
 
+// Voci della hub mobile: le principali come bottoni grandi, le rimanenti
+// nella fila scorrevole "Altro" (vedi MobileHub.tsx).
+const mobileHubPrimaryItems = [
+  { key: "calendar", label: "Calendario", icon: CalendarIcon },
+  { key: "clients", label: "Clienti", icon: Users },
+  { key: "payments", label: "Pagamenti", icon: Wallet },
+  { key: "events", label: "Eventi", icon: Ticket },
+  { key: "notices", label: "Avvisi", icon: Bell },
+  { key: "settings", label: "Impostazioni", icon: SettingsIcon },
+];
+const mobileHubSecondaryItems = [
+  { key: "earnings", label: "Guadagni", icon: Vault },
+  { key: "tools", label: "Strumenti", icon: Calculator },
+  { key: "worklog", label: "Registro", icon: History },
+  { key: "stats", label: "Statistiche", icon: BarChart3 },
+];
+
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
 
-  const [view, setView] = useState<"calendar" | "clients" | "payments" | "events" | "earnings" | "tools" | "notices" | "worklog" | "stats" | "settings">("calendar");
+  const [view, setView] = useState<"home" | "calendar" | "clients" | "payments" | "events" | "earnings" | "tools" | "notices" | "worklog" | "stats" | "settings">("home");
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>(initial.classTypes);
   const [levels, setLevels] = useState<Level[]>(initial.levels);
@@ -533,7 +551,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
-            <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
+            <div className="hidden md:flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
               <button
                 onClick={() => setView("calendar")}
                 className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
@@ -556,11 +574,23 @@ export function AdminApp({ initial }: { initial: AdminData }) {
                 <Wallet size={15} /> <span className="hidden sm:inline">Pagamenti</span>
               </button>
             </div>
-            <MoreMenu
-              items={moreMenuItems}
-              activeKey={view}
-              onSelect={(key) => setView(key as typeof view)}
-            />
+            <div className="hidden md:block">
+              <MoreMenu
+                items={moreMenuItems}
+                activeKey={view}
+                onSelect={(key) => setView(key as typeof view)}
+              />
+            </div>
+            {view !== "home" && (
+              <button
+                type="button"
+                onClick={() => setView("home")}
+                className="md:hidden flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium"
+                style={{ border: `1px solid ${COLORS.border}`, color: COLORS.ink }}
+              >
+                <ArrowLeft size={15} /> Home
+              </button>
+            )}
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <NotificationsPanel
                 notifications={notifications}
@@ -588,7 +618,32 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           </div>
         )}
 
-        {view === "calendar" ? (
+        {view === "home" ? (
+          <>
+            <div className="hidden md:block">
+              <CalendarView
+                viewDate={viewDate}
+                setViewDate={setViewDate}
+                classesByDay={classesByDay}
+                typeById={typeById}
+                levelById={levelById}
+                clipboard={clipboard}
+                onGoToNextClass={goToNextClass}
+                onAddClass={(date) => setClassModal({ mode: "new", date })}
+                onOpenClass={(classItem) => setClassModal({ mode: "edit", classItem })}
+                onMoveClass={moveClass}
+                onPasteClass={pasteClass}
+              />
+            </div>
+            <div className="md:hidden">
+              <MobileHub
+                primaryItems={mobileHubPrimaryItems}
+                secondaryItems={mobileHubSecondaryItems}
+                onSelect={(key) => setView(key as typeof view)}
+              />
+            </div>
+          </>
+        ) : view === "calendar" ? (
           <CalendarView
             viewDate={viewDate}
             setViewDate={setViewDate}
