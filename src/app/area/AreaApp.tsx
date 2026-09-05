@@ -98,6 +98,11 @@ function formatUpcomingDate(dateStr: string): string {
   return `${WEEKDAYS[(new Date(y, m - 1, d).getDay() + 6) % 7]} ${d}`;
 }
 
+function formatEventDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return `${WEEKDAYS[(new Date(y, m - 1, d).getDay() + 6) % 7]} ${d} ${MONTHS[m - 1].slice(0, 3)}`;
+}
+
 // Schermata di ingresso mobile: al posto del calendario, le prossime lezioni
 // ben visibili in cima (la prima cosa che un cliente vuole sapere aprendo
 // l'app) e sotto le due scorciatoie principali — niente scroll orizzontale,
@@ -106,6 +111,7 @@ function MobileAreaHome({
   classes,
   typeById,
   levelById,
+  nextEvent,
   onOpenClass,
   onGoToCalendar,
   onGoToMine,
@@ -113,6 +119,7 @@ function MobileAreaHome({
   classes: PublicClass[];
   typeById: Record<string, ClassType>;
   levelById: Record<string, Level>;
+  nextEvent: PublicEvent | null;
   onOpenClass: (c: PublicClass) => void;
   onGoToCalendar: () => void;
   onGoToMine: () => void;
@@ -175,6 +182,20 @@ function MobileAreaHome({
         </div>
       </div>
 
+      {nextEvent && (
+        <a
+          href={`/eventi/${nextEvent.slug}`}
+          className="flex items-start gap-2 p-2.5 rounded-lg"
+          style={{ background: withAlpha(COLORS.gold, 12), border: `1px solid ${withAlpha(COLORS.gold, 35)}` }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: 999, background: COLORS.gold, marginTop: 5, flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: COLORS.ink, lineHeight: 1.45 }}>
+            <strong>{formatEventDate(nextEvent.date)}</strong> · {nextEvent.name}
+            {nextEvent.location && <span style={{ color: COLORS.inkSoft }}> — {nextEvent.location}</span>}
+          </span>
+        </a>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
@@ -218,7 +239,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   const [classTypes, setClassTypes] = useState<ClassType[]>([]);
   const [levels, setLevels] = useState<Level[]>([]);
   const [classes, setClasses] = useState<PublicClass[]>([]);
-  const [monthEvents, setMonthEvents] = useState<PublicEvent[]>([]);
+  const [events, setEvents] = useState<PublicEvent[]>([]);
   const [bookingsOpen, setBookingsOpen] = useState(true);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [dismissedAnnouncementIds, setDismissedAnnouncementIds] = useState<string[]>(() => {
@@ -360,8 +381,25 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
     const from = dateKey(days[0]);
     const to = dateKey(days[days.length - 1]);
     db.fetchPublicClasses(supabase, from, to).then(setClasses).catch(() => showToast("Errore nel caricamento del calendario."));
-    db.fetchPublicEvents(supabase, from, to).then(setMonthEvents).catch(() => {});
   }, [days, supabase]);
+
+  useEffect(() => {
+    const from = dateKey(new Date());
+    const future = new Date();
+    future.setDate(future.getDate() + 180);
+    const to = dateKey(future);
+    db.fetchPublicEvents(supabase, from, to).then(setEvents).catch(() => {});
+  }, [supabase]);
+
+  const monthEvents = useMemo(
+    () =>
+      events.filter((e) => {
+        const [y, m] = e.date.split("-").map(Number);
+        return y === viewDate.getFullYear() && m === viewDate.getMonth() + 1;
+      }),
+    [events, viewDate]
+  );
+  const nextEvent = events[0] ?? null;
 
   async function refreshMine() {
     const [bookings, eventBookings, packages, ledger] = await Promise.all([
@@ -708,6 +746,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                   classes={classes}
                   typeById={typeById}
                   levelById={levelById}
+                  nextEvent={nextEvent}
                   onOpenClass={setSelected}
                   onGoToCalendar={() => setView("calendar")}
                   onGoToMine={() => setView("mine")}
@@ -969,10 +1008,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                   >
                     <span style={{ width: 6, height: 6, borderRadius: 999, background: COLORS.gold, marginTop: 5, flexShrink: 0 }} />
                     <span style={{ fontSize: 12, color: COLORS.ink, lineHeight: 1.45 }}>
-                      <strong>
-                        {WEEKDAYS[(new Date(`${e.date}T00:00:00`).getDay() + 6) % 7]} {new Date(`${e.date}T00:00:00`).getDate()}
-                      </strong>{" "}
-                      · {e.name}
+                      <strong>{formatEventDate(e.date)}</strong> · {e.name}
                       {e.location && <span style={{ color: COLORS.inkSoft }}> — {e.location}</span>}
                     </span>
                   </a>
