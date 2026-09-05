@@ -57,7 +57,8 @@ export function CalendarView({
   onPasteClass: (dateStr: string) => void;
   onGoToNextClass: () => void;
 }) {
-  const days = getCalendarDays(viewDate);
+  const days = getCalendarDays(viewDate).filter((d) => d.getDay() !== 0 && d.getDay() !== 6);
+  const weekdayLabels = WEEKDAYS.slice(0, 5);
   const today = new Date();
   const monthLabel = `${MONTHS[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
@@ -166,8 +167,8 @@ export function CalendarView({
 
       {mode === "grid" ? (
         <>
-          <div className="grid grid-cols-7 mb-1">
-            {WEEKDAYS.map((w) => (
+          <div className="grid grid-cols-5 mb-1">
+            {weekdayLabels.map((w) => (
               <div
                 key={w}
                 className="text-center py-2"
@@ -178,7 +179,7 @@ export function CalendarView({
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-1.5">
+          <div className="grid grid-cols-5 gap-1.5">
             {days.map((d, i) => {
               const inMonth = d.getMonth() === viewDate.getMonth();
               const key = dateKey(d);
