@@ -28,6 +28,8 @@ import {
   Trash2,
   AtSign,
   MessageCircle,
+  CalendarDays,
+  ArrowLeft,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
@@ -91,9 +93,125 @@ function errorMessage(err: unknown): string | null {
   return null;
 }
 
+function formatUpcomingDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return `${WEEKDAYS[(new Date(y, m - 1, d).getDay() + 6) % 7]} ${d}`;
+}
+
+// Schermata di ingresso mobile: al posto del calendario, le prossime lezioni
+// ben visibili in cima (la prima cosa che un cliente vuole sapere aprendo
+// l'app) e sotto le due scorciatoie principali — niente scroll orizzontale,
+// stesso principio usato per l'hub mobile dell'admin.
+function MobileAreaHome({
+  classes,
+  typeById,
+  levelById,
+  onOpenClass,
+  onGoToCalendar,
+  onGoToMine,
+}: {
+  classes: PublicClass[];
+  typeById: Record<string, ClassType>;
+  levelById: Record<string, Level>;
+  onOpenClass: (c: PublicClass) => void;
+  onGoToCalendar: () => void;
+  onGoToMine: () => void;
+}) {
+  const todayKey = dateKey(new Date());
+  const upcoming = classes
+    .filter((c) => c.date >= todayKey)
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+    .slice(0, 5);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <CalendarDays size={15} color={COLORS.primary} />
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.heading }}>Prossime lezioni</span>
+        </div>
+        <div className="rounded-2xl overflow-hidden" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+          {upcoming.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: COLORS.inkSoft, padding: 14 }}>Nessuna lezione in programma.</div>
+          ) : (
+            upcoming.map((c, i) => {
+              const type = typeById[c.typeId];
+              const level = levelById[c.levelId];
+              const avail = availabilityLabel(c);
+              const booked = c.myStatus === "booked";
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => onOpenClass(c)}
+                  className="flex items-start gap-3 w-full text-left px-3.5 py-2.5"
+                  style={{
+                    borderBottom: i < upcoming.length - 1 ? `1px solid ${COLORS.border}` : "none",
+                    background: booked ? withAlpha(COLORS.primary, 7) : "transparent",
+                  }}
+                >
+                  <div className="flex-shrink-0" style={{ width: 44, paddingTop: 1 }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: COLORS.ink }}>{formatUpcomingDate(c.date)}</div>
+                    <div style={{ fontSize: 10.5, color: COLORS.inkSoft }}>{c.time}</div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5" style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.ink }}>
+                      <span className="flex-shrink-0 rounded-full" style={{ width: 7, height: 7, background: type?.color || COLORS.primary }} />
+                      {type?.name || "Classe"}
+                    </div>
+                    <div style={{ fontSize: 11, color: COLORS.inkSoft, marginTop: 2, lineHeight: 1.4 }}>
+                      {level?.name}
+                      <span> · </span>
+                      <span style={{ fontWeight: 700, color: avail.color }}>
+                        {booked && <Check size={11} style={{ display: "inline", verticalAlign: -1, marginRight: 2 }} />}
+                        {avail.text}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={onGoToCalendar}
+          className="flex flex-col items-center justify-center gap-2 rounded-2xl text-center"
+          style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, padding: "22px 12px", minHeight: 108 }}
+        >
+          <span
+            className="flex items-center justify-center rounded-full"
+            style={{ width: 44, height: 44, background: withAlpha(COLORS.primary, 12), color: COLORS.primary }}
+          >
+            <CalendarDays size={22} />
+          </span>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.ink }}>Calendario</span>
+        </button>
+        <button
+          type="button"
+          onClick={onGoToMine}
+          className="flex flex-col items-center justify-center gap-2 rounded-2xl text-center"
+          style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, padding: "22px 12px", minHeight: 108 }}
+        >
+          <span
+            className="flex items-center justify-center rounded-full"
+            style={{ width: 44, height: 44, background: withAlpha(COLORS.primary, 12), color: COLORS.primary }}
+          >
+            <List size={22} />
+          </span>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.ink }}>Le mie prenotazioni</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AreaApp({ fullName, email }: { fullName: string; email: string }) {
   const supabase = useMemo(() => createClient(), []);
-  const [view, setView] = useState<"calendar" | "mine">("calendar");
+  const [view, setView] = useState<"home" | "calendar" | "mine">("home");
   const [viewDate, setViewDate] = useState(new Date());
   const [calendarMode, setCalendarMode] = useState<"grid" | "list">("grid");
   const [onlyMine, setOnlyMine] = useState(false);
@@ -377,16 +495,28 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
     <div style={{ fontFamily: "var(--font-body)", background: COLORS.bg, color: COLORS.ink, minHeight: "100vh" }}>
       <div className="p-5" style={{ maxWidth: 860, margin: "0 auto" }}>
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 10, letterSpacing: 2.5, color: COLORS.gold, textTransform: "uppercase" }}>Ciao {fullName.split(" ")[0]}</div>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 500, fontSize: 26, lineHeight: 1, color: COLORS.heading }}>ima yoga</div>
+          <div className="flex items-center gap-2">
+            {view !== "home" && (
+              <button
+                onClick={() => setView("home")}
+                className="md:hidden flex items-center justify-center rounded-lg"
+                style={{ width: 32, height: 32, border: `1px solid ${COLORS.border}`, color: COLORS.ink, flexShrink: 0 }}
+                title="Home"
+              >
+                <ArrowLeft size={16} />
+              </button>
+            )}
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 10, letterSpacing: 2.5, color: COLORS.gold, textTransform: "uppercase" }}>Ciao {fullName.split(" ")[0]}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 500, fontSize: 26, lineHeight: 1, color: COLORS.heading }}>ima yoga</div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
+            <div className="hidden md:flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
               <button
                 onClick={() => setView("calendar")}
                 className="px-3 py-2 text-sm font-medium"
-                style={{ background: view === "calendar" ? COLORS.primary : "transparent", color: view === "calendar" ? "#fff" : COLORS.ink }}
+                style={{ background: view !== "mine" ? COLORS.primary : "transparent", color: view !== "mine" ? "#fff" : COLORS.ink }}
               >
                 Calendario
               </button>
@@ -398,7 +528,9 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 Le mie prenotazioni
               </button>
             </div>
-            <ThemeToggle />
+            <div className="hidden md:block">
+              <ThemeToggle />
+            </div>
             <div className="relative">
               <button
                 onClick={toggleNotifications}
@@ -568,8 +700,21 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
           </div>
         )}
 
-        {view === "calendar" ? (
-          <div>
+        {view === "home" || view === "calendar" ? (
+          <>
+            {view === "home" && (
+              <div className="md:hidden">
+                <MobileAreaHome
+                  classes={classes}
+                  typeById={typeById}
+                  levelById={levelById}
+                  onOpenClass={setSelected}
+                  onGoToCalendar={() => setView("calendar")}
+                  onGoToMine={() => setView("mine")}
+                />
+              </div>
+            )}
+            <div className={view === "home" ? "hidden md:block" : ""}>
             {!bookingsOpen && (
               <div className="mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2" style={{ background: withAlpha(COLORS.gold, 16), color: COLORS.gold }}>
                 <Lock size={15} /> Le iscrizioni non sono ancora aperte.
@@ -834,7 +979,8 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 ))}
               </div>
             )}
-          </div>
+            </div>
+          </>
         ) : (
           <div>
             <div className="mb-6">
