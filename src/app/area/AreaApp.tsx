@@ -641,16 +641,16 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
 
             {calendarMode === "grid" ? (
               <>
-                <div className="grid grid-cols-7 mb-1">
-                  {WEEKDAYS.map((w) => (
+                <div className="grid grid-cols-5 mb-1">
+                  {WEEKDAYS.slice(0, 5).map((w) => (
                     <div key={w} className="text-center py-2" style={{ fontSize: 11, fontWeight: 600, color: COLORS.inkSoft, textTransform: "uppercase" }}>
                       {w}
                     </div>
                   ))}
                 </div>
 
-                <div className="grid grid-cols-7 gap-1.5">
-                  {days.map((d, i) => {
+                <div className="grid grid-cols-5 gap-1.5">
+                  {days.filter((d) => d.getDay() !== 0 && d.getDay() !== 6).map((d, i) => {
                     const inMonth = d.getMonth() === viewDate.getMonth();
                     const key = dateKey(d);
                     const dayClasses = classesByDay[key] || [];
