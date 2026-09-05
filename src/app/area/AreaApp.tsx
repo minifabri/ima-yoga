@@ -38,7 +38,7 @@ import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/adm
 import * as db from "./data";
 import { downloadIcsFile } from "@/lib/ics";
 import { notifyClassFull } from "@/lib/notifications";
-import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyEventBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
+import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyEventBooking, MyLedgerEntry, MyPackage, PublicClass, PublicEvent } from "./types";
 
 const DISMISSED_ANNOUNCEMENTS_KEY = "ima-yoga-dismissed-announcements";
 
@@ -100,6 +100,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
   const [classTypes, setClassTypes] = useState<ClassType[]>([]);
   const [levels, setLevels] = useState<Level[]>([]);
   const [classes, setClasses] = useState<PublicClass[]>([]);
+  const [monthEvents, setMonthEvents] = useState<PublicEvent[]>([]);
   const [bookingsOpen, setBookingsOpen] = useState(true);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [dismissedAnnouncementIds, setDismissedAnnouncementIds] = useState<string[]>(() => {
@@ -241,6 +242,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
     const from = dateKey(days[0]);
     const to = dateKey(days[days.length - 1]);
     db.fetchPublicClasses(supabase, from, to).then(setClasses).catch(() => showToast("Errore nel caricamento del calendario."));
+    db.fetchPublicEvents(supabase, from, to).then(setMonthEvents).catch(() => {});
   }, [days, supabase]);
 
   async function refreshMine() {
@@ -816,6 +818,28 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {monthEvents.length > 0 && (
+              <div className="flex flex-col gap-1.5 mt-4">
+                {monthEvents.map((e) => (
+                  <a
+                    key={e.slug}
+                    href={`/eventi/${e.slug}`}
+                    className="flex items-start gap-2 p-2.5 rounded-lg"
+                    style={{ background: withAlpha(COLORS.gold, 12), border: `1px solid ${withAlpha(COLORS.gold, 35)}` }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: 999, background: COLORS.gold, marginTop: 5, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: COLORS.ink, lineHeight: 1.45 }}>
+                      <strong>
+                        {WEEKDAYS[(new Date(`${e.date}T00:00:00`).getDay() + 6) % 7]} {new Date(`${e.date}T00:00:00`).getDate()}
+                      </strong>{" "}
+                      · {e.name}
+                      {e.location && <span style={{ color: COLORS.inkSoft }}> — {e.location}</span>}
+                    </span>
+                  </a>
+                ))}
               </div>
             )}
           </div>

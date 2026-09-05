@@ -38,6 +38,14 @@ export type PublicClass = {
   myStatus: "booked" | "waitlist" | null;
 };
 
+export type PublicEvent = {
+  slug: string;
+  name: string;
+  date: string; // yyyy-mm-dd
+  time: string; // HH:mm
+  location: string;
+};
+
 export type MyBooking = {
   id: string;
   classId: string;

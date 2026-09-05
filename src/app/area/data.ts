@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyEventBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
+import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyEventBooking, MyLedgerEntry, MyPackage, PublicClass, PublicEvent } from "./types";
 
 type DB = SupabaseClient;
 
@@ -76,6 +76,18 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       myStatus: r.my_status,
     })
   );
+}
+
+export async function fetchPublicEvents(supabase: DB, from: string, to: string): Promise<PublicEvent[]> {
+  const { data, error } = await supabase.rpc("public_events", { p_from: from, p_to: to });
+  if (error) throw error;
+  return (data ?? []).map((r: { slug: string; name: string; event_date: string; event_time: string; location: string }) => ({
+    slug: r.slug,
+    name: r.name,
+    date: r.event_date,
+    time: (r.event_time || "").slice(0, 5),
+    location: r.location,
+  }));
 }
 
 type BookingRow = {

@@ -6,7 +6,7 @@ import { IconButton, CapacityBar } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "./utils";
 import { downloadIcsFile } from "@/lib/ics";
-import type { ClassItem, ClassType, Level } from "./types";
+import type { ClassItem, ClassType, EventItem, Level } from "./types";
 
 type ClassClipboard = {
   typeId: string;
@@ -39,11 +39,13 @@ export function CalendarView({
   typeById,
   levelById,
   clipboard,
+  monthEvents = [],
   onAddClass,
   onOpenClass,
   onMoveClass,
   onPasteClass,
   onGoToNextClass,
+  onOpenEvents,
 }: {
   viewDate: Date;
   setViewDate: (d: Date) => void;
@@ -51,11 +53,13 @@ export function CalendarView({
   typeById: Record<string, ClassType>;
   levelById: Record<string, Level>;
   clipboard: ClassClipboard | null;
+  monthEvents?: EventItem[];
   onAddClass: (date: Date) => void;
   onOpenClass: (classItem: ClassItem) => void;
   onMoveClass: (id: string, targetDate: string) => void;
   onPasteClass: (dateStr: string) => void;
   onGoToNextClass: () => void;
+  onOpenEvents?: () => void;
 }) {
   const days = getCalendarDays(viewDate).filter((d) => d.getDay() !== 0 && d.getDay() !== 6);
   const weekdayLabels = WEEKDAYS.slice(0, 5);
@@ -461,6 +465,28 @@ export function CalendarView({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {monthEvents.length > 0 && (
+        <div className="flex flex-col gap-1.5 mt-4">
+          {monthEvents.map((e) => (
+            <button
+              key={e.id}
+              onClick={onOpenEvents}
+              className="flex items-start gap-2 p-2.5 rounded-lg text-left"
+              style={{ background: withAlpha(COLORS.gold, 12), border: `1px solid ${withAlpha(COLORS.gold, 35)}` }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: COLORS.gold, marginTop: 5, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, color: COLORS.ink, lineHeight: 1.45 }}>
+                <strong>
+                  {WEEKDAYS[(new Date(`${e.date}T00:00:00`).getDay() + 6) % 7]} {new Date(`${e.date}T00:00:00`).getDate()}
+                </strong>{" "}
+                · {e.name}
+                {e.location && <span style={{ color: COLORS.inkSoft }}> — {e.location}</span>}
+              </span>
+            </button>
+          ))}
         </div>
       )}
     </div>

@@ -32,6 +32,7 @@ import type {
   ClassType,
   ClientItem,
   ClientNotice,
+  EventItem,
   Expense,
   LedgerEntry,
   Level,
@@ -99,6 +100,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   const [expenses, setExpenses] = useState<Expense[]>(initial.expenses);
   const [announcements, setAnnouncements] = useState<Announcement[]>(initial.announcements);
   const [clientNotices, setClientNotices] = useState<ClientNotice[]>(initial.clientNotices);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>(initial.notifications);
   const [clipboard, setClipboard] = useState<ClassClipboard | null>(null);
   const [toast, setToast] = useState("");
@@ -110,6 +112,11 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     setToast(msg);
     setTimeout(() => setToast(""), 2600);
   }
+
+  useEffect(() => {
+    if (view !== "home" && view !== "calendar") return;
+    db.fetchEvents(supabase).then(setEvents).catch(() => {});
+  }, [view, supabase]);
 
   // ---- aggiornamento elenco clienti ----
   async function refreshClients() {
@@ -175,6 +182,15 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     Object.values(map).forEach((list) => list.sort((a, b) => (a.time || "").localeCompare(b.time || "")));
     return map;
   }, [classes]);
+  const monthEvents = useMemo(() => {
+    return events
+      .filter((e) => e.published && !e.archived)
+      .filter((e) => {
+        const [y, m] = e.date.split("-").map(Number);
+        return y === viewDate.getFullYear() && m === viewDate.getMonth() + 1;
+      })
+      .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  }, [events, viewDate]);
   const recentClientIds = useMemo(() => {
     const sorted = [...classes].sort((a, b) => (b.date + (b.time || "")).localeCompare(a.date + (a.time || "")));
     const seen: string[] = [];
@@ -653,11 +669,13 @@ export function AdminApp({ initial }: { initial: AdminData }) {
                 typeById={typeById}
                 levelById={levelById}
                 clipboard={clipboard}
+                monthEvents={monthEvents}
                 onGoToNextClass={goToNextClass}
                 onAddClass={(date) => setClassModal({ mode: "new", date })}
                 onOpenClass={(classItem) => setClassModal({ mode: "edit", classItem })}
                 onMoveClass={moveClass}
                 onPasteClass={pasteClass}
+                onOpenEvents={() => setView("events")}
               />
             </div>
             <div className="md:hidden">
@@ -682,11 +700,13 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             typeById={typeById}
             levelById={levelById}
             clipboard={clipboard}
+            monthEvents={monthEvents}
             onGoToNextClass={goToNextClass}
             onAddClass={(date) => setClassModal({ mode: "new", date })}
             onOpenClass={(classItem) => setClassModal({ mode: "edit", classItem })}
             onMoveClass={moveClass}
             onPasteClass={pasteClass}
+            onOpenEvents={() => setView("events")}
           />
         ) : view === "clients" ? (
           <ClientsView
