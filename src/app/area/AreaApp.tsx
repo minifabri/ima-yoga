@@ -398,14 +398,6 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 Le mie prenotazioni
               </button>
             </div>
-            <button
-              onClick={() => setReportOpen(true)}
-              className="flex items-center justify-center rounded-lg"
-              style={{ width: 36, height: 36, border: `1px solid ${COLORS.border}`, color: COLORS.inkSoft }}
-              title="Segnala un problema"
-            >
-              <Bug size={15} />
-            </button>
             <ThemeToggle />
             <div className="relative">
               <button
@@ -1358,6 +1350,15 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
           </div>
         </div>
       )}
+
+      <button
+        onClick={() => setReportOpen(true)}
+        className="fixed flex items-center justify-center rounded-full"
+        style={{ bottom: 16, right: 16, width: 34, height: 34, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.inkSoft, opacity: 0.7, zIndex: 20 }}
+        title="Segnala un problema"
+      >
+        <Bug size={14} />
+      </button>
     </div>
   );
 }
