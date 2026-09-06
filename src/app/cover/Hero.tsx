@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ParallaxFigure } from "./ParallaxFigure";
 
 export function Hero({ scrollProgress, onOrderCards }: { scrollProgress: number; onOrderCards: () => void }) {
@@ -25,9 +26,9 @@ export function Hero({ scrollProgress, onOrderCards }: { scrollProgress: number;
             <span className="cover-hero-title-accent">Torna a te.</span>
           </h1>
           <p className="cover-hero-tagline">Movimento. Presenza. Pratica.</p>
-          <a href="#carte" className="cover-cta-ghost cover-hero-cta">
-            Esplora le carte <span aria-hidden="true">✦</span>
-          </a>
+          <Link href="/login" className="cover-cta-ghost cover-hero-cta">
+            Accedi <span aria-hidden="true">✦</span>
+          </Link>
         </div>
       </div>
 
@@ -37,7 +38,7 @@ export function Hero({ scrollProgress, onOrderCards }: { scrollProgress: number;
         className="cover-scroll-hint"
         style={{ opacity: 1 - hintT, pointerEvents: hintT > 0.9 ? "none" : "auto" }}
       >
-        <span>Ordina le carte</span>
+        <span>Scorri</span>
         <svg width="14" height="20" viewBox="0 0 14 20" fill="none" aria-hidden="true">
           <path d="M7 1v16M1 11l6 6 6-6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
         </svg>

@@ -24,7 +24,10 @@ export function SectionOverlay({
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
-  const image = theme === "light" ? (section.imageLight ?? section.image) : section.image;
+  const isLight = theme === "light";
+  const image = isLight ? (section.imageLight ?? section.image) : section.image;
+  const imageWidth = isLight ? (section.imageLightWidth ?? section.imageWidth) : section.imageWidth;
+  const imageHeight = isLight ? (section.imageLightHeight ?? section.imageHeight) : section.imageHeight;
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -77,7 +80,7 @@ export function SectionOverlay({
       <div className="cover-overlay-panel">
         <div className="cover-overlay-grid">
           <div className="cover-overlay-visual">
-            <div className="cover-overlay-image-wrap" style={{ aspectRatio: `${section.imageWidth} / ${section.imageHeight}` }}>
+            <div className="cover-overlay-image-wrap" style={{ aspectRatio: `${imageWidth} / ${imageHeight}` }}>
               <Image src={image} alt="" fill quality={95} unoptimized sizes="(min-width: 900px) 40vw, 90vw" className="cover-overlay-image" />
             </div>
           </div>
