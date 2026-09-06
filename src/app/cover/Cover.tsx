@@ -82,9 +82,13 @@ export function Cover() {
 
   return (
     <main className="cover-root" data-reduced-motion={reducedMotion ? "true" : "false"}>
+      {/* Un'unica istanza, agganciata al viewport: resta la stessa dietro sia
+          alla hero sia alla sezione "anche da casa" subito sotto, senza lo
+          stacco netto che si vedeva prima con due sfondi separati. */}
+      <CosmicBackground variant="hero" />
+
       <section className="cover-hero-section" id="top" ref={heroRef}>
         <div className="cover-hero-sticky">
-          <CosmicBackground variant="hero" />
           {!reducedMotion && <Particles />}
 
           <Header onOpenSection={openSection} />
@@ -97,7 +101,6 @@ export function Cover() {
       </section>
 
       <section className="cover-interest-section">
-        <CosmicBackground variant="hero" />
         <InterestCallout source="home" />
       </section>
 
