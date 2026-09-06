@@ -1,47 +1,87 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { CARD_SECTIONS } from "./data";
 import { TarotCard } from "./TarotCard";
 
 type CardPose = { left: number; top: number; rot: number; scale: number };
+
+// Larghezza della finestra, per adattare lo scarto orizzontale delle colonne
+// (vedi columnLeftForWidth) — SSR e primo render assumono desktop "largo",
+// corretto subito dopo il mount.
+function useViewportWidth(defaultWidth = 1280) {
+  const [width, setWidth] = useState(defaultWidth);
+  useEffect(() => {
+    function update() {
+      setWidth(window.innerWidth);
+    }
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return width;
+}
 
 // Tre tappe, guidate dallo scroll (vedi useScrollProgress in hooks.ts):
 // 1. COLUMNS — due colonne ai lati della figura, stato iniziale.
 // 2. LINE — le carte si raccolgono su un'unica riga orizzontale, ordinata.
 // 3. CIRCLE — si dispongono a cerchio; la prima carta (Lezioni) resta al
 //    centro, più grande, come carta "in rilievo".
-// Colonna sinistra (indici pari 0/2/4/6, 4 carte) e colonna destra
-// (indici dispari 1/3/5, 3 carte), a scacchiera intorno alla figura centrale.
-const COLUMN_POSITIONS: CardPose[] = [
-  { left: 23, top: 14, rot: 0, scale: 1 },
-  { left: 77, top: 22, rot: 0, scale: 1 },
-  { left: 19, top: 38, rot: 0, scale: 1 },
-  { left: 81, top: 50, rot: 0, scale: 1 },
-  { left: 19, top: 62, rot: 0, scale: 1 },
-  { left: 77, top: 78, rot: 0, scale: 1 },
-  { left: 23, top: 86, rot: 0, scale: 1 },
+// Colonna sinistra (indici pari 0/2/4) e colonna destra (indici dispari
+// 1/3/5), 3 carte ciascuna, allineate a coppie sulla stessa riga, a fianco
+// della figura centrale. Il top parte da 28% (non più 14%) per lasciare
+// respiro sotto il banner.
+const COLUMN_TOPS: { side: "L" | "R"; top: number }[] = [
+  { side: "L", top: 28 },
+  { side: "R", top: 28 },
+  { side: "L", top: 53 },
+  { side: "R", top: 53 },
+  { side: "L", top: 78 },
+  { side: "R", top: 78 },
 ];
+
+// Quanto sono vicine al centro le colonne dipende dalla larghezza: al limite
+// minimo del layout a due colonne (860px) il titolo dell'hero è relativamente
+// più largo e le carte devono restare più esterne per non coprirlo; su schermi
+// più larghi il titolo pesa meno e le carte possono avvicinarsi alla figura.
+const COLUMN_MIN_VW = 860;
+const COLUMN_MAX_VW = 1400;
+const COLUMN_LEFT_MIN = 20;
+const COLUMN_LEFT_MAX = 27;
+
+function columnLeftForWidth(vw: number) {
+  const t = Math.min(1, Math.max(0, (vw - COLUMN_MIN_VW) / (COLUMN_MAX_VW - COLUMN_MIN_VW)));
+  return COLUMN_LEFT_MIN + (COLUMN_LEFT_MAX - COLUMN_LEFT_MIN) * t;
+}
+
+function buildColumnPositions(vw: number): CardPose[] {
+  const colLeft = columnLeftForWidth(vw);
+  return COLUMN_TOPS.map(({ side, top }) => ({
+    left: side === "L" ? colLeft : 100 - colLeft,
+    top,
+    rot: 0,
+    scale: 1,
+  }));
+}
 
 const LINE_POSITIONS: CardPose[] = [
   { left: 13, top: 58, rot: 0, scale: 1.1 },
-  { left: 25, top: 58, rot: 0, scale: 1.1 },
-  { left: 37, top: 58, rot: 0, scale: 1.1 },
-  { left: 50, top: 58, rot: 0, scale: 1.1 },
-  { left: 63, top: 58, rot: 0, scale: 1.1 },
-  { left: 75, top: 58, rot: 0, scale: 1.1 },
+  { left: 27.8, top: 58, rot: 0, scale: 1.1 },
+  { left: 42.6, top: 58, rot: 0, scale: 1.1 },
+  { left: 57.4, top: 58, rot: 0, scale: 1.1 },
+  { left: 72.2, top: 58, rot: 0, scale: 1.1 },
   { left: 87, top: 58, rot: 0, scale: 1.1 },
 ];
 
-// Esagono intorno al centro (50%, 52%) per le carte 1..6, più la carta 0
+// Pentagono intorno al centro (50%, 52%) per le carte 1..5, più la carta 0
 // ferma al centro, in rilievo.
 const CIRCLE_POSITIONS: CardPose[] = [
   { left: 50, top: 52, rot: 0, scale: 1.65 },
   { left: 50, top: 29, rot: -4, scale: 1.05 },
-  { left: 72, top: 40.5, rot: 4, scale: 1.05 },
-  { left: 72, top: 63.5, rot: 3, scale: 1.05 },
-  { left: 50, top: 75, rot: -3, scale: 1.05 },
-  { left: 28, top: 63.5, rot: -4, scale: 1.05 },
-  { left: 28, top: 40.5, rot: 4, scale: 1.05 },
+  { left: 71, top: 45, rot: 4, scale: 1.05 },
+  { left: 63, top: 71, rot: 3, scale: 1.05 },
+  { left: 37, top: 71, rot: -3, scale: 1.05 },
+  { left: 29, top: 45, rot: 4, scale: 1.05 },
 ];
 
 const T1_START = 0.12;
@@ -59,8 +99,8 @@ function lerpPose(a: CardPose, b: CardPose, t: number): CardPose {
   return { left: lerp(a.left, b.left, t), top: lerp(a.top, b.top, t), rot: lerp(a.rot, b.rot, t), scale: lerp(a.scale, b.scale, t) };
 }
 
-function poseForProgress(i: number, progress: number): CardPose {
-  const col = COLUMN_POSITIONS[i];
+function poseForProgress(i: number, progress: number, columnPositions: CardPose[]): CardPose {
+  const col = columnPositions[i];
   const line = LINE_POSITIONS[i];
   const circle = CIRCLE_POSITIONS[i];
   if (progress <= T1_START) return col;
@@ -81,13 +121,16 @@ export function FloatingCards({
   onSelect: (id: string) => void;
   scrollProgress: number;
 }) {
+  const viewportWidth = useViewportWidth();
+  const columnPositions = buildColumnPositions(viewportWidth);
+
   return (
     <div id="carte" className="cover-cards-anchor">
       {/* Desktop / tablet: carte che partono ai lati, si allineano su una riga
           e poi si dispongono a cerchio, in tre tappe guidate dallo scroll */}
       <div className="cover-cards-ring" aria-hidden={false}>
         {CARD_SECTIONS.map((section, i) => {
-          const pose = poseForProgress(i, scrollProgress);
+          const pose = poseForProgress(i, scrollProgress, columnPositions);
           const isCenterFeatured = i === 0 && scrollProgress > T2_START;
           return (
             <div

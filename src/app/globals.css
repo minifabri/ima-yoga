@@ -607,7 +607,7 @@ body {
 .tarot-card {
   position: relative;
   display: block;
-  width: clamp(96px, 8.4vw, 144px);
+  width: clamp(84px, 7vw, 126px);
   background: none;
   border: none;
   padding: 0;
