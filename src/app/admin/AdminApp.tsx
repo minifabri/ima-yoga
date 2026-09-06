@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, TrendingUp, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Lock, LockOpen } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
-import { COLORS, withAlpha } from "./colors";
+import { COLORS } from "./colors";
 import { dateKey, genId, classEffectivePrice } from "./utils";
 import { Modal } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { MoreMenu } from "./MoreMenu";
+import { MobileHub } from "./MobileHub";
 import { CalendarView } from "./CalendarView";
 import { ClassFormModal } from "./ClassFormModal";
 import { SettingsView } from "./SettingsView";
@@ -19,6 +20,8 @@ import { EarningsView } from "./EarningsView";
 import { NoticesView } from "./NoticesView";
 import { WorklogView } from "./WorklogView";
 import { StatsView } from "./StatsView";
+import { EventsView } from "./EventsView";
+import { ToolsView } from "./ToolsView";
 import * as db from "./data";
 import { adminResetClientPassword, adminGetClientAuthStatus, adminResendActivationEmail, adminResendPasswordReset } from "./actions";
 import { notifyClassFull } from "@/lib/notifications";
@@ -29,6 +32,7 @@ import type {
   ClassType,
   ClientItem,
   ClientNotice,
+  EventItem,
   Expense,
   LedgerEntry,
   Level,
@@ -53,17 +57,36 @@ type ClassModalState = { mode: "new"; date: Date } | { mode: "edit"; classItem: 
 type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 
 const moreMenuItems = [
-  { key: "earnings", label: "Guadagni", icon: TrendingUp },
-  { key: "notices", label: "Avvisi", icon: Bell },
+  { key: "events", label: "Eventi", icon: Ticket },
+  { key: "earnings", label: "Guadagni", icon: PiggyBank },
+  { key: "tools", label: "Strumenti", icon: Calculator },
+  { key: "notices", label: "Avvisi e comunicazioni", icon: Bell },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
   { key: "settings", label: "Impostazioni", icon: SettingsIcon },
 ];
 
+// Voci della hub mobile: le principali come bottoni grandi, le rimanenti
+// nella fila scorrevole "Altro" (vedi MobileHub.tsx).
+const mobileHubPrimaryItems = [
+  { key: "calendar", label: "Calendario", icon: CalendarIcon },
+  { key: "clients", label: "Clienti", icon: Users },
+  { key: "payments", label: "Pagamenti", icon: Wallet },
+  { key: "events", label: "Eventi", icon: Ticket },
+  { key: "notices", label: "Avvisi", icon: Bell },
+  { key: "settings", label: "Impostazioni", icon: SettingsIcon },
+];
+const mobileHubSecondaryItems = [
+  { key: "earnings", label: "Guadagni", icon: PiggyBank },
+  { key: "tools", label: "Strumenti", icon: Calculator },
+  { key: "worklog", label: "Registro", icon: History },
+  { key: "stats", label: "Statistiche", icon: BarChart3 },
+];
+
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
 
-  const [view, setView] = useState<"calendar" | "clients" | "payments" | "earnings" | "notices" | "worklog" | "stats" | "settings">("calendar");
+  const [view, setView] = useState<"home" | "calendar" | "clients" | "payments" | "events" | "earnings" | "tools" | "notices" | "worklog" | "stats" | "settings">("home");
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>(initial.classTypes);
   const [levels, setLevels] = useState<Level[]>(initial.levels);
@@ -77,6 +100,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   const [expenses, setExpenses] = useState<Expense[]>(initial.expenses);
   const [announcements, setAnnouncements] = useState<Announcement[]>(initial.announcements);
   const [clientNotices, setClientNotices] = useState<ClientNotice[]>(initial.clientNotices);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>(initial.notifications);
   const [clipboard, setClipboard] = useState<ClassClipboard | null>(null);
   const [toast, setToast] = useState("");
@@ -88,6 +112,11 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     setToast(msg);
     setTimeout(() => setToast(""), 2600);
   }
+
+  useEffect(() => {
+    if (view !== "home" && view !== "calendar") return;
+    db.fetchEvents(supabase).then(setEvents).catch(() => {});
+  }, [view, supabase]);
 
   // ---- aggiornamento elenco clienti ----
   async function refreshClients() {
@@ -153,6 +182,15 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     Object.values(map).forEach((list) => list.sort((a, b) => (a.time || "").localeCompare(b.time || "")));
     return map;
   }, [classes]);
+  const monthEvents = useMemo(() => {
+    return events
+      .filter((e) => e.published && !e.archived)
+      .filter((e) => {
+        const [y, m] = e.date.split("-").map(Number);
+        return y === viewDate.getFullYear() && m === viewDate.getMonth() + 1;
+      })
+      .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  }, [events, viewDate]);
   const recentClientIds = useMemo(() => {
     const sorted = [...classes].sort((a, b) => (b.date + (b.time || "")).localeCompare(a.date + (a.time || "")));
     const seen: string[] = [];
@@ -164,6 +202,24 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     }
     return seen.slice(0, 8);
   }, [classes]);
+  const upcomingClasses = useMemo(() => {
+    const todayStr = dateKey(new Date());
+    return [...classes]
+      .filter((c) => c.date >= todayStr)
+      .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+      .slice(0, 4)
+      .map((c) => ({
+        id: c.id,
+        date: c.date,
+        time: c.time,
+        typeName: typeById[c.typeId]?.name || "Classe",
+        typeColor: typeById[c.typeId]?.color || COLORS.primary,
+        levelName: levelById[c.levelId]?.name || "",
+        capacity: c.capacity,
+        booked: c.clientIds.length,
+        waiting: c.waitlistIds.length,
+      }));
+  }, [classes, typeById, levelById]);
   const packagesWithUsage = useMemo<PackageWithUsage[]>(() => {
     const todayKey = dateKey(new Date());
     const usageByPkg: Record<string, { reserved: number; used: number }> = {};
@@ -230,6 +286,11 @@ export function AdminApp({ initial }: { initial: AdminData }) {
     }
     const [y, m] = upcoming[0].date.split("-").map(Number);
     setViewDate(new Date(y, m - 1, 1));
+  }
+  function openCalendarAtDate(dateStr: string) {
+    const [y, m] = dateStr.split("-").map(Number);
+    setViewDate(new Date(y, m - 1, 1));
+    setView("calendar");
   }
   function copyClass(item: ClassClipboard) {
     setClipboard(item);
@@ -529,7 +590,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
-            <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
+            <div className="hidden md:flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
               <button
                 onClick={() => setView("calendar")}
                 className="px-2.5 py-2 text-sm font-medium flex items-center gap-1.5"
@@ -552,31 +613,31 @@ export function AdminApp({ initial }: { initial: AdminData }) {
                 <Wallet size={15} /> <span className="hidden sm:inline">Pagamenti</span>
               </button>
             </div>
-            <MoreMenu
-              items={moreMenuItems}
-              activeKey={view}
-              onSelect={(key) => setView(key as typeof view)}
-            />
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button
-                onClick={toggleBookingsOpen}
-                disabled={bookingsTogglePending}
-                title={bookingsOpen ? "Le clienti possono prenotare — clicca per chiudere le iscrizioni" : "Iscrizioni chiuse — clicca per riaprirle"}
-                className="flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium disabled:opacity-60"
-                style={{
-                  border: `1px solid ${withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 33)}`,
-                  color: bookingsOpen ? COLORS.success : COLORS.danger,
-                  background: withAlpha(bookingsOpen ? COLORS.success : COLORS.danger, 8),
-                }}
-              >
-                {bookingsOpen ? <LockOpen size={15} /> : <Lock size={15} />}
-                <span className="hidden sm:inline">{bookingsOpen ? "Iscrizioni aperte" : "Iscrizioni chiuse"}</span>
-              </button>
-              <NotificationsPanel
-                notifications={notifications}
-                onMarkRead={markNotificationReadHandler}
-                onMarkAllRead={markAllNotificationsReadHandler}
+            <div className="hidden md:block">
+              <MoreMenu
+                items={moreMenuItems}
+                activeKey={view}
+                onSelect={(key) => setView(key as typeof view)}
               />
+            </div>
+            {view !== "home" && (
+              <button
+                type="button"
+                onClick={() => setView("home")}
+                className="md:hidden flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium"
+                style={{ border: `1px solid ${COLORS.border}`, color: COLORS.ink }}
+              >
+                <ArrowLeft size={15} /> Home
+              </button>
+            )}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="hidden md:block">
+                <NotificationsPanel
+                  notifications={notifications}
+                  onMarkRead={markNotificationReadHandler}
+                  onMarkAllRead={markAllNotificationsReadHandler}
+                />
+              </div>
               <ThemeToggle />
               <form action={logout}>
                 <button type="submit" className="text-sm font-medium px-1.5" style={{ color: COLORS.inkSoft }}>
@@ -598,7 +659,40 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           </div>
         )}
 
-        {view === "calendar" ? (
+        {view === "home" ? (
+          <>
+            <div className="hidden md:block">
+              <CalendarView
+                viewDate={viewDate}
+                setViewDate={setViewDate}
+                classesByDay={classesByDay}
+                typeById={typeById}
+                levelById={levelById}
+                clipboard={clipboard}
+                monthEvents={monthEvents}
+                onGoToNextClass={goToNextClass}
+                onAddClass={(date) => setClassModal({ mode: "new", date })}
+                onOpenClass={(classItem) => setClassModal({ mode: "edit", classItem })}
+                onMoveClass={moveClass}
+                onPasteClass={pasteClass}
+                onOpenEvents={() => setView("events")}
+              />
+            </div>
+            <div className="md:hidden">
+              <MobileHub
+                primaryItems={mobileHubPrimaryItems}
+                secondaryItems={mobileHubSecondaryItems}
+                onSelect={(key) => setView(key as typeof view)}
+                notifications={notifications}
+                onMarkNotificationRead={markNotificationReadHandler}
+                onMarkAllNotificationsRead={markAllNotificationsReadHandler}
+                upcomingClasses={upcomingClasses}
+                onOpenClassDate={openCalendarAtDate}
+                onGoToCalendar={() => setView("calendar")}
+              />
+            </div>
+          </>
+        ) : view === "calendar" ? (
           <CalendarView
             viewDate={viewDate}
             setViewDate={setViewDate}
@@ -606,11 +700,13 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             typeById={typeById}
             levelById={levelById}
             clipboard={clipboard}
+            monthEvents={monthEvents}
             onGoToNextClass={goToNextClass}
             onAddClass={(date) => setClassModal({ mode: "new", date })}
             onOpenClass={(classItem) => setClassModal({ mode: "edit", classItem })}
             onMoveClass={moveClass}
             onPasteClass={pasteClass}
+            onOpenEvents={() => setView("events")}
           />
         ) : view === "clients" ? (
           <ClientsView
@@ -630,6 +726,7 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           />
         ) : view === "payments" ? (
           <PaymentsView
+            supabase={supabase}
             clients={clients}
             classes={classes}
             packages={packagesWithUsage}
@@ -645,20 +742,29 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onDeleteLedgerEntry={deleteLedgerEntryItem}
             onMarkClassPaymentPaid={markClassPaymentPaid}
           />
+        ) : view === "events" ? (
+          <EventsView supabase={supabase} />
         ) : view === "earnings" ? (
           <EarningsView
+            supabase={supabase}
             classes={classes}
             packages={packages}
             expenses={expenses}
             onAddExpense={addExpenseHandler}
             onDeleteExpense={deleteExpenseItem}
           />
+        ) : view === "tools" ? (
+          <ToolsView supabase={supabase} />
         ) : view === "notices" ? (
           <NoticesView
             clients={clients}
             clientNotices={clientNotices}
+            announcements={announcements}
             onSendNotice={sendPersonalNotices}
             onDeleteNotice={deleteClientNoticeItem}
+            onAddAnnouncement={addAnnouncementItem}
+            onUpdateAnnouncement={updateAnnouncementItem}
+            onRemoveAnnouncement={deleteAnnouncementItem}
           />
         ) : view === "worklog" ? (
           <WorklogView supabase={supabase} />
@@ -670,7 +776,6 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             levels={levels}
             classes={classes}
             defaults={settings}
-            announcements={announcements}
             onAddType={addClassType}
             onUpdateType={updateClassType}
             onRemoveType={removeType}
@@ -678,9 +783,9 @@ export function AdminApp({ initial }: { initial: AdminData }) {
             onRemoveLevel={removeLevel}
             onUpdateLevel={updateLevel}
             onSaveDefaults={saveDefaults}
-            onAddAnnouncement={addAnnouncementItem}
-            onUpdateAnnouncement={updateAnnouncementItem}
-            onRemoveAnnouncement={deleteAnnouncementItem}
+            bookingsOpen={bookingsOpen}
+            bookingsTogglePending={bookingsTogglePending}
+            onToggleBookingsOpen={toggleBookingsOpen}
           />
         )}
       </div>

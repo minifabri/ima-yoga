@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Wallet, PackagePlus, Euro, User, CheckSquare, Square, Check, Trash2, Plus, Pencil } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { Wallet, PackagePlus, Euro, User, CheckSquare, Square, Check, Trash2, Plus, Pencil, Ticket, AlertCircle } from "lucide-react";
 import { Badge, Field, inputStyle } from "./ui";
-import { COLORS } from "./colors";
-import type { ClassItem, ClassType, ClientItem, LedgerEntry, PackageWithUsage, Settings } from "./types";
+import { COLORS, withAlpha } from "./colors";
+import { fetchAllEventBookings, fetchEvents, markEventBookingPaid } from "./data";
+import type { ClassItem, ClassType, ClientItem, EventBookingItem, EventItem, LedgerEntry, PackageWithUsage, Settings } from "./types";
 
 export function PaymentsView({
+  supabase,
   clients,
   classes,
   packages,
@@ -22,6 +25,7 @@ export function PaymentsView({
   onDeleteLedgerEntry,
   onMarkClassPaymentPaid,
 }: {
+  supabase: SupabaseClient;
   clients: ClientItem[];
   classes: ClassItem[];
   packages: PackageWithUsage[];
@@ -53,7 +57,51 @@ export function PaymentsView({
   const [ledgerAmount, setLedgerAmount] = useState("");
   const [ledgerNote, setLedgerNote] = useState("");
 
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [eventBookings, setEventBookings] = useState<EventBookingItem[]>([]);
+  const [eventsError, setEventsError] = useState(false);
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([fetchEvents(supabase), fetchAllEventBookings(supabase)])
+      .then(([ev, bookings]) => {
+        setEvents(ev);
+        setEventBookings(bookings);
+      })
+      .catch(() => setEventsError(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const clientById = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c])), [clients]);
+
+  const eventById = useMemo(() => Object.fromEntries(events.map((e) => [e.id, e])), [events]);
+
+  const eventPaymentGroups = useMemo(() => {
+    const map: Record<string, { paid: number; owed: number; bookings: EventBookingItem[] }> = {};
+    eventBookings.forEach((b) => {
+      if (b.status !== "booked") return;
+      if (!map[b.eventId]) map[b.eventId] = { paid: 0, owed: 0, bookings: [] };
+      const amount = b.price * (b.plusOne ? 2 : 1);
+      if (b.paymentStatus === "paid") map[b.eventId].paid += amount;
+      else map[b.eventId].owed += amount;
+      map[b.eventId].bookings.push(b);
+    });
+    return Object.entries(map)
+      .map(([eventId, v]) => ({ eventId, event: eventById[eventId], ...v }))
+      .filter((g) => g.event)
+      .sort((a, b) => {
+        if (a.owed !== b.owed) return b.owed - a.owed;
+        return (b.event?.date || "").localeCompare(a.event?.date || "");
+      });
+  }, [eventBookings, eventById]);
+
+  function toggleEventBookingPaid(booking: EventBookingItem) {
+    const paid = booking.paymentStatus !== "paid";
+    setEventBookings((cur) => cur.map((b) => (b.id === booking.id ? { ...b, paymentStatus: paid ? "paid" : "unpaid" } : b)));
+    markEventBookingPaid(supabase, booking.id, paid).catch(() => {
+      setEventBookings((cur) => cur.map((b) => (b.id === booking.id ? { ...b, paymentStatus: booking.paymentStatus } : b)));
+    });
+  }
 
   const outstandingByClient = useMemo(() => {
     const map: Record<string, { total: number; items: { classId: string; date: string; time: string; typeId: string; owed: number; status: string }[] }> = {};
@@ -191,6 +239,68 @@ export function PaymentsView({
                             style={{ color: COLORS.success, fontSize: 11.5 }}
                           >
                             <Check size={12} /> Segna pagato
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-2">
+          <Ticket size={16} color={COLORS.heading} />
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 600, color: COLORS.heading }}>Eventi</div>
+        </div>
+        {eventsError && (
+          <div className="mb-2 flex items-center gap-1.5 px-1" style={{ fontSize: 11.5, color: COLORS.danger }}>
+            <AlertCircle size={13} /> Errore nel caricamento dei pagamenti eventi.
+          </div>
+        )}
+        {eventPaymentGroups.length === 0 ? (
+          <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="px-1">
+            Nessuna prenotazione a eventi ancora.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {eventPaymentGroups.map((g) => {
+              const isOpen = expandedEventId === g.eventId;
+              return (
+                <div key={g.eventId} className="rounded-xl overflow-hidden" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+                  <button onClick={() => setExpandedEventId(isOpen ? null : g.eventId)} className="w-full flex items-center justify-between px-4 py-3 text-left gap-2 flex-wrap">
+                    <div>
+                      <span style={{ fontSize: 14, fontWeight: 600 }}>{g.event!.name}</span>
+                      <span style={{ fontSize: 11.5, color: COLORS.inkSoft }}> · {g.event!.date}</span>
+                    </div>
+                    {g.owed > 0 ? (
+                      <Badge color={COLORS.danger}>€{g.owed.toFixed(2)} da riscuotere</Badge>
+                    ) : (
+                      <Badge color={COLORS.success}>Saldato · €{g.paid.toFixed(2)}</Badge>
+                    )}
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 pb-3 flex flex-col gap-1.5" style={{ borderTop: `1px solid ${COLORS.border}` }}>
+                      {g.bookings.map((b) => (
+                        <div key={b.id} className="flex items-center justify-between gap-2 pt-2.5 flex-wrap" style={{ fontSize: 12.5 }}>
+                          <span>
+                            {b.displayName}
+                            {b.plusOne && " (+1)"} —{" "}
+                            <span style={{ fontWeight: 600 }}>€{(b.price * (b.plusOne ? 2 : 1)).toFixed(2)}</span>
+                          </span>
+                          <button
+                            onClick={() => toggleEventBookingPaid(b)}
+                            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
+                            style={{
+                              color: b.paymentStatus === "paid" ? COLORS.success : COLORS.danger,
+                              border: `1px solid ${withAlpha(b.paymentStatus === "paid" ? COLORS.success : COLORS.danger, 33)}`,
+                              background: withAlpha(b.paymentStatus === "paid" ? COLORS.success : COLORS.danger, 8),
+                            }}
+                          >
+                            <Check size={12} /> {b.paymentStatus === "paid" ? "Pagato" : "Da pagare"}
                           </button>
                         </div>
                       ))}

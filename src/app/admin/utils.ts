@@ -33,6 +33,18 @@ export function genId(): string {
   return crypto.randomUUID();
 }
 
+// Trasforma il nome di un evento nello slug usato nell'URL pubblico
+// (imayoga.app/eventi/<slug>): minuscolo, senza accenti né simboli.
+export function slugify(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 // Prezzo effettivo di una classe: gratuita > prezzo personalizzato > prezzo di default.
 export function classEffectivePrice(cls: { isFree: boolean; priceOverride: number | null }, defaultPrice: number): number {
   if (cls.isFree) return 0;

@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { AlertTriangle, BellRing, CalendarPlus, CalendarX, Check, Heart, UserPlus } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import type { NotificationItem, NotificationType } from "./types";
 
-const TYPE_META: Record<NotificationType, { icon: typeof UserPlus; color: string }> = {
+export const TYPE_META: Record<NotificationType, { icon: typeof UserPlus; color: string }> = {
   registration: { icon: UserPlus, color: COLORS.primary },
   enrollment: { icon: CalendarPlus, color: COLORS.success },
   cancellation: { icon: CalendarX, color: COLORS.gold },
@@ -13,7 +13,7 @@ const TYPE_META: Record<NotificationType, { icon: typeof UserPlus; color: string
   interest: { icon: Heart, color: COLORS.gold },
 };
 
-function formatWhen(iso: string): string {
+export function formatWhen(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
@@ -32,11 +32,40 @@ export function NotificationsPanel({
   onMarkAllRead: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>({});
   const rootRef = useRef<HTMLDivElement>(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
+
+    function computePosition() {
+      const rect = rootRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const isMobile = window.innerWidth < 640;
+      if (isMobile) {
+        setPanelStyle({
+          position: "fixed",
+          top: rect.bottom + 8,
+          left: 12,
+          right: 12,
+          width: "auto",
+          maxWidth: "none",
+        });
+      } else {
+        setPanelStyle({
+          position: "absolute",
+          top: "calc(100% + 8px)",
+          right: 0,
+          width: 340,
+          maxWidth: "90vw",
+        });
+      }
+    }
+
+    computePosition();
+    window.addEventListener("resize", computePosition);
+
     function onDocClick(e: MouseEvent) {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     }
@@ -46,6 +75,7 @@ export function NotificationsPanel({
     document.addEventListener("mousedown", onDocClick);
     document.addEventListener("keydown", onKey);
     return () => {
+      window.removeEventListener("resize", computePosition);
       document.removeEventListener("mousedown", onDocClick);
       document.removeEventListener("keydown", onKey);
     };
@@ -85,12 +115,9 @@ export function NotificationsPanel({
 
       {open && (
         <div
-          className="absolute overflow-hidden"
+          className="overflow-hidden"
           style={{
-            top: "calc(100% + 8px)",
-            right: 0,
-            width: 340,
-            maxWidth: "90vw",
+            ...panelStyle,
             background: COLORS.card,
             border: `1px solid ${COLORS.border}`,
             borderRadius: 14,

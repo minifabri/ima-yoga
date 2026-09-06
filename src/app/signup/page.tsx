@@ -1,12 +1,29 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { Suspense, useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { signup, type SignupState } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import { getVisitorId, trackPageView } from "@/lib/track";
 
 const initialState: SignupState = { error: null, needsConfirmation: false };
+
+function NextField() {
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next");
+  return next ? <input type="hidden" name="next" value={next} /> : null;
+}
+
+function LoginLink() {
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next");
+  return (
+    <Link href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"} style={{ color: "var(--primary-dark)", fontWeight: 600 }}>
+      Accedi
+    </Link>
+  );
+}
 
 export default function SignupPage() {
   const [state, formAction, pending] = useActionState(signup, initialState);
@@ -38,6 +55,9 @@ export default function SignupPage() {
         ) : (
           <form action={formAction} className="flex flex-col gap-3">
             <input type="hidden" name="visitor_id" value={visitorId ?? ""} />
+            <Suspense fallback={null}>
+              <NextField />
+            </Suspense>
             <Field label="Nome e cognome">
               <input type="text" name="full_name" required autoComplete="name" style={inputStyle} />
             </Field>
@@ -77,9 +97,9 @@ export default function SignupPage() {
 
         <div className="mt-4 text-center" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
           Hai già un account?{" "}
-          <Link href="/login" style={{ color: "var(--primary-dark)", fontWeight: 600 }}>
-            Accedi
-          </Link>
+          <Suspense fallback={<Link href="/login" style={{ color: "var(--primary-dark)", fontWeight: 600 }}>Accedi</Link>}>
+            <LoginLink />
+          </Suspense>
         </div>
       </div>
     </main>

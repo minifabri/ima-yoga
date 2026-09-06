@@ -38,6 +38,14 @@ export type PublicClass = {
   myStatus: "booked" | "waitlist" | null;
 };
 
+export type PublicEvent = {
+  slug: string;
+  name: string;
+  date: string; // yyyy-mm-dd
+  time: string; // HH:mm
+  location: string;
+};
+
 export type MyBooking = {
   id: string;
   classId: string;
@@ -68,4 +76,18 @@ export type MyLedgerEntry = {
   amount: number;
   note: string;
   date: string;
+};
+
+export type MyEventBooking = {
+  id: string;
+  eventId: string;
+  eventName: string;
+  eventSlug: string;
+  date: string;
+  time: string;
+  status: "booked" | "waitlist";
+  paymentStatus: "unpaid" | "paid";
+  price: number;
+  plusOne: boolean;
+  plusOneName: string | null;
 };

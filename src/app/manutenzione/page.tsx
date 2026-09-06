@@ -1,0 +1,37 @@
+import Image from "next/image";
+
+export const metadata = {
+  title: "ima yoga: a breve",
+};
+
+export default function ManutenzionePage() {
+  return (
+    <main className="flex-1 flex items-center justify-center p-5" style={{ background: "var(--bg)" }}>
+      <div
+        className="w-full p-6 rounded-2xl text-center"
+        style={{ maxWidth: 380, background: "var(--card)", border: "1px solid var(--border)" }}
+      >
+        <div className="mb-2 flex justify-center">
+          <Image
+            src="/courtesy/manutenzione-secchio.png"
+            alt=""
+            width={640}
+            height={426}
+            priority
+            className="w-full h-auto"
+            style={{ maxWidth: 220 }}
+          />
+        </div>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 500, color: "var(--heading)" }}>
+          ima yoga
+        </div>
+        <div className="mt-3" style={{ fontSize: 14, color: "var(--ink)" }}>
+          Piccolo rituale di manutenzione in corso.
+        </div>
+        <div className="mt-1" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+          Torna tra un po&apos;: sarà tutto più armonico.
+        </div>
+      </div>
+    </main>
+  );
+}

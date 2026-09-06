@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyLedgerEntry, MyPackage, PublicClass } from "./types";
+import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyEventBooking, MyLedgerEntry, MyPackage, PublicClass, PublicEvent } from "./types";
 
 type DB = SupabaseClient;
 
@@ -78,6 +78,18 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
   );
 }
 
+export async function fetchPublicEvents(supabase: DB, from: string, to: string): Promise<PublicEvent[]> {
+  const { data, error } = await supabase.rpc("public_events", { p_from: from, p_to: to });
+  if (error) throw error;
+  return (data ?? []).map((r: { slug: string; name: string; event_date: string; event_time: string; location: string }) => ({
+    slug: r.slug,
+    name: r.name,
+    date: r.event_date,
+    time: (r.event_time || "").slice(0, 5),
+    location: r.location,
+  }));
+}
+
 type BookingRow = {
   id: string;
   class_id: string;
@@ -110,6 +122,44 @@ export async function fetchMyBookings(supabase: DB): Promise<MyBooking[]> {
       paymentAmount: Number(b.payment_amount),
       price: Number(b.price),
     }));
+}
+
+type EventBookingRow = {
+  id: string;
+  status: "booked" | "waitlist";
+  payment_status: "unpaid" | "paid";
+  price: number;
+  plus_one: boolean;
+  plus_one_name: string | null;
+  events: { id: string; name: string; slug: string; event_date: string; event_time: string } | null;
+};
+
+export async function fetchMyEventBookings(supabase: DB): Promise<MyEventBooking[]> {
+  const { data, error } = await supabase
+    .from("event_bookings")
+    .select("id, status, payment_status, price, plus_one, plus_one_name, events(id, name, slug, event_date, event_time)")
+    .order("event_date", { foreignTable: "events" });
+  if (error) throw error;
+  return ((data ?? []) as unknown as EventBookingRow[])
+    .filter((b) => b.events)
+    .map((b) => ({
+      id: b.id,
+      eventId: b.events!.id,
+      eventName: b.events!.name,
+      eventSlug: b.events!.slug,
+      date: b.events!.event_date,
+      time: (b.events!.event_time || "").slice(0, 5),
+      status: b.status,
+      paymentStatus: b.payment_status,
+      price: Number(b.price),
+      plusOne: b.plus_one,
+      plusOneName: b.plus_one_name,
+    }));
+}
+
+export async function cancelMyEventBooking(supabase: DB, eventId: string): Promise<void> {
+  const { error } = await supabase.rpc("cancel_event_booking", { p_event_id: eventId });
+  if (error) throw error;
 }
 
 export async function fetchMyRawBookingsForPackages(

@@ -1,28 +1,46 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Bell, PackagePlus, Search, Send, Sparkles, Trash2, UserCheck, X } from "lucide-react";
+import { Bell, Megaphone, PackagePlus, Search, Send, Sparkles, Trash2, UserCheck, X } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { EmojiPicker } from "./EmojiPicker";
+import { RichTextEditor } from "./RichTextEditor";
 import { inputStyle } from "./ui";
-import type { ClientItem, ClientNotice } from "./types";
+import type { Announcement, ClientItem, ClientNotice } from "./types";
 
 export function NoticesView({
   clients,
   clientNotices,
+  announcements,
   onSendNotice,
   onDeleteNotice,
+  onAddAnnouncement,
+  onUpdateAnnouncement,
+  onRemoveAnnouncement,
 }: {
   clients: ClientItem[];
   clientNotices: ClientNotice[];
+  announcements: Announcement[];
   onSendNotice: (clientIds: string[], message: string) => Promise<void>;
   onDeleteNotice: (id: string) => void;
+  onAddAnnouncement: (message: string) => Promise<void>;
+  onUpdateAnnouncement: (id: string, patch: Partial<Pick<Announcement, "message" | "active">>) => void;
+  onRemoveAnnouncement: (id: string) => void;
 }) {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const messageRef = useRef<HTMLTextAreaElement>(null);
+  const [newAnnouncement, setNewAnnouncement] = useState("");
+  const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
+
+  function addAnnouncement() {
+    const html = newAnnouncement.trim();
+    if (!html) return;
+    onAddAnnouncement(html);
+    setNewAnnouncement("");
+  }
 
   const activeClients = useMemo(() => clients.filter((c) => !c.disabled), [clients]);
   const filteredClients = useMemo(() => {
@@ -52,6 +70,64 @@ export function NoticesView({
 
   return (
     <div className="flex flex-col gap-6">
+      <div>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 600, color: COLORS.heading }} className="mb-1 flex items-center gap-1.5">
+          <Megaphone size={17} /> Avviso generale
+        </div>
+        <div style={{ fontSize: 11.5, color: COLORS.inkSoft }} className="mb-3">
+          Appare come banner nell&apos;area clienti; ogni cliente può chiuderlo, resta comunque visibile agli altri finché non lo disattivi qui.
+        </div>
+        <div className="flex flex-col gap-1.5 mb-3">
+          {announcements.map((a) => {
+            const isEditing = editingAnnouncementId === a.id;
+            return (
+              <div key={a.id} className="rounded-lg" style={{ border: `1px solid ${a.active ? withAlpha(COLORS.gold, 40) : COLORS.border}` }}>
+                <div className="flex items-center gap-2 px-2.5 py-2">
+                  <button
+                    onClick={() => setEditingAnnouncementId(isEditing ? null : a.id)}
+                    className="flex-1 text-left truncate rich-content"
+                    style={{ fontSize: 12.5, color: a.active ? COLORS.ink : COLORS.inkSoft }}
+                    dangerouslySetInnerHTML={{ __html: a.message }}
+                  />
+                  <button
+                    onClick={() => onUpdateAnnouncement(a.id, { active: !a.active })}
+                    title={a.active ? "Clicca per disattivare" : "Clicca per attivare"}
+                    style={{ fontSize: 10.5, fontWeight: 700, color: a.active ? COLORS.gold : COLORS.inkSoft, whiteSpace: "nowrap" }}
+                  >
+                    {a.active ? "Attivo" : "Spento"}
+                  </button>
+                  <button onClick={() => onRemoveAnnouncement(a.id)} title="Elimina" style={{ color: COLORS.danger, flexShrink: 0 }}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                {isEditing && (
+                  <div className="px-2.5 pb-2.5">
+                    <RichTextEditor
+                      value={a.message}
+                      onChange={(html) => {
+                        if (html !== a.message) onUpdateAnnouncement(a.id, { message: html });
+                      }}
+                      minHeight={50}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {announcements.length === 0 && <div style={{ fontSize: 12, color: COLORS.inkSoft }}>Nessun avviso ancora.</div>}
+        </div>
+        <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft, marginBottom: 4 }}>Nuovo avviso generale</div>
+        <RichTextEditor value={newAnnouncement} onChange={setNewAnnouncement} minHeight={50} />
+        <button
+          onClick={addAnnouncement}
+          disabled={!newAnnouncement.trim()}
+          className="mt-2 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
+          style={{ background: COLORS.primary }}
+        >
+          <Send size={14} /> Pubblica avviso
+        </button>
+      </div>
+
       <div>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 600, color: COLORS.heading }} className="mb-3">
           Nuovo avviso personale

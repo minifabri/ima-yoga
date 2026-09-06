@@ -140,6 +140,60 @@ export type VisitorStats = {
   calendarConversions: number;
 };
 
+export type EventItem = {
+  id: string;
+  slug: string;
+  name: string;
+  descriptionHtml: string;
+  imageLightUrl: string | null;
+  imageDarkUrl: string | null;
+  imageFit: "contain" | "cover";
+  date: string; // yyyy-mm-dd
+  time: string; // HH:mm
+  location: string;
+  capacity: number; // 0 = nessun limite
+  price: number;
+  allowPlusOne: boolean;
+  bookingsOpen: boolean;
+  published: boolean;
+  archived: boolean;
+};
+
+export type EventBookingItem = {
+  id: string;
+  eventId: string;
+  clientId: string | null;
+  guestFullName: string | null;
+  guestEmail: string | null;
+  displayName: string;
+  plusOne: boolean;
+  plusOneName: string | null;
+  status: "booked" | "waitlist";
+  paymentStatus: "unpaid" | "paid";
+  price: number;
+  createdAt: string;
+};
+
+export type BudgetLineItem = {
+  id: string;
+  name: string;
+  amount: number;
+  per: "person" | "total";
+  freq: "day" | "once";
+};
+
+export type EventBudget = {
+  id: string;
+  eventId: string | null;
+  name: string;
+  days: number;
+  ticketPrice: number;
+  participants: number;
+  items: BudgetLineItem[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AdminData = {
   classTypes: ClassType[];
   levels: Level[];

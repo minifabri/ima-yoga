@@ -9,6 +9,13 @@ export type ActionState = { error: string | null };
 export type ForgotPasswordState = { error: string | null; sent: boolean };
 export type SignupState = { error: string | null; needsConfirmation: boolean };
 
+// Dove tornare dopo login/registrazione (es. la pagina di un evento da cui
+// si è partiti per accedere) — solo un percorso relativo, per evitare open redirect.
+function safeNext(formData: FormData): string {
+  const next = String(formData.get("next") || "");
+  return next.startsWith("/") && !next.startsWith("//") ? next : "/";
+}
+
 export async function login(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const supabase = await createClient();
 
@@ -21,7 +28,7 @@ export async function login(_prevState: ActionState, formData: FormData): Promis
     return { error: "Email o password non corretti." };
   }
 
-  redirect("/");
+  redirect(safeNext(formData));
 }
 
 export async function signup(_prevState: SignupState, formData: FormData): Promise<SignupState> {
@@ -62,10 +69,19 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   // sessione: il profilo (trigger handle_new_user) esiste già, ma l'accesso
   // resta bloccato finché non si clicca il link ricevuto via email.
   if (!data.session) {
+    // Trucco per riconoscere un'email già registrata E già confermata:
+    // per non permettere di scoprire quali email esistono, Supabase non
+    // restituisce un errore in questo caso, ma un utente "finto" con
+    // identities vuoto — indistinguibile altrimenti da una registrazione
+    // riuscita, e per questo il sistema sembrava "non accorgersi" che
+    // l'account esisteva già.
+    if (data.user && data.user.identities?.length === 0) {
+      return { error: "Questo indirizzo email è già registrato. Prova ad accedere, oppure recupera la password se non la ricordi.", needsConfirmation: false };
+    }
     return { error: null, needsConfirmation: true };
   }
 
-  redirect("/");
+  redirect(safeNext(formData));
 }
 
 export async function requestPasswordReset(_prevState: ForgotPasswordState, formData: FormData): Promise<ForgotPasswordState> {
