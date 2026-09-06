@@ -65,8 +65,14 @@ export function EventPublicView({
   const capacity = event.capacity;
   const remaining = capacity > 0 ? Math.max(0, capacity - bookedSeats) : null;
   const isFull = capacity > 0 && (remaining ?? 0) <= 0;
-  const lowSeats = capacity > 0 && !isFull && remaining !== null && remaining / capacity < 0.2;
-  const availabilityLabel = isFull ? "Al completo" : lowSeats ? `Ultimi ${remaining} posti` : "Posti liberi";
+  const lowSeats = capacity > 0 && !isFull && remaining !== null && remaining / capacity <= 1 / 3;
+  const availabilityLabel = isFull
+    ? "Al completo"
+    : remaining === 1
+    ? "Ultimo posto libero"
+    : lowSeats
+    ? `Ultimi ${remaining} posti`
+    : "Posti liberi";
   const availabilityColor = isFull ? COLORS.gold : lowSeats ? COLORS.gold : COLORS.success;
 
   async function handleBookRegistered() {
