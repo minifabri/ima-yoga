@@ -1031,6 +1031,187 @@ body {
   opacity: 0.6;
 }
 
+/* ---- pagine standalone (classi, chi-sono) — stesso linguaggio della sezione a carta ---- */
+
+.static-page {
+  position: relative;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.static-page-back {
+  position: fixed;
+  top: clamp(16px, 3vw, 28px);
+  left: clamp(16px, 3vw, 28px);
+  z-index: 110;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 18px 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 75%, transparent);
+  color: var(--ink);
+  font-size: 12.5px;
+  text-decoration: none;
+  backdrop-filter: blur(10px);
+  transition: color 0.25s ease, border-color 0.25s ease;
+}
+.static-page-back:hover,
+.static-page-back:focus-visible {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.static-page-content {
+  position: relative;
+  z-index: 2;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: clamp(96px, 14vh, 132px) clamp(20px, 5vw, 40px) 100px;
+}
+
+.static-page-visual {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 32px;
+}
+
+.static-page .cover-overlay-title,
+.static-page .cover-overlay-intro,
+.static-page .cover-overlay-paragraph {
+  max-width: none;
+}
+
+.static-page-section-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(20px, 2.6vw, 26px);
+  color: var(--heading);
+  margin: 48px 0 20px;
+}
+
+.class-grid,
+.practice-modes {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .class-grid,
+  .practice-modes {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.class-card,
+.mode-card {
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+}
+.class-card h3,
+.mode-card h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--heading);
+  margin-bottom: 8px;
+}
+.class-card p,
+.mode-card p {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+
+.cover-interest-section {
+  position: relative;
+  overflow: hidden;
+  padding: 64px clamp(16px, 4vw, 40px);
+  background: var(--bg);
+}
+.cover-interest-section .online-callout {
+  position: relative;
+  z-index: 5;
+  margin: 0 auto;
+  max-width: 640px;
+}
+
+.online-callout {
+  margin-top: 48px;
+  padding: 28px clamp(20px, 4vw, 32px);
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--border));
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--gold) 6%, transparent);
+}
+.online-callout h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 20px;
+  color: var(--heading);
+  margin-bottom: 10px;
+}
+.online-callout p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  margin-bottom: 18px;
+  max-width: 52ch;
+}
+.online-callout-feedback {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--gold);
+}
+
+.static-page-closing {
+  margin-top: 56px;
+  display: flex;
+  justify-content: center;
+}
+
+.due-volti {
+  margin-top: 40px;
+}
+
+.due-volti-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--heading);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  cursor: pointer;
+}
+.due-volti-toggle:hover,
+.due-volti-toggle:focus-visible {
+  color: var(--gold);
+}
+.due-volti-toggle-icon {
+  font-size: 12px;
+  color: var(--gold);
+}
+
+.due-volti-reveal {
+  margin-top: 18px;
+  animation: cover-overlay-fade-in 0.4s ease both;
+}
+.due-volti-reveal .cover-overlay-intro {
+  margin-bottom: 10px;
+}
+
 /* Prenotazione confermata — bordo dorato che pulsa all'ingresso e resta acceso finché la modale è aperta. */
 
 @keyframes booking-gold-pulse {

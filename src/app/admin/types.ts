@@ -119,7 +119,7 @@ export type WorkLogEntry = {
   description: string;
 };
 
-export type NotificationType = "registration" | "enrollment" | "cancellation" | "issue_report";
+export type NotificationType = "registration" | "enrollment" | "cancellation" | "issue_report" | "interest";
 
 export type NotificationItem = {
   id: string;

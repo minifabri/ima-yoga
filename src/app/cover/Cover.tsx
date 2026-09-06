@@ -8,6 +8,7 @@ import { SectionOverlay } from "./SectionOverlay";
 import { CosmicBackground } from "./CosmicBackground";
 import { Particles } from "./Particles";
 import { Footer } from "./Footer";
+import { InterestCallout } from "./InterestCallout";
 import { getSection } from "./data";
 import { useReducedMotion, useScrollProgress } from "./hooks";
 
@@ -93,6 +94,11 @@ export function Cover() {
             <FloatingCards selectedId={selectedId} flippingId={flippingId} onSelect={openSection} scrollProgress={scrollProgress} />
           </div>
         </div>
+      </section>
+
+      <section className="cover-interest-section">
+        <CosmicBackground variant="hero" />
+        <InterestCallout source="home" />
       </section>
 
       <Footer />
