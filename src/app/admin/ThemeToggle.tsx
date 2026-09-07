@@ -79,7 +79,10 @@ export function ThemeToggle({ size = 36 }: { size?: number }) {
       return;
     }
 
-    const { clientX: x, clientY: y } = event;
+    const figure = document.querySelector(".cover-figure-img");
+    const figureRect = figure?.getBoundingClientRect();
+    const x = figureRect ? figureRect.left + figureRect.width / 2 : event.clientX;
+    const y = figureRect ? figureRect.top + figureRect.height / 2 : event.clientY;
     const pageWidth = Math.max(document.documentElement.scrollWidth, window.innerWidth);
     const pageHeight = Math.max(document.documentElement.scrollHeight, window.innerHeight);
     const radius = Math.hypot(Math.max(x, pageWidth - x), Math.max(y, pageHeight - y));

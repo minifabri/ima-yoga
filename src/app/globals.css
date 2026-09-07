@@ -77,7 +77,7 @@ body {
 }
 ::view-transition-new(root) {
   z-index: 2;
-  animation: theme-reveal 0.7s ease-in-out;
+  animation: theme-reveal 1.3s ease-in-out;
   clip-path: circle(0px at var(--theme-reveal-x, 50%) var(--theme-reveal-y, 50%));
 }
 @keyframes theme-reveal {
