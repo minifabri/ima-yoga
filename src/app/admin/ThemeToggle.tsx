@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore, type MouseEvent } from "react";
+import { useSyncExternalStore } from "react";
 import { COLORS } from "./colors";
 
 const STORAGE_KEY = "ima-yoga-theme";
@@ -66,38 +66,42 @@ function SunMark({ size }: { size: number }) {
   );
 }
 
+// Riutilizzabile ovunque si voglia scatenare il cambio tema (es. click sulla
+// figura centrale), con la stessa transizione "a cerchio" centrata sulla
+// figura usata dal pulsante in header.
+export function toggleTheme(event?: { clientX: number; clientY: number }) {
+  const theme = getSnapshot();
+  const next = theme === "dark" ? "light" : "dark";
+  const startViewTransition = (document as { startViewTransition?: (cb: () => void) => void }).startViewTransition;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (!startViewTransition || reducedMotion) {
+    applyTheme(next);
+    return;
+  }
+
+  const figure = document.querySelector(".cover-figure-img");
+  const figureRect = figure?.getBoundingClientRect();
+  const x = figureRect ? figureRect.left + figureRect.width / 2 : (event?.clientX ?? window.innerWidth / 2);
+  const y = figureRect ? figureRect.top + figureRect.height / 2 : (event?.clientY ?? window.innerHeight / 2);
+  const pageWidth = Math.max(document.documentElement.scrollWidth, window.innerWidth);
+  const pageHeight = Math.max(document.documentElement.scrollHeight, window.innerHeight);
+  const radius = Math.hypot(Math.max(x, pageWidth - x), Math.max(y, pageHeight - y));
+  const root = document.documentElement.style;
+  root.setProperty("--theme-reveal-x", `${x}px`);
+  root.setProperty("--theme-reveal-y", `${y}px`);
+  root.setProperty("--theme-reveal-r", `${radius}px`);
+
+  startViewTransition.call(document, () => applyTheme(next));
+}
+
 export function ThemeToggle({ size = 36 }: { size?: number }) {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-
-  function toggle(event: MouseEvent<HTMLButtonElement>) {
-    const next = theme === "dark" ? "light" : "dark";
-    const startViewTransition = (document as { startViewTransition?: (cb: () => void) => void }).startViewTransition;
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (!startViewTransition || reducedMotion) {
-      applyTheme(next);
-      return;
-    }
-
-    const figure = document.querySelector(".cover-figure-img");
-    const figureRect = figure?.getBoundingClientRect();
-    const x = figureRect ? figureRect.left + figureRect.width / 2 : event.clientX;
-    const y = figureRect ? figureRect.top + figureRect.height / 2 : event.clientY;
-    const pageWidth = Math.max(document.documentElement.scrollWidth, window.innerWidth);
-    const pageHeight = Math.max(document.documentElement.scrollHeight, window.innerHeight);
-    const radius = Math.hypot(Math.max(x, pageWidth - x), Math.max(y, pageHeight - y));
-    const root = document.documentElement.style;
-    root.setProperty("--theme-reveal-x", `${x}px`);
-    root.setProperty("--theme-reveal-y", `${y}px`);
-    root.setProperty("--theme-reveal-r", `${radius}px`);
-
-    startViewTransition.call(document, () => applyTheme(next));
-  }
 
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={toggleTheme}
       title={theme === "dark" ? "Passa al tema chiaro" : "Passa al tema scuro"}
       aria-label={theme === "dark" ? "Passa al tema chiaro" : "Passa al tema scuro"}
       className="flex items-center justify-center rounded-lg flex-shrink-0"

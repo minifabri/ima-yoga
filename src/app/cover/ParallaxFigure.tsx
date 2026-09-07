@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useTheme } from "./hooks";
+import { toggleTheme } from "../admin/ThemeToggle";
 
 const DARK = { src: "/figura-meditazione.png", width: 1187, height: 1325 };
 const LIGHT = { src: "/figura-meditazione-light.png", width: 1227, height: 1199 };
@@ -10,10 +11,13 @@ export function ParallaxFigure() {
   const theme = useTheme();
   const figure = theme === "light" ? LIGHT : DARK;
   return (
-    <div
+    <button
+      type="button"
       className="cover-figure-wrap"
-      aria-hidden="true"
       style={{ aspectRatio: `${figure.width} / ${figure.height}` }}
+      onClick={toggleTheme}
+      title={theme === "dark" ? "Passa al tema chiaro" : "Passa al tema scuro"}
+      aria-label={theme === "dark" ? "Passa al tema chiaro" : "Passa al tema scuro"}
     >
       <Image
         src={figure.src}
@@ -36,6 +40,6 @@ export function ParallaxFigure() {
           className="cover-figure-img"
         />
       </div>
-    </div>
+    </button>
   );
 }
