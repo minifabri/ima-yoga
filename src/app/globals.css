@@ -63,6 +63,29 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Cambio tema chiaro/scuro "dipinto": un cerchio che si allarga dal punto in
+   cui è stato cliccato il toggle, invece dello scatto istantaneo dei colori.
+   Il valore di partenza (0px) arriva dall'inline style impostato in JS su
+   --theme-reveal-x/-y/-r prima di avviare la transizione (vedi ThemeToggle). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 2;
+  animation: theme-reveal 0.7s ease-in-out;
+  clip-path: circle(0px at var(--theme-reveal-x, 50%) var(--theme-reveal-y, 50%));
+}
+@keyframes theme-reveal {
+  to {
+    clip-path: circle(var(--theme-reveal-r, 150%) at var(--theme-reveal-x, 50%) var(--theme-reveal-y, 50%));
+  }
+}
+
 /* ============================================================
    Copertina — ima yoga: esperienza immersiva a carte fluttuanti
    ============================================================ */

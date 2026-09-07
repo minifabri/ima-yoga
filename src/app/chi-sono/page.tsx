@@ -13,7 +13,7 @@ export default function ChiSonoPage() {
       <CosmicBackground variant="section" />
 
       <Link href="/#chi-sono" className="static-page-back">
-        <ArrowLeft size={15} /> Torna alle carte
+        <ArrowLeft size={15} /> Indietro
       </Link>
 
       <div className="static-page-content">

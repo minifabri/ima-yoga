@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type MouseEvent } from "react";
 import { COLORS } from "./colors";
 
 const STORAGE_KEY = "ima-yoga-theme";
@@ -69,8 +69,26 @@ function SunMark({ size }: { size: number }) {
 export function ThemeToggle({ size = 36 }: { size?: number }) {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  function toggle() {
-    applyTheme(theme === "dark" ? "light" : "dark");
+  function toggle(event: MouseEvent<HTMLButtonElement>) {
+    const next = theme === "dark" ? "light" : "dark";
+    const startViewTransition = (document as { startViewTransition?: (cb: () => void) => void }).startViewTransition;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (!startViewTransition || reducedMotion) {
+      applyTheme(next);
+      return;
+    }
+
+    const { clientX: x, clientY: y } = event;
+    const pageWidth = Math.max(document.documentElement.scrollWidth, window.innerWidth);
+    const pageHeight = Math.max(document.documentElement.scrollHeight, window.innerHeight);
+    const radius = Math.hypot(Math.max(x, pageWidth - x), Math.max(y, pageHeight - y));
+    const root = document.documentElement.style;
+    root.setProperty("--theme-reveal-x", `${x}px`);
+    root.setProperty("--theme-reveal-y", `${y}px`);
+    root.setProperty("--theme-reveal-r", `${radius}px`);
+
+    startViewTransition.call(document, () => applyTheme(next));
   }
 
   return (

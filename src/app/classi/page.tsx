@@ -59,7 +59,7 @@ export default function ClassiPage() {
       <CosmicBackground variant="section" />
 
       <Link href="/#lezioni" className="static-page-back">
-        <ArrowLeft size={15} /> Torna alle carte
+        <ArrowLeft size={15} /> Indietro
       </Link>
 
       <div className="static-page-content">
