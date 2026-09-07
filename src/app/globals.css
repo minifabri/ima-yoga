@@ -651,6 +651,16 @@ body {
   z-index: 40;
 }
 
+/* Responsive (tablet / laptop stretti): il layout a colonne resta lo stesso
+   del desktop pieno, ma sotto i 7vw della formula base le carte finiscono
+   ferme al minimo di 84px — leggermente più grandi qui, senza toccare la
+   griglia mobile (che ha una propria larghezza in .cover-cards-grid). */
+@media (min-width: 860px) and (max-width: 1279px) {
+  .cover-cards-ring .tarot-card {
+    width: 100px;
+  }
+}
+
 .tarot-card-float {
   display: block;
   position: relative;
@@ -672,11 +682,9 @@ body {
 
 .cover-card-slot:nth-child(odd) .tarot-card-float {
   animation-duration: 8.5s;
-  --tilt: -2deg;
 }
 .cover-card-slot:nth-child(even) .tarot-card-float {
   animation-duration: 6.5s;
-  --tilt: 2deg;
 }
 
 /* Al click, la carta fa un singolo mezzo giro su se stessa e sfuma prima

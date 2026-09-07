@@ -4,12 +4,6 @@ import Image from "next/image";
 import type { CardSection } from "./data";
 import { useTheme } from "./hooks";
 
-// Rapporto di visualizzazione della carta — più largo del rapporto nativo
-// dell'illustrazione (che è molto stretta e allungata), per una proporzione
-// da tarocco classico. L'immagine viene ritagliata (object-fit: cover), non
-// distorta.
-const DISPLAY_RATIO = "0.56";
-
 export function TarotCard({
   section,
   index,
@@ -26,13 +20,19 @@ export function TarotCard({
   onSelect: (id: string) => void;
 }) {
   const theme = useTheme();
-  const image = theme === "light" ? (section.imageLight ?? section.image) : section.image;
+  const isLight = theme === "light";
+  const image = isLight ? (section.imageLight ?? section.image) : section.image;
+  // Rapporto derivato dalle dimensioni reali dell'artwork, per tema — evita
+  // che object-fit: cover ritagli l'immagine in alto/basso quando la variante
+  // chiara ha proporzioni diverse da quella scura.
+  const imageWidth = isLight ? (section.imageLightWidth ?? section.imageWidth) : section.imageWidth;
+  const imageHeight = isLight ? (section.imageLightHeight ?? section.imageHeight) : section.imageHeight;
 
   return (
     <button
       type="button"
       className={`tarot-card${active ? " is-active" : ""}${dimmed ? " is-dimmed" : ""}${flipping ? " is-flipping" : ""}`}
-      style={{ "--card-index": index, aspectRatio: DISPLAY_RATIO } as React.CSSProperties}
+      style={{ "--card-index": index, aspectRatio: `${imageWidth} / ${imageHeight}` } as React.CSSProperties}
       onClick={() => onSelect(section.id)}
       aria-label={`Apri la sezione ${section.label}`}
     >

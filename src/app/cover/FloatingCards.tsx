@@ -30,14 +30,18 @@ function useViewportWidth(defaultWidth = 1280) {
 // Colonna sinistra (indici pari 0/2/4) e colonna destra (indici dispari
 // 1/3/5), 3 carte ciascuna, allineate a coppie sulla stessa riga, a fianco
 // della figura centrale. Il top parte da 28% (non più 14%) per lasciare
-// respiro sotto il banner.
-const COLUMN_TOPS: { side: "L" | "R"; top: number }[] = [
-  { side: "L", top: 28 },
-  { side: "R", top: 28 },
-  { side: "L", top: 53 },
-  { side: "R", top: 53 },
-  { side: "L", top: 78 },
-  { side: "R", top: 78 },
+// respiro sotto il banner. `arc` sposta la riga rispetto al centro (punti
+// percentuali extra di distanza): positivo per la riga centrale, così le
+// colonne si incurvano leggermente verso l'esterno all'altezza del busto e
+// si stringono verso testa/gambe, avvolgendo la figura invece di restare
+// due linee dritte.
+const COLUMN_TOPS: { side: "L" | "R"; top: number; arc: number }[] = [
+  { side: "L", top: 28, arc: 0 },
+  { side: "R", top: 28, arc: 0 },
+  { side: "L", top: 53, arc: 3 },
+  { side: "R", top: 53, arc: 3 },
+  { side: "L", top: 78, arc: 0 },
+  { side: "R", top: 78, arc: 0 },
 ];
 
 // Quanto sono vicine al centro le colonne dipende dalla larghezza: al limite
@@ -49,15 +53,21 @@ const COLUMN_MAX_VW = 1400;
 const COLUMN_LEFT_MIN = 20;
 const COLUMN_LEFT_MAX = 27;
 
+// Sotto questa larghezza ("responsive": tablet e laptop stretti) le colonne
+// si spostano di un pizzico verso l'esterno rispetto al valore base.
+const RESPONSIVE_MAX_VW = 1280;
+const RESPONSIVE_EXTRA_OFFSET = 2;
+
 function columnLeftForWidth(vw: number) {
   const t = Math.min(1, Math.max(0, (vw - COLUMN_MIN_VW) / (COLUMN_MAX_VW - COLUMN_MIN_VW)));
-  return COLUMN_LEFT_MIN + (COLUMN_LEFT_MAX - COLUMN_LEFT_MIN) * t;
+  const left = COLUMN_LEFT_MIN + (COLUMN_LEFT_MAX - COLUMN_LEFT_MIN) * t;
+  return vw < RESPONSIVE_MAX_VW ? left - RESPONSIVE_EXTRA_OFFSET : left;
 }
 
 function buildColumnPositions(vw: number): CardPose[] {
   const colLeft = columnLeftForWidth(vw);
-  return COLUMN_TOPS.map(({ side, top }) => ({
-    left: side === "L" ? colLeft : 100 - colLeft,
+  return COLUMN_TOPS.map(({ side, top, arc }) => ({
+    left: side === "L" ? colLeft - arc : 100 - colLeft + arc,
     top,
     rot: 0,
     scale: 1,
