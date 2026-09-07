@@ -6,7 +6,7 @@ import Link from "next/link";
 export function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <Link href="/" className="cover-logo" aria-label="ima yoga — home">
-      <Image src="/images/ima-logo.svg" alt="" width={34} height={34} priority className="cover-logo-mark" />
+      <Image src="/images/ima-logo.svg" alt="" width={68} height={68} priority className="cover-logo-mark" />
       {!compact && (
         <span className="cover-logo-word">
           ima <span className="cover-logo-word-thin">yoga</span>

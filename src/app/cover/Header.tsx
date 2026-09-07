@@ -9,7 +9,7 @@ import { CARD_SECTIONS } from "./data";
 
 const NAV_LINKS = [
   { label: "Home", href: "#top" },
-  { label: "Carte", href: "#carte" },
+  { label: "Lezioni", href: "/classi" },
   { label: "Calendario", href: "/calendario" },
   { label: "Contatti", href: "#contatti" },
 ];
