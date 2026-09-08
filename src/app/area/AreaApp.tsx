@@ -867,6 +867,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                               const type = typeById[c.typeId];
                               const color = type?.color || COLORS.primary;
                               const avail = availabilityLabel(c);
+                              const past = isPastClass(c.date, c.time);
                               return (
                                 <button
                                   key={c.id}
@@ -877,9 +878,10 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                                     minHeight: 26,
                                     padding: "3px 2px",
                                     borderRadius: 5,
-                                    background: withAlpha(color, 12),
+                                    background: withAlpha(color, past ? 6 : 12),
                                     borderLeft: `2.5px solid ${color}`,
                                     gap: 2,
+                                    opacity: past ? 0.5 : 1,
                                   }}
                                 >
                                   <span className="flex items-center gap-0.5" style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>
@@ -917,6 +919,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                               const type = typeById[c.typeId];
                               const color = type?.color || COLORS.primary;
                               const avail = availabilityLabel(c);
+                              const past = isPastClass(c.date, c.time);
                               return (
                                 <button
                                   key={c.id}
@@ -926,9 +929,10 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                                     fontSize: 10.5,
                                     padding: "3px 6px",
                                     borderRadius: 6,
-                                    background: withAlpha(color, 12),
+                                    background: withAlpha(color, past ? 6 : 12),
                                     borderLeft: `3px solid ${color}`,
                                     color: COLORS.ink,
+                                    opacity: past ? 0.5 : 1,
                                   }}
                                 >
                                   <div className="flex items-center gap-1" style={{ fontWeight: 700 }}>
@@ -972,12 +976,13 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                           const type = typeById[c.typeId];
                           const color = type?.color || COLORS.primary;
                           const avail = availabilityLabel(c);
+                          const past = isPastClass(c.date, c.time);
                           return (
                             <button
                               key={c.id}
                               onClick={() => setSelected(c)}
                               className="flex items-center justify-between text-left p-2.5 rounded-lg w-full gap-2"
-                              style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderLeft: `3px solid ${color}` }}
+                              style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderLeft: `3px solid ${color}`, opacity: past ? 0.55 : 1 }}
                             >
                               <div>
                                 <div className="flex items-center gap-1" style={{ fontSize: 12.5, fontWeight: 700 }}>
@@ -1083,33 +1088,44 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                   <div style={{ fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 600, color: COLORS.heading }}>I tuoi eventi</div>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {myEventBookings.map((b) => (
-                    <div key={b.id} className="flex items-center justify-between p-3 rounded-xl flex-wrap gap-2" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-                      <div>
-                        <div style={{ fontSize: 13.5, fontWeight: 600 }}>
-                          {b.date} · {b.time} — {b.eventName}
-                          {b.plusOne && <span style={{ fontWeight: 500, color: COLORS.inkSoft }}> · +1 {b.plusOneName}</span>}
-                        </div>
-                        <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
-                          {b.status === "waitlist" ? (
-                            <span style={{ color: COLORS.gold, fontWeight: 700 }}>In lista d&apos;attesa</span>
-                          ) : b.paymentStatus === "paid" ? (
-                            <span style={{ color: COLORS.success, fontWeight: 600 }}>Pagato</span>
-                          ) : (
-                            <span style={{ color: COLORS.danger, fontWeight: 600 }}>Da saldare {formatLune(b.price * (b.plusOne ? 2 : 1))}</span>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        disabled={pending}
-                        onClick={() => setConfirmCancelEvent(b)}
-                        className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
-                        style={{ color: COLORS.danger, border: `1px solid ${withAlpha(COLORS.danger, 33)}` }}
+                  {myEventBookings.map((b) => {
+                    const pastEvent = isPastClass(b.date, b.time);
+                    return (
+                      <div
+                        key={b.id}
+                        className="flex items-center justify-between p-3 rounded-xl flex-wrap gap-2"
+                        style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, opacity: pastEvent ? 0.6 : 1 }}
                       >
-                        <X size={12} /> Cancella
-                      </button>
-                    </div>
-                  ))}
+                        <div>
+                          <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                            {b.date} · {b.time} — {b.eventName}
+                            {b.plusOne && <span style={{ fontWeight: 500, color: COLORS.inkSoft }}> · +1 {b.plusOneName}</span>}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
+                            {pastEvent ? (
+                              <span style={{ fontStyle: "italic" }}>Evento passato</span>
+                            ) : b.status === "waitlist" ? (
+                              <span style={{ color: COLORS.gold, fontWeight: 700 }}>In lista d&apos;attesa</span>
+                            ) : b.paymentStatus === "paid" ? (
+                              <span style={{ color: COLORS.success, fontWeight: 600 }}>Pagato</span>
+                            ) : (
+                              <span style={{ color: COLORS.danger, fontWeight: 600 }}>Da saldare {formatLune(b.price * (b.plusOne ? 2 : 1))}</span>
+                            )}
+                          </div>
+                        </div>
+                        {!pastEvent && (
+                          <button
+                            disabled={pending}
+                            onClick={() => setConfirmCancelEvent(b)}
+                            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
+                            style={{ color: COLORS.danger, border: `1px solid ${withAlpha(COLORS.danger, 33)}` }}
+                          >
+                            <X size={12} /> Cancella
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1321,6 +1337,10 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 >
                   {selected.myStatus === "waitlist" ? "Esci dalla lista d'attesa" : "Cancella prenotazione"}
                 </button>
+              ) : isPastClass(selected.date, selected.time) ? (
+                <div style={{ fontSize: 12.5, color: COLORS.inkSoft, fontStyle: "italic" }} className="text-center">
+                  Questa lezione è già passata.
+                </div>
               ) : (
                 <div style={{ fontSize: 12.5, color: COLORS.inkSoft, fontStyle: "italic" }} className="text-center">
                   Meno di 24 ore alla lezione: per cancellare, contattaci direttamente.

@@ -10,6 +10,11 @@ import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/adm
 import { fetchVisitorClasses } from "./data";
 import type { VisitorClass } from "./types";
 
+function isPastClass(dateStr: string, timeStr: string): boolean {
+  const dt = new Date(`${dateStr}T${(timeStr || "00:00").padEnd(5, "0")}:00`);
+  return dt.getTime() < Date.now();
+}
+
 export function CalendarioVisitatore() {
   const supabase = useMemo(() => createClient(), []);
   const [viewDate, setViewDate] = useState(new Date());
@@ -143,7 +148,9 @@ export function CalendarioVisitatore() {
                   {d.getDate()}
                 </span>
                 <div className="flex flex-col gap-1">
-                  {dayClasses.map((c) => (
+                  {dayClasses.map((c) => {
+                    const past = isPastClass(c.date, c.time);
+                    return (
                     <button
                       key={c.id}
                       onClick={() => setSelected(c)}
@@ -152,9 +159,10 @@ export function CalendarioVisitatore() {
                         fontSize: 10.5,
                         padding: "3px 6px",
                         borderRadius: 6,
-                        background: withAlpha(c.typeColor, 12),
+                        background: withAlpha(c.typeColor, past ? 6 : 12),
                         borderLeft: `3px solid ${c.typeColor}`,
                         color: COLORS.ink,
+                        opacity: past ? 0.5 : 1,
                       }}
                     >
                       <div className="flex items-center gap-1" style={{ fontWeight: 700 }}>
@@ -167,7 +175,8 @@ export function CalendarioVisitatore() {
                       </div>
                       <div className="truncate">{c.typeName}</div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -232,13 +241,19 @@ export function CalendarioVisitatore() {
                 {selected.description}
               </div>
             )}
-            <Link
-              href="/login"
-              className="w-full py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center"
-              style={{ background: COLORS.primary }}
-            >
-              Accedi per prenotare
-            </Link>
+            {isPastClass(selected.date, selected.time) ? (
+              <div style={{ fontSize: 12.5, color: COLORS.inkSoft, fontStyle: "italic" }} className="text-center">
+                Questa lezione è già passata.
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="w-full py-2.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center"
+                style={{ background: COLORS.primary }}
+              >
+                Accedi per prenotare
+              </Link>
+            )}
           </div>
         </div>
       )}
