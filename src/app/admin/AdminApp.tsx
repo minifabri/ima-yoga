@@ -269,11 +269,6 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   function moveClass(id: string, targetDate: string) {
     const item = classes.find((c) => c.id === id);
     if (!item || item.date === targetDate) return;
-    const occupied = classes.some((c) => c.date === targetDate && c.id !== id);
-    if (occupied) {
-      showToast("Quel giorno ha già una classe.");
-      return;
-    }
     setClasses((cur) => cur.map((c) => (c.id === id ? { ...c, date: targetDate } : c)));
     db.moveClass(supabase, id, targetDate).catch(() => showToast("Lo spostamento non è riuscito."));
   }
@@ -298,7 +293,6 @@ export function AdminApp({ initial }: { initial: AdminData }) {
   }
   function pasteClass(dateStr: string) {
     if (!clipboard) return;
-    if ((classesByDay[dateStr] || []).length > 0) return;
     const item: ClassItem = { id: genId(), date: dateStr, ...clipboard, published: false, clientIds: [], waitlistIds: [], payments: {} };
     saveClassItem(item);
     showToast("Classe incollata.");
