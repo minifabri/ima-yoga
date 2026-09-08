@@ -36,6 +36,7 @@ import { logout } from "@/app/actions";
 import { deleteOwnAccount, type DeleteAccountState } from "./actions";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { ThemeToggle } from "@/app/admin/ThemeToggle";
+import { Logo } from "@/app/admin/Logo";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "@/app/admin/utils";
 import * as db from "./data";
 import { downloadIcsFile } from "@/lib/ics";
@@ -544,10 +545,7 @@ export function AreaApp({ fullName, email }: { fullName: string; email: string }
                 <ArrowLeft size={16} />
               </button>
             )}
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 10, letterSpacing: 2.5, color: COLORS.gold, textTransform: "uppercase" }}>Ciao {fullName.split(" ")[0]}</div>
-              <div style={{ fontFamily: "var(--font-display)", fontWeight: 500, fontSize: 26, lineHeight: 1, color: COLORS.heading }}>ima yoga</div>
-            </div>
+            <Logo kicker={`Ciao ${fullName.split(" ")[0]}`} />
           </div>
           <div className="flex items-center gap-2">
             <div className="hidden md:flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>

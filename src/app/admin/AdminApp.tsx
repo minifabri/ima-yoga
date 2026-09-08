@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, ArrowLeft } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, Route, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
+import { Logo } from "./Logo";
 import { dateKey, genId, classEffectivePrice } from "./utils";
 import { Modal } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
@@ -22,6 +23,7 @@ import { WorklogView } from "./WorklogView";
 import { StatsView } from "./StatsView";
 import { EventsView } from "./EventsView";
 import { ToolsView } from "./ToolsView";
+import { SequencesView } from "./SequencesView";
 import * as db from "./data";
 import { adminResetClientPassword, adminGetClientAuthStatus, adminResendActivationEmail, adminResendPasswordReset } from "./actions";
 import { notifyClassFull } from "@/lib/notifications";
@@ -60,6 +62,7 @@ const moreMenuItems = [
   { key: "events", label: "Eventi", icon: Ticket },
   { key: "earnings", label: "Guadagni", icon: PiggyBank },
   { key: "tools", label: "Strumenti", icon: Calculator },
+  { key: "sequences", label: "Sequenze", icon: Route },
   { key: "notices", label: "Avvisi e comunicazioni", icon: Bell },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
@@ -79,6 +82,7 @@ const mobileHubPrimaryItems = [
 const mobileHubSecondaryItems = [
   { key: "earnings", label: "Guadagni", icon: PiggyBank },
   { key: "tools", label: "Strumenti", icon: Calculator },
+  { key: "sequences", label: "Sequenze", icon: Route },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
 ];
@@ -86,7 +90,7 @@ const mobileHubSecondaryItems = [
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
 
-  const [view, setView] = useState<"home" | "calendar" | "clients" | "payments" | "events" | "earnings" | "tools" | "notices" | "worklog" | "stats" | "settings">("home");
+  const [view, setView] = useState<"home" | "calendar" | "clients" | "payments" | "events" | "earnings" | "tools" | "sequences" | "notices" | "worklog" | "stats" | "settings">("home");
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>(initial.classTypes);
   const [levels, setLevels] = useState<Level[]>(initial.levels);
@@ -563,25 +567,9 @@ export function AdminApp({ initial }: { initial: AdminData }) {
 
   return (
     <div style={{ fontFamily: "var(--font-body)", background: COLORS.bg, color: COLORS.ink, minHeight: "100vh" }}>
-      <style>{`
-        @keyframes breathe { 0%,100%{ transform: scale(1); opacity:.55 } 50%{ transform: scale(1.35); opacity:1 } }
-        .breath-dot { animation: breathe 4s ease-in-out infinite; }
-      `}</style>
-
       <div className="p-5" style={{ maxWidth: 980, margin: "0 auto" }}>
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-              <path d="M23 9a10 10 0 1 0 0 20 7.8 7.8 0 0 1 0-20z" stroke={COLORS.heading} strokeWidth="1.3" strokeLinejoin="round" />
-              <g className="breath-dot" style={{ transformOrigin: "28px 8px" }}>
-                <path d="M28 4.5 L28.9 7.1 L31.5 8 L28.9 8.9 L28 11.5 L27.1 8.9 L24.5 8 L27.1 7.1 Z" fill={COLORS.gold} />
-              </g>
-            </svg>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 10, letterSpacing: 2.5, color: COLORS.gold, textTransform: "uppercase" }}>Gestionale</div>
-              <div style={{ fontFamily: "var(--font-display)", fontWeight: 500, fontSize: 26, lineHeight: 1, color: COLORS.heading }}>ima yoga</div>
-            </div>
-          </div>
+          <Logo kicker="Gestionale" />
 
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
             <div className="hidden md:flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
@@ -749,6 +737,8 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           />
         ) : view === "tools" ? (
           <ToolsView supabase={supabase} />
+        ) : view === "sequences" ? (
+          <SequencesView supabase={supabase} clients={clients} />
         ) : view === "notices" ? (
           <NoticesView
             clients={clients}

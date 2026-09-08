@@ -194,6 +194,17 @@ export type EventBudget = {
   updatedAt: string;
 };
 
+export type AshtangaSequence = {
+  id: string;
+  clientId: string | null;
+  guestName: string;
+  name: string;
+  disabledPoses: string[];
+  notes: Record<string, string>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AdminData = {
   classTypes: ClassType[];
   levels: Level[];

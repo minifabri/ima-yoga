@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AdminData,
   Announcement,
+  AshtangaSequence,
   BudgetLineItem,
   ClassItem,
   ClassType,
@@ -901,5 +902,59 @@ export async function saveEventBudget(
 
 export async function deleteEventBudget(supabase: DB, id: string) {
   const { error } = await supabase.from("event_budgets").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---- sequenze Ashtanga ----
+function mapAshtangaSequence(row: {
+  id: string;
+  client_id: string | null;
+  guest_name: string | null;
+  name: string;
+  disabled_poses: string[] | null;
+  notes: Record<string, string> | null;
+  created_at: string;
+  updated_at: string;
+}): AshtangaSequence {
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    guestName: row.guest_name || "",
+    name: row.name,
+    disabledPoses: row.disabled_poses || [],
+    notes: row.notes || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function fetchAshtangaSequences(supabase: DB): Promise<AshtangaSequence[]> {
+  const { data, error } = await supabase.from("ashtanga_sequences").select("*").order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapAshtangaSequence);
+}
+
+export async function saveAshtangaSequence(
+  supabase: DB,
+  sequence: Omit<AshtangaSequence, "id" | "createdAt" | "updatedAt"> & { id?: string }
+): Promise<AshtangaSequence> {
+  const payload = {
+    client_id: sequence.clientId,
+    guest_name: sequence.guestName || null,
+    name: sequence.name,
+    disabled_poses: sequence.disabledPoses,
+    notes: sequence.notes,
+  };
+
+  const query = sequence.id
+    ? supabase.from("ashtanga_sequences").update(payload).eq("id", sequence.id).select().single()
+    : supabase.from("ashtanga_sequences").insert(payload).select().single();
+  const { data, error } = await query;
+  if (error) throw error;
+  return mapAshtangaSequence(data);
+}
+
+export async function deleteAshtangaSequence(supabase: DB, id: string) {
+  const { error } = await supabase.from("ashtanga_sequences").delete().eq("id", id);
   if (error) throw error;
 }
