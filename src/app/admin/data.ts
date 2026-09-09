@@ -607,10 +607,13 @@ function mapWorkLogEntry(row: {
   actor_role: WorkLogActorRole;
   actor_id: string | null;
   actor_name: string;
+  actor_email: string | null;
   action: string;
   entity_table: string;
   entity_id: string | null;
   description: string;
+  ip_address: string | null;
+  user_agent: string | null;
 }): WorkLogEntry {
   return {
     id: row.id,
@@ -618,10 +621,13 @@ function mapWorkLogEntry(row: {
     actorRole: row.actor_role,
     actorId: row.actor_id,
     actorName: row.actor_name,
+    actorEmail: row.actor_email,
     action: row.action,
     entityTable: row.entity_table,
     entityId: row.entity_id,
     description: row.description,
+    ipAddress: row.ip_address,
+    userAgent: row.user_agent,
   };
 }
 
@@ -636,7 +642,10 @@ export async function fetchWorkLog(
   if (opts.actorRole) query = query.eq("actor_role", opts.actorRole);
   if (opts.actions && opts.actions.length > 0) query = query.in("action", opts.actions);
   const term = opts.search?.trim();
-  if (term) query = query.ilike("description", `%${term.replace(/[%_]/g, "")}%`);
+  if (term) {
+    const escaped = term.replace(/[%_]/g, "");
+    query = query.or(`description.ilike.%${escaped}%,actor_email.ilike.%${escaped}%,actor_name.ilike.%${escaped}%`);
+  }
   query = query.range(offset, offset + WORKLOG_PAGE_SIZE);
 
   const { data, error } = await query;

@@ -113,10 +113,13 @@ export type WorkLogEntry = {
   actorRole: WorkLogActorRole;
   actorId: string | null;
   actorName: string;
+  actorEmail: string | null;
   action: string;
   entityTable: string;
   entityId: string | null;
   description: string;
+  ipAddress: string | null;
+  userAgent: string | null;
 };
 
 export type NotificationType = "registration" | "enrollment" | "cancellation" | "issue_report" | "interest";

@@ -3,6 +3,7 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
+import { logAdminAction } from "@/lib/supabase/audit";
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
@@ -57,6 +58,14 @@ export async function adminResetClientPassword(clientId: string): Promise<{ ok: 
   const { error: updErr } = await ctx.adminClient.auth.admin.updateUserById(found.user.id, { password });
   if (updErr) return { ok: false, error: updErr.message };
 
+  await logAdminAction(
+    ctx.supabase,
+    "admin_reset_client_password",
+    "profiles",
+    clientId,
+    `Password reimpostata dall'admin per ${found.user.email ?? "cliente"}.`
+  );
+
   return { ok: true, password };
 }
 
@@ -84,6 +93,14 @@ export async function adminResendActivationEmail(clientId: string): Promise<{ ok
   const { error: resendErr } = await ctx.supabase.auth.resend({ type: "signup", email: found.user.email });
   if (resendErr) return { ok: false, error: resendErr.message };
 
+  await logAdminAction(
+    ctx.supabase,
+    "admin_resend_activation_email",
+    "profiles",
+    clientId,
+    `Email di attivazione reinviata dall'admin a ${found.user.email}.`
+  );
+
   return { ok: true };
 }
 
@@ -100,6 +117,14 @@ export async function adminResendPasswordReset(clientId: string): Promise<{ ok: 
     redirectTo: origin ? `${origin}/reset-password` : undefined,
   });
   if (resetErr) return { ok: false, error: resetErr.message };
+
+  await logAdminAction(
+    ctx.supabase,
+    "admin_resend_password_reset",
+    "profiles",
+    clientId,
+    `Email di reset password reinviata dall'admin a ${found.user.email}.`
+  );
 
   return { ok: true };
 }
