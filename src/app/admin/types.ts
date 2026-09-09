@@ -194,13 +194,76 @@ export type EventBudget = {
   updatedAt: string;
 };
 
-export type AshtangaSequence = {
+export type PoseMacro = "asana" | "pranayama";
+
+export type PoseCategory = {
   id: string;
+  macro: PoseMacro;
+  name: string;
+  position: number;
+};
+
+export type PoseCatalogItem = {
+  id: string;
+  macro: PoseMacro;
+  name: string;
+  sanskritName: string;
+  description: string;
+  categoryId: string | null;
+  tags: string[];
+  imageUrl: string | null;
+};
+
+export type SectionKind =
+  | "pranayama"
+  | "preparazione"
+  | "saluto_al_sole"
+  | "pre_sequenza"
+  | "sequenza"
+  | "chiusura"
+  | "custom";
+
+export type SequenceTemplateSection = {
+  id: string;
+  templateId: string;
+  kind: SectionKind;
+  label: string;
+  position: number;
+  enabled: boolean;
+};
+
+export type SequenceTemplate = {
+  id: string;
+  classTypeId: string;
+  sections: SequenceTemplateSection[];
+};
+
+export type SequenceItem = {
+  id: string;
+  sectionId: string;
+  poseId: string | null;
+  customLabel: string;
+  note: string;
+  position: number;
+};
+
+export type SequenceSection = {
+  id: string;
+  sequenceId: string;
+  kind: SectionKind;
+  label: string;
+  position: number;
+  enabled: boolean;
+  items: SequenceItem[];
+};
+
+export type Sequence = {
+  id: string;
+  classTypeId: string;
   clientId: string | null;
   guestName: string;
   name: string;
-  disabledPoses: string[];
-  notes: Record<string, string>;
+  sections: SequenceSection[];
   createdAt: string;
   updatedAt: string;
 };

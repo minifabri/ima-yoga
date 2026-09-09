@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, Route, ArrowLeft } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, Route, BookOpen, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
@@ -24,6 +24,7 @@ import { StatsView } from "./StatsView";
 import { EventsView } from "./EventsView";
 import { ToolsView } from "./ToolsView";
 import { SequencesView } from "./SequencesView";
+import { PoseCatalogView } from "./PoseCatalogView";
 import * as db from "./data";
 import { adminResetClientPassword, adminGetClientAuthStatus, adminResendActivationEmail, adminResendPasswordReset } from "./actions";
 import { notifyClassFull } from "@/lib/notifications";
@@ -63,6 +64,7 @@ const moreMenuItems = [
   { key: "earnings", label: "Guadagni", icon: PiggyBank },
   { key: "tools", label: "Strumenti", icon: Calculator },
   { key: "sequences", label: "Sequenze", icon: Route },
+  { key: "pose-catalog", label: "Catalogo posizioni", icon: BookOpen },
   { key: "notices", label: "Avvisi e comunicazioni", icon: Bell },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
@@ -83,6 +85,7 @@ const mobileHubSecondaryItems = [
   { key: "earnings", label: "Guadagni", icon: PiggyBank },
   { key: "tools", label: "Strumenti", icon: Calculator },
   { key: "sequences", label: "Sequenze", icon: Route },
+  { key: "pose-catalog", label: "Catalogo posizioni", icon: BookOpen },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
 ];
@@ -90,7 +93,7 @@ const mobileHubSecondaryItems = [
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
 
-  const [view, setView] = useState<"home" | "calendar" | "clients" | "payments" | "events" | "earnings" | "tools" | "sequences" | "notices" | "worklog" | "stats" | "settings">("home");
+  const [view, setView] = useState<"home" | "calendar" | "clients" | "payments" | "events" | "earnings" | "tools" | "sequences" | "pose-catalog" | "notices" | "worklog" | "stats" | "settings">("home");
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>(initial.classTypes);
   const [levels, setLevels] = useState<Level[]>(initial.levels);
@@ -738,7 +741,9 @@ export function AdminApp({ initial }: { initial: AdminData }) {
         ) : view === "tools" ? (
           <ToolsView supabase={supabase} />
         ) : view === "sequences" ? (
-          <SequencesView supabase={supabase} clients={clients} />
+          <SequencesView supabase={supabase} clients={clients} classTypes={classTypes} />
+        ) : view === "pose-catalog" ? (
+          <PoseCatalogView supabase={supabase} />
         ) : view === "notices" ? (
           <NoticesView
             clients={clients}
