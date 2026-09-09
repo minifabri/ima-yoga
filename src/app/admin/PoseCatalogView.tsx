@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, Plus, Search, Tag, Trash2 } from "lucide-react";
+import { AlertCircle, Plus, Search, Tag, Trash2, Upload } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { Field, IconButton, inputStyle } from "./ui";
 import { fetchPoseCatalog, savePose, deletePose, fetchPoseCategories, savePoseCategory, deletePoseCategory } from "./data";
+import { PoseBulkImportModal } from "./PoseBulkImport";
 import type { PoseCatalogItem, PoseCategory, PoseMacro } from "./types";
 
 function emptyDraft(macro: PoseMacro): Omit<PoseCatalogItem, "id"> {
@@ -25,6 +26,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   const [tagsInput, setTagsInput] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [error, setError] = useState("");
+  const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchPoseCatalog(supabase), fetchPoseCategories(supabase)])
@@ -179,10 +181,27 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
           <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: COLORS.inkSoft }} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cerca per nome o tag…" style={{ ...inputStyle, paddingLeft: 30 }} />
         </div>
+        <button onClick={() => setShowImport(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
+          <Upload size={15} /> Importa CSV
+        </button>
         <button onClick={startNew} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: COLORS.primary }}>
           <Plus size={15} /> Nuova posizione
         </button>
       </div>
+
+      {showImport && (
+        <PoseBulkImportModal
+          supabase={supabase}
+          defaultMacro={macro}
+          categories={categories}
+          onClose={() => setShowImport(false)}
+          onImported={(newPoses, newCategories) => {
+            setPoses((cur) => [...cur, ...newPoses]);
+            setCategories((cur) => [...cur, ...newCategories]);
+            setShowImport(false);
+          }}
+        />
+      )}
 
       {editingId && (
         <div className="mb-4 p-3.5 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>

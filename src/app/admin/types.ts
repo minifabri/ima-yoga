@@ -238,6 +238,8 @@ export type SequenceTemplate = {
   sections: SequenceTemplateSection[];
 };
 
+export type HoldUnit = "seconds" | "minutes" | "breaths";
+
 export type SequenceItem = {
   id: string;
   sectionId: string;
@@ -245,6 +247,9 @@ export type SequenceItem = {
   customLabel: string;
   note: string;
   position: number;
+  reps: number | null;
+  holdValue: number | null;
+  holdUnit: HoldUnit | null;
 };
 
 export type SequenceSection = {

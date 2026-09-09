@@ -11,6 +11,7 @@ import type {
   EventBudget,
   EventItem,
   Expense,
+  HoldUnit,
   LedgerEntry,
   Level,
   NotificationItem,
@@ -994,6 +995,25 @@ export async function deletePose(supabase: DB, id: string) {
   if (error) throw error;
 }
 
+// Inserimento massivo (import CSV): una singola insert con più righe.
+export async function bulkInsertPoses(
+  supabase: DB,
+  poses: Omit<PoseCatalogItem, "id">[]
+): Promise<PoseCatalogItem[]> {
+  const payload = poses.map((p) => ({
+    macro: p.macro,
+    name: p.name,
+    sanskrit_name: p.sanskritName || null,
+    description: p.description || null,
+    category_id: p.categoryId,
+    tags: p.tags,
+    image_url: p.imageUrl,
+  }));
+  const { data, error } = await supabase.from("poses").insert(payload).select();
+  if (error) throw error;
+  return (data ?? []).map(mapPoseCatalogItem);
+}
+
 // ---- template di sezioni per tipo di classe ----
 type TemplateSectionRow = {
   id: string;
@@ -1062,6 +1082,9 @@ type SequenceRow = {
       custom_label: string | null;
       note: string | null;
       position: number;
+      reps: number | null;
+      hold_value: number | null;
+      hold_unit: HoldUnit | null;
     }[];
   }[];
 };
@@ -1095,6 +1118,9 @@ function mapSequence(row: SequenceRow): Sequence {
             customLabel: it.custom_label || "",
             note: it.note || "",
             position: it.position,
+            reps: it.reps,
+            holdValue: it.hold_value,
+            holdUnit: it.hold_unit,
           })),
       })),
   };
@@ -1130,7 +1156,15 @@ export async function saveSequence(
       label: string;
       position: number;
       enabled: boolean;
-      items: { poseId: string | null; customLabel: string; note: string; position: number }[];
+      items: {
+        poseId: string | null;
+        customLabel: string;
+        note: string;
+        position: number;
+        reps: number | null;
+        holdValue: number | null;
+        holdUnit: HoldUnit | null;
+      }[];
     }[];
   }
 ): Promise<Sequence> {
@@ -1167,6 +1201,9 @@ export async function saveSequence(
           custom_label: it.customLabel || null,
           note: it.note || "",
           position: it.position,
+          reps: it.reps,
+          hold_value: it.holdValue,
+          hold_unit: it.holdUnit,
         }))
       );
       if (itemsError) throw itemsError;

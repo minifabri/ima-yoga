@@ -3,16 +3,35 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, Check, GripVertical, Plus, Printer, Share2, Trash2, X } from "lucide-react";
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { AlertCircle, Check, GripVertical, Plus, Printer, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { COLORS } from "./colors";
+import { COLORS, withAlpha } from "./colors";
 import { Field, Modal, Switch, inputStyle } from "./ui";
 import { saveSequence, deleteSequence, fetchSequenceTemplate } from "./data";
-import type { ClassType, ClientItem, PoseCatalogItem, PoseCategory, Sequence, SectionKind } from "./types";
+import type { ClassType, ClientItem, HoldUnit, PoseCatalogItem, PoseCategory, PoseMacro, Sequence, SectionKind } from "./types";
 
-type EditItem = { uid: string; poseId: string | null; customLabel: string; note: string };
+type EditItem = {
+  uid: string;
+  poseId: string | null;
+  customLabel: string;
+  note: string;
+  reps: number | null;
+  holdValue: number | null;
+  holdUnit: HoldUnit | null;
+};
 type EditSection = { uid: string; kind: SectionKind; label: string; enabled: boolean; items: EditItem[] };
 
 function uid(): string {
@@ -25,7 +44,15 @@ function sectionsFromSequence(sequence: Sequence): EditSection[] {
     kind: s.kind,
     label: s.label,
     enabled: s.enabled,
-    items: s.items.map((it) => ({ uid: uid(), poseId: it.poseId, customLabel: it.customLabel, note: it.note })),
+    items: s.items.map((it) => ({
+      uid: uid(),
+      poseId: it.poseId,
+      customLabel: it.customLabel,
+      note: it.note,
+      reps: it.reps,
+      holdValue: it.holdValue,
+      holdUnit: it.holdUnit,
+    })),
   }));
 }
 
@@ -34,13 +61,27 @@ function sectionsFromTemplate(template: { sections: { kind: SectionKind; label: 
   return template.sections.map((s) => ({ uid: uid(), kind: s.kind, label: s.label, enabled: s.enabled, items: [] }));
 }
 
-function buildSheetText(sections: { label: string; items: { text: string; note: string }[] }[], personLabel: string) {
+function formatItemMeta(reps: number | null, holdValue: number | null, holdUnit: HoldUnit | null): string {
+  const parts: string[] = [];
+  if (reps) parts.push(`×${reps}`);
+  if (holdValue) {
+    const unitLabel = holdUnit === "minutes" ? (holdValue === 1 ? "minuto" : "minuti") : holdUnit === "breaths" ? (holdValue === 1 ? "respiro" : "respiri") : holdValue === 1 ? "secondo" : "secondi";
+    parts.push(`${holdValue} ${unitLabel}`);
+  }
+  return parts.join(" · ");
+}
+
+function buildSheetText(sections: { label: string; items: { text: string; meta: string; note: string }[] }[], personLabel: string) {
   const lines = [personLabel ? `Sequenza per ${personLabel}` : "Sequenza"];
   sections.forEach((s) => {
     if (s.items.length === 0) return;
     lines.push("");
     lines.push(s.label.toUpperCase());
-    s.items.forEach((it) => lines.push(`- ${it.text}${it.note ? `  (${it.note})` : ""}`));
+    s.items.forEach((it) => {
+      const meta = it.meta ? ` [${it.meta}]` : "";
+      const note = it.note ? `  (${it.note})` : "";
+      lines.push(`- ${it.text}${meta}${note}`);
+    });
   });
   return lines.join("\n");
 }
@@ -77,9 +118,9 @@ export function SequenceEditor({
   const [showSheet, setShowSheet] = useState(false);
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
+  const [activeDragPose, setActiveDragPose] = useState<PoseCatalogItem | null>(null);
 
   const poseById = useMemo(() => Object.fromEntries(poseCatalog.map((p) => [p.id, p])), [poseCatalog]);
-  const categoryById = useMemo(() => Object.fromEntries(poseCategories.map((c) => [c.id, c])), [poseCategories]);
 
   useEffect(() => {
     // Rilevamento della Web Share API: deve avvenire dopo il mount (non nel
@@ -113,9 +154,22 @@ export function SequenceEditor({
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
-  function handleSectionDragEnd(e: DragEndEvent) {
+  function handleOuterDragStart(e: DragStartEvent) {
+    const data = e.active.data.current as { type?: string; pose?: PoseCatalogItem } | undefined;
+    setActiveDragPose(data?.type === "palette" ? data.pose ?? null : null);
+  }
+
+  function handleOuterDragEnd(e: DragEndEvent) {
     const { active, over } = e;
-    if (!over || active.id === over.id) return;
+    setActiveDragPose(null);
+    if (!over) return;
+    const activeData = active.data.current as { type?: string; pose?: PoseCatalogItem } | undefined;
+    if (activeData?.type === "palette" && activeData.pose) {
+      const overId = String(over.id);
+      if (overId.startsWith("section-drop:")) addPoseItem(overId.slice("section-drop:".length), activeData.pose);
+      return;
+    }
+    if (active.id === over.id) return;
     setSections((cur) => {
       const from = cur.findIndex((s) => s.uid === active.id);
       const to = cur.findIndex((s) => s.uid === over.id);
@@ -149,18 +203,26 @@ export function SequenceEditor({
 
   function addPoseItem(sectionUid: string, pose: PoseCatalogItem) {
     setSections((cur) =>
-      cur.map((s) => (s.uid === sectionUid ? { ...s, items: [...s.items, { uid: uid(), poseId: pose.id, customLabel: "", note: "" }] } : s))
+      cur.map((s) =>
+        s.uid === sectionUid
+          ? { ...s, items: [...s.items, { uid: uid(), poseId: pose.id, customLabel: "", note: "", reps: null, holdValue: null, holdUnit: null }] }
+          : s
+      )
     );
   }
   function addCustomItem(sectionUid: string, label: string) {
     if (!label.trim()) return;
     setSections((cur) =>
-      cur.map((s) => (s.uid === sectionUid ? { ...s, items: [...s.items, { uid: uid(), poseId: null, customLabel: label.trim(), note: "" }] } : s))
+      cur.map((s) =>
+        s.uid === sectionUid
+          ? { ...s, items: [...s.items, { uid: uid(), poseId: null, customLabel: label.trim(), note: "", reps: null, holdValue: null, holdUnit: null }] }
+          : s
+      )
     );
   }
-  function setItemNote(sectionUid: string, itemUid: string, note: string) {
+  function updateItem(sectionUid: string, itemUid: string, patch: Partial<EditItem>) {
     setSections((cur) =>
-      cur.map((s) => (s.uid === sectionUid ? { ...s, items: s.items.map((it) => (it.uid === itemUid ? { ...it, note } : it)) } : s))
+      cur.map((s) => (s.uid === sectionUid ? { ...s, items: s.items.map((it) => (it.uid === itemUid ? { ...it, ...patch } : it)) } : s))
     );
   }
   function removeItem(sectionUid: string, itemUid: string) {
@@ -178,6 +240,7 @@ export function SequenceEditor({
           items: s.items.map((it) => ({
             text: it.poseId ? poseById[it.poseId]?.name ?? "?" : it.customLabel,
             note: it.note,
+            meta: formatItemMeta(it.reps, it.holdValue, it.holdUnit),
             imageUrl: it.poseId ? poseById[it.poseId]?.imageUrl ?? null : null,
           })),
         })),
@@ -199,7 +262,15 @@ export function SequenceEditor({
           label: s.label,
           enabled: s.enabled,
           position: sIdx,
-          items: s.items.map((it, iIdx) => ({ poseId: it.poseId, customLabel: it.customLabel, note: it.note, position: iIdx })),
+          items: s.items.map((it, iIdx) => ({
+            poseId: it.poseId,
+            customLabel: it.customLabel,
+            note: it.note,
+            position: iIdx,
+            reps: it.reps,
+            holdValue: it.holdValue,
+            holdUnit: it.holdUnit,
+          })),
         })),
       });
       onSaved(saved);
@@ -283,34 +354,48 @@ export function SequenceEditor({
           Caricamento template…
         </div>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
-          <SortableContext items={sections.map((s) => s.uid)} strategy={verticalListSortingStrategy}>
-            <div className="flex flex-col gap-2.5 mb-3">
-              {sections.map((section) => (
-                <SectionEditor
-                  key={section.uid}
-                  section={section}
-                  poseCatalog={poseCatalog}
-                  categoryById={categoryById}
-                  poseById={poseById}
-                  onToggle={(v) => toggleSection(section.uid, v)}
-                  onRename={(v) => renameSection(section.uid, v)}
-                  onRemove={() => removeSection(section.uid)}
-                  onAddPose={(p) => addPoseItem(section.uid, p)}
-                  onAddCustom={(label) => addCustomItem(section.uid, label)}
-                  onSetNote={(itemUid, note) => setItemNote(section.uid, itemUid, note)}
-                  onRemoveItem={(itemUid) => removeItem(section.uid, itemUid)}
-                  onMoveItem={(activeUid, overUid) => moveItem(section.uid, activeUid, overUid)}
-                />
-              ))}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleOuterDragStart} onDragEnd={handleOuterDragEnd}>
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px] gap-4 mb-3">
+            <div>
+              <SortableContext items={sections.map((s) => s.uid)} strategy={verticalListSortingStrategy}>
+                <div className="flex flex-col gap-2.5">
+                  {sections.map((section) => (
+                    <SectionEditor
+                      key={section.uid}
+                      section={section}
+                      poseById={poseById}
+                      onToggle={(v) => toggleSection(section.uid, v)}
+                      onRename={(v) => renameSection(section.uid, v)}
+                      onRemove={() => removeSection(section.uid)}
+                      onAddCustom={(label) => addCustomItem(section.uid, label)}
+                      onUpdateItem={(itemUid, patch) => updateItem(section.uid, itemUid, patch)}
+                      onRemoveItem={(itemUid) => removeItem(section.uid, itemUid)}
+                      onMoveItem={(activeUid, overUid) => moveItem(section.uid, activeUid, overUid)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+              <button onClick={addCustomSection} className="flex items-center gap-1.5 text-xs font-semibold mt-2.5" style={{ color: COLORS.primaryDark }}>
+                <Plus size={13} /> Aggiungi sezione personalizzata
+              </button>
             </div>
-          </SortableContext>
+
+            <PosePalette poseCatalog={poseCatalog} poseCategories={poseCategories} />
+          </div>
+
+          <DragOverlay>
+            {activeDragPose && (
+              <div className="flex items-center gap-2 p-1.5 rounded-lg" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: "0 8px 20px rgba(0,0,0,0.18)" }}>
+                {activeDragPose.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={activeDragPose.imageUrl} alt="" width={30} height={30} style={{ borderRadius: 6, objectFit: "cover" }} />
+                )}
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{activeDragPose.name}</span>
+              </div>
+            )}
+          </DragOverlay>
         </DndContext>
       )}
-
-      <button onClick={addCustomSection} className="flex items-center gap-1.5 text-xs font-semibold mb-4" style={{ color: COLORS.primaryDark }}>
-        <Plus size={13} /> Aggiungi sezione personalizzata
-      </button>
 
       {error && (
         <div className="mb-3 flex items-center gap-1.5" style={{ fontSize: 12, color: COLORS.danger }}>
@@ -370,8 +455,13 @@ export function SequenceEditor({
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={it.imageUrl} alt="" width={32} height={32} style={{ borderRadius: 6, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
                           )}
-                          <div className="flex-1 flex items-center justify-between gap-2">
-                            <span style={{ fontFamily: "var(--font-display)" }}>{it.text}</span>
+                          <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
+                            <span style={{ fontFamily: "var(--font-display)" }}>
+                              {it.text}
+                              {it.meta && (
+                                <span style={{ fontFamily: "inherit", fontWeight: 600, color: COLORS.primaryDark, fontSize: 11.5 }}> · {it.meta}</span>
+                              )}
+                            </span>
                             {it.note && <span style={{ color: COLORS.inkSoft, fontSize: 12, textAlign: "right" }}>{it.note}</span>}
                           </div>
                         </div>
@@ -411,6 +501,7 @@ export function SequenceEditor({
                     #sequence-print-sheet .p-row { display: flex; align-items: center; gap: 12px; padding: 5px 0; border-bottom: 1px dashed #DCD3EC; break-inside: avoid; }
                     #sequence-print-sheet .p-thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: #DFD5EE; flex-shrink: 0; }
                     #sequence-print-sheet .p-text { display: flex; justify-content: space-between; gap: 14px; flex: 1; }
+                    #sequence-print-sheet .p-meta { color: #9C4FA0; font-weight: 600; font-size: 0.78rem; }
                     #sequence-print-sheet .p-note { color: #5C5470; font-size: 0.85rem; text-align: right; }
                   }
                 `}</style>
@@ -427,7 +518,9 @@ export function SequenceEditor({
                             <img className="p-thumb" src={it.imageUrl} alt="" />
                           )}
                           <div className="p-text">
-                            <span>{it.text}</span>
+                            <span>
+                              {it.text} {it.meta && <span className="p-meta">· {it.meta}</span>}
+                            </span>
                             {it.note && <span className="p-note">{it.note}</span>}
                           </div>
                         </div>
@@ -446,52 +539,41 @@ export function SequenceEditor({
 
 function SectionEditor({
   section,
-  poseCatalog,
-  categoryById,
   poseById,
   onToggle,
   onRename,
   onRemove,
-  onAddPose,
   onAddCustom,
-  onSetNote,
+  onUpdateItem,
   onRemoveItem,
   onMoveItem,
 }: {
   section: EditSection;
-  poseCatalog: PoseCatalogItem[];
-  categoryById: Record<string, PoseCategory>;
   poseById: Record<string, PoseCatalogItem>;
   onToggle: (v: boolean) => void;
   onRename: (v: string) => void;
   onRemove: () => void;
-  onAddPose: (pose: PoseCatalogItem) => void;
   onAddCustom: (label: string) => void;
-  onSetNote: (itemUid: string, note: string) => void;
+  onUpdateItem: (itemUid: string, patch: Partial<EditItem>) => void;
   onRemoveItem: (itemUid: string) => void;
   onMoveItem: (activeUid: string, overUid: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.uid });
-  const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState(true);
+  const [addingCustom, setAddingCustom] = useState(false);
+  const [customText, setCustomText] = useState("");
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `section-drop:${section.uid}` });
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-
-  const suggestions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    const macroFilter = section.kind === "pranayama" ? "pranayama" : "asana";
-    return poseCatalog
-      .filter((p) => p.macro === macroFilter)
-      .filter((p) => {
-        const category = p.categoryId ? categoryById[p.categoryId]?.name ?? "" : "";
-        return p.name.toLowerCase().includes(q) || category.toLowerCase().includes(q) || p.tags.some((t) => t.toLowerCase().includes(q));
-      })
-      .slice(0, 8);
-  }, [query, poseCatalog, categoryById, section.kind]);
 
   function handleItemDragEnd(e: DragEndEvent) {
     const { active, over } = e;
     if (over && active.id !== over.id) onMoveItem(String(active.id), String(over.id));
+  }
+  function submitCustom() {
+    if (!customText.trim()) return;
+    onAddCustom(customText);
+    setCustomText("");
+    setAddingCustom(false);
   }
 
   return (
@@ -526,81 +608,234 @@ function SectionEditor({
       </div>
 
       {expanded && section.enabled && (
-        <div className="px-2.5 pb-2.5">
+        <div ref={setDropRef} className="px-2.5 pb-2.5 rounded-b-xl" style={{ background: isOver ? withAlpha(COLORS.primary, 10) : "transparent" }}>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd}>
             <SortableContext items={section.items.map((it) => it.uid)} strategy={verticalListSortingStrategy}>
               <div className="flex flex-col gap-1.5 mb-2">
                 {section.items.map((item) => (
-                  <ItemRow key={item.uid} item={item} pose={item.poseId ? poseById[item.poseId] : undefined} onSetNote={(note) => onSetNote(item.uid, note)} onRemove={() => onRemoveItem(item.uid)} />
+                  <ItemRow
+                    key={item.uid}
+                    item={item}
+                    pose={item.poseId ? poseById[item.poseId] : undefined}
+                    onUpdate={(patch) => onUpdateItem(item.uid, patch)}
+                    onRemove={() => onRemoveItem(item.uid)}
+                  />
                 ))}
               </div>
             </SortableContext>
           </DndContext>
 
-          <div className="relative">
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cerca posizione per nome, categoria o tag…" style={{ ...inputStyle, fontSize: 12.5 }} />
-            {query.trim() && (
-              <div className="absolute left-0 right-0 mt-1 rounded-lg overflow-hidden z-10" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: "0 8px 20px rgba(0,0,0,0.12)" }}>
-                {suggestions.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      onAddPose(p);
-                      setQuery("");
-                    }}
-                    className="flex items-center gap-2 w-full text-left px-2.5 py-1.5"
-                    style={{ fontSize: 12.5 }}
-                  >
-                    {p.imageUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.imageUrl} alt="" width={24} height={24} style={{ borderRadius: 5, objectFit: "cover", flexShrink: 0 }} />
-                    )}
-                    <span>{p.name}</span>
-                    {p.categoryId && <span style={{ color: COLORS.inkSoft, fontSize: 11 }}>· {categoryById[p.categoryId]?.name}</span>}
-                  </button>
-                ))}
-                <button
-                  onClick={() => {
-                    onAddCustom(query);
-                    setQuery("");
-                  }}
-                  className="flex items-center gap-1.5 w-full text-left px-2.5 py-1.5"
-                  style={{ fontSize: 12, color: COLORS.primaryDark, borderTop: suggestions.length ? `1px solid ${COLORS.border}` : "none" }}
-                >
-                  <Plus size={12} /> Aggiungi &quot;{query}&quot; come voce libera
-                </button>
-              </div>
-            )}
-          </div>
+          {section.items.length === 0 && (
+            <div style={{ fontSize: 11.5, color: COLORS.inkSoft, textAlign: "center", padding: "14px 8px", border: `1px dashed ${COLORS.border}`, borderRadius: 10 }} className="mb-2">
+              Trascina qui una posizione dal catalogo a destra
+            </div>
+          )}
+
+          {addingCustom ? (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <input
+                value={customText}
+                onChange={(e) => setCustomText(e.target.value)}
+                placeholder="Nome voce libera"
+                style={{ ...inputStyle, fontSize: 12.5, flex: 1, minWidth: 120 }}
+                onKeyDown={(e) => e.key === "Enter" && submitCustom()}
+                autoFocus
+              />
+              <button onClick={submitCustom} className="text-xs font-semibold px-2.5 py-1.5 rounded-lg text-white" style={{ background: COLORS.primary }}>
+                Aggiungi
+              </button>
+              <button onClick={() => setAddingCustom(false)} className="text-xs px-1" style={{ color: COLORS.inkSoft }}>
+                Annulla
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setAddingCustom(true)} className="flex items-center gap-1 text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+              <Plus size={12} /> Voce libera (non a catalogo)
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function ItemRow({ item, pose, onSetNote, onRemove }: { item: EditItem; pose?: PoseCatalogItem; onSetNote: (note: string) => void; onRemove: () => void }) {
+function ItemRow({ item, pose, onUpdate, onRemove }: { item: EditItem; pose?: PoseCatalogItem; onUpdate: (patch: Partial<EditItem>) => void; onRemove: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.uid });
   const label = pose?.name || item.customLabel || "Voce senza nome";
   return (
     <div
       ref={setNodeRef}
-      className="flex items-center gap-2.5 p-2 rounded-xl"
+      className="p-2 rounded-xl"
       style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, opacity: isDragging ? 0.6 : 1, transform: CSS.Transform.toString(transform), transition }}
     >
-      <button {...attributes} {...listeners} className="cursor-grab flex items-center" style={{ color: COLORS.inkSoft, touchAction: "none" }} title="Trascina per riordinare">
-        <GripVertical size={14} />
-      </button>
-      {pose?.imageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={pose.imageUrl} alt={label} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
-      )}
-      <div className="flex-1 min-w-0">
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
-        <input value={item.note} onChange={(e) => onSetNote(e.target.value)} placeholder="nota (facoltativa)" style={{ ...inputStyle, padding: "4px 8px", fontSize: 12, marginTop: 2 }} />
+      <div className="flex items-center gap-2.5">
+        <button {...attributes} {...listeners} className="cursor-grab flex items-center" style={{ color: COLORS.inkSoft, touchAction: "none" }} title="Trascina per riordinare">
+          <GripVertical size={14} />
+        </button>
+        {pose?.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={pose.imageUrl} alt={label} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+        )}
+        <div className="flex-1 min-w-0">
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
+          <input value={item.note} onChange={(e) => onUpdate({ note: e.target.value })} placeholder="nota (facoltativa)" style={{ ...inputStyle, padding: "4px 8px", fontSize: 12, marginTop: 2 }} />
+        </div>
+        <button onClick={onRemove} title="Rimuovi" style={{ color: COLORS.inkSoft }}>
+          <X size={14} />
+        </button>
       </div>
-      <button onClick={onRemove} title="Rimuovi" style={{ color: COLORS.inkSoft }}>
-        <X size={14} />
-      </button>
+      <div className="flex items-center gap-2.5 mt-1.5 flex-wrap" style={{ paddingLeft: 22 }}>
+        <label className="flex items-center gap-1" style={{ fontSize: 11, color: COLORS.inkSoft }}>
+          ×
+          <input
+            type="number"
+            min={0}
+            value={item.reps ?? ""}
+            onChange={(e) => onUpdate({ reps: e.target.value === "" ? null : Number(e.target.value) })}
+            placeholder="ripetizioni"
+            style={{ ...inputStyle, width: 60, padding: "3px 6px", fontSize: 11.5 }}
+          />
+        </label>
+        <label className="flex items-center gap-1" style={{ fontSize: 11, color: COLORS.inkSoft }}>
+          per
+          <input
+            type="number"
+            min={0}
+            value={item.holdValue ?? ""}
+            onChange={(e) => onUpdate({ holdValue: e.target.value === "" ? null : Number(e.target.value) })}
+            placeholder="durata"
+            style={{ ...inputStyle, width: 60, padding: "3px 6px", fontSize: 11.5 }}
+          />
+          <select value={item.holdUnit ?? "seconds"} onChange={(e) => onUpdate({ holdUnit: e.target.value as HoldUnit })} style={{ ...inputStyle, padding: "3px 6px", fontSize: 11.5, width: "auto" }}>
+            <option value="seconds">secondi</option>
+            <option value="minutes">minuti</option>
+            <option value="breaths">respiri</option>
+          </select>
+        </label>
+      </div>
     </div>
+  );
+}
+
+function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalogItem[]; poseCategories: PoseCategory[] }) {
+  const [macro, setMacro] = useState<PoseMacro>("asana");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [query, setQuery] = useState("");
+
+  const categoriesForMacro = useMemo(() => poseCategories.filter((c) => c.macro === macro), [poseCategories, macro]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return poseCatalog
+      .filter((p) => p.macro === macro)
+      .filter((p) => categoryFilter === "all" || p.categoryId === categoryFilter)
+      .filter((p) => !q || p.name.toLowerCase().includes(q) || p.tags.some((t) => t.toLowerCase().includes(q)))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [poseCatalog, macro, categoryFilter, query]);
+
+  return (
+    <div
+      className="p-3.5 rounded-2xl lg:sticky lg:top-3 lg:max-h-[calc(100dvh-160px)] flex flex-col"
+      style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: `0 1px 2px ${withAlpha(COLORS.ink, 4)}` }}
+    >
+      <div className="flex items-center gap-1.5 mb-3">
+        <Sparkles size={14} style={{ color: COLORS.primaryDark }} />
+        <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.heading }}>Catalogo posizioni</div>
+      </div>
+
+      <div className="flex items-center gap-1 p-1 rounded-xl mb-2.5" style={{ background: COLORS.subtle }}>
+        <button
+          onClick={() => {
+            setMacro("asana");
+            setCategoryFilter("all");
+          }}
+          className="flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition"
+          style={{ background: macro === "asana" ? COLORS.primary : "transparent", color: macro === "asana" ? "#fff" : COLORS.inkSoft }}
+        >
+          Asana
+        </button>
+        <button
+          onClick={() => {
+            setMacro("pranayama");
+            setCategoryFilter("all");
+          }}
+          className="flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition"
+          style={{ background: macro === "pranayama" ? COLORS.primary : "transparent", color: macro === "pranayama" ? "#fff" : COLORS.inkSoft }}
+        >
+          Pranayama
+        </button>
+      </div>
+
+      <div className="relative mb-2.5">
+        <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: COLORS.inkSoft }} />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cerca per nome o tag…" style={{ ...inputStyle, fontSize: 12.5, paddingLeft: 28 }} />
+      </div>
+
+      <div className="flex items-center gap-1 flex-wrap mb-3">
+        <button
+          onClick={() => setCategoryFilter("all")}
+          className="px-2.5 py-1 rounded-full font-medium transition"
+          style={{ fontSize: 11, background: categoryFilter === "all" ? COLORS.primaryDark : COLORS.subtle, color: categoryFilter === "all" ? "#fff" : COLORS.inkSoft }}
+        >
+          Tutte
+        </button>
+        {categoriesForMacro.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setCategoryFilter(c.id)}
+            className="px-2.5 py-1 rounded-full font-medium transition"
+            style={{ fontSize: 11, background: categoryFilter === c.id ? COLORS.primaryDark : COLORS.subtle, color: categoryFilter === c.id ? "#fff" : COLORS.inkSoft }}
+          >
+            {c.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="overflow-y-auto overflow-x-hidden lg:flex-1" style={{ minHeight: 0, maxHeight: "min(60vh, 420px)" }}>
+        <div className="flex flex-col gap-1 pr-0.5">
+          {filtered.map((p) => (
+            <PaletteThumb key={p.id} pose={p} />
+          ))}
+        </div>
+        {filtered.length === 0 && (
+          <div style={{ fontSize: 11.5, color: COLORS.inkSoft }} className="text-center py-6">
+            Nessuna posizione trovata.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PaletteThumb({ pose }: { pose: PoseCatalogItem }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `palette:${pose.id}`, data: { type: "palette", pose } });
+  return (
+    <button
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      title={pose.name}
+      className="flex items-center gap-2.5 p-1.5 rounded-xl cursor-grab text-left transition min-w-0"
+      style={{
+        background: isDragging ? withAlpha(COLORS.primary, 10) : COLORS.bg,
+        border: `1px solid ${isDragging ? COLORS.primary : COLORS.border}`,
+        opacity: isDragging ? 0.5 : 1,
+        touchAction: "none",
+      }}
+      onMouseEnter={(e) => {
+        if (!isDragging) e.currentTarget.style.background = withAlpha(COLORS.primary, 7);
+      }}
+      onMouseLeave={(e) => {
+        if (!isDragging) e.currentTarget.style.background = COLORS.bg;
+      }}
+    >
+      {pose.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={pose.imageUrl} alt="" width={32} height={32} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+      ) : (
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
+      )}
+      <span style={{ fontSize: 12, lineHeight: 1.3, color: COLORS.ink, overflowWrap: "anywhere", minWidth: 0 }}>{pose.name}</span>
+    </button>
   );
 }
