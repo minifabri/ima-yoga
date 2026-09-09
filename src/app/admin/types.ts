@@ -243,6 +243,7 @@ export type HoldUnit = "seconds" | "minutes" | "breaths";
 export type SequenceItem = {
   id: string;
   sectionId: string;
+  blockId: string | null;
   poseId: string | null;
   customLabel: string;
   note: string;
@@ -250,6 +251,17 @@ export type SequenceItem = {
   reps: number | null;
   holdValue: number | null;
   holdUnit: HoldUnit | null;
+};
+
+// Un blocco raggruppa alcune posizioni consecutive di una sezione per
+// ripeterle insieme un certo numero di volte (es. "ripeti x3" un gruppetto
+// di asana di preparazione) — solo ripetizioni, nessuna durata: la durata
+// resta una proprietà della singola posizione.
+export type SequenceItemBlock = {
+  id: string;
+  sectionId: string;
+  reps: number | null;
+  position: number;
 };
 
 export type SequenceSection = {
@@ -260,6 +272,7 @@ export type SequenceSection = {
   position: number;
   enabled: boolean;
   items: SequenceItem[];
+  blocks: SequenceItemBlock[];
 };
 
 export type Sequence = {

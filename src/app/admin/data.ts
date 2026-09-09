@@ -1078,6 +1078,7 @@ type SequenceRow = {
     sequence_items: {
       id: string;
       section_id: string;
+      block_id: string | null;
       pose_id: string | null;
       custom_label: string | null;
       note: string | null;
@@ -1085,6 +1086,12 @@ type SequenceRow = {
       reps: number | null;
       hold_value: number | null;
       hold_unit: HoldUnit | null;
+    }[];
+    sequence_item_blocks: {
+      id: string;
+      section_id: string;
+      reps: number | null;
+      position: number;
     }[];
   }[];
 };
@@ -1114,6 +1121,7 @@ function mapSequence(row: SequenceRow): Sequence {
           .map((it) => ({
             id: it.id,
             sectionId: it.section_id,
+            blockId: it.block_id,
             poseId: it.pose_id,
             customLabel: it.custom_label || "",
             note: it.note || "",
@@ -1122,11 +1130,15 @@ function mapSequence(row: SequenceRow): Sequence {
             holdValue: it.hold_value,
             holdUnit: it.hold_unit,
           })),
+        blocks: (s.sequence_item_blocks || [])
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .map((b) => ({ id: b.id, sectionId: b.section_id, reps: b.reps, position: b.position })),
       })),
   };
 }
 
-const SEQUENCE_SELECT = "*, sequence_sections(*, sequence_items(*))";
+const SEQUENCE_SELECT = "*, sequence_sections(*, sequence_items(*), sequence_item_blocks(*))";
 
 export async function fetchSequences(supabase: DB): Promise<Sequence[]> {
   const { data, error } = await supabase.from("sequences").select(SEQUENCE_SELECT).order("updated_at", { ascending: false });
@@ -1156,7 +1168,9 @@ export async function saveSequence(
       label: string;
       position: number;
       enabled: boolean;
+      blocks: { tempId: string; reps: number | null; position: number }[];
       items: {
+        blockTempId: string | null;
         poseId: string | null;
         customLabel: string;
         note: string;
@@ -1193,10 +1207,23 @@ export async function saveSequence(
       .select()
       .single();
     if (sectionError) throw sectionError;
+
+    const blockIdByTemp = new Map<string, string>();
+    for (const b of section.blocks) {
+      const { data: blockRow, error: blockError } = await supabase
+        .from("sequence_item_blocks")
+        .insert({ section_id: sectionRow.id, reps: b.reps, position: b.position })
+        .select()
+        .single();
+      if (blockError) throw blockError;
+      blockIdByTemp.set(b.tempId, blockRow.id);
+    }
+
     if (section.items.length > 0) {
       const { error: itemsError } = await supabase.from("sequence_items").insert(
         section.items.map((it) => ({
           section_id: sectionRow.id,
+          block_id: it.blockTempId ? (blockIdByTemp.get(it.blockTempId) ?? null) : null,
           pose_id: it.poseId,
           custom_label: it.customLabel || null,
           note: it.note || "",

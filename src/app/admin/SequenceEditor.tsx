@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, Check, GripVertical, Plus, Printer, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, ChevronUp, GripVertical, Plus, Printer, Repeat, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -32,33 +32,45 @@ type EditItem = {
   holdValue: number | null;
   holdUnit: HoldUnit | null;
 };
-type EditSection = { uid: string; kind: SectionKind; label: string; enabled: boolean; items: EditItem[] };
+type EditBlock = { uid: string; reps: number | null; items: EditItem[] };
+type EditRow = { uid: string; kind: "item"; item: EditItem } | { uid: string; kind: "block"; block: EditBlock };
+type EditSection = { uid: string; kind: SectionKind; label: string; enabled: boolean; rows: EditRow[] };
 
 function uid(): string {
   return typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function editItemFrom(it: { poseId: string | null; customLabel: string; note: string; reps: number | null; holdValue: number | null; holdUnit: HoldUnit | null }): EditItem {
+  return { uid: uid(), poseId: it.poseId, customLabel: it.customLabel, note: it.note, reps: it.reps, holdValue: it.holdValue, holdUnit: it.holdUnit };
+}
+
 function sectionsFromSequence(sequence: Sequence): EditSection[] {
-  return sequence.sections.map((s) => ({
-    uid: uid(),
-    kind: s.kind,
-    label: s.label,
-    enabled: s.enabled,
-    items: s.items.map((it) => ({
-      uid: uid(),
-      poseId: it.poseId,
-      customLabel: it.customLabel,
-      note: it.note,
-      reps: it.reps,
-      holdValue: it.holdValue,
-      holdUnit: it.holdUnit,
-    })),
-  }));
+  return sequence.sections.map((s) => {
+    const blocksByDbId = new Map<string, EditBlock>();
+    s.blocks.forEach((b) => blocksByDbId.set(b.id, { uid: uid(), reps: b.reps, items: [] }));
+
+    const positional: { position: number; row: EditRow }[] = [];
+    s.blocks.forEach((b) => {
+      const block = blocksByDbId.get(b.id)!;
+      positional.push({ position: b.position, row: { uid: block.uid, kind: "block", block } });
+    });
+    s.items.forEach((it) => {
+      const editItem = editItemFrom(it);
+      if (it.blockId && blocksByDbId.has(it.blockId)) {
+        blocksByDbId.get(it.blockId)!.items.push(editItem);
+      } else {
+        positional.push({ position: it.position, row: { uid: editItem.uid, kind: "item", item: editItem } });
+      }
+    });
+    positional.sort((a, b) => a.position - b.position);
+
+    return { uid: uid(), kind: s.kind, label: s.label, enabled: s.enabled, rows: positional.map((p) => p.row) };
+  });
 }
 
 function sectionsFromTemplate(template: { sections: { kind: SectionKind; label: string; enabled: boolean }[] } | null): EditSection[] {
   if (!template) return [];
-  return template.sections.map((s) => ({ uid: uid(), kind: s.kind, label: s.label, enabled: s.enabled, items: [] }));
+  return template.sections.map((s) => ({ uid: uid(), kind: s.kind, label: s.label, enabled: s.enabled, rows: [] }));
 }
 
 function formatItemMeta(reps: number | null, holdValue: number | null, holdUnit: HoldUnit | null): string {
@@ -71,16 +83,38 @@ function formatItemMeta(reps: number | null, holdValue: number | null, holdUnit:
   return parts.join(" · ");
 }
 
-function buildSheetText(sections: { label: string; items: { text: string; meta: string; note: string }[] }[], personLabel: string) {
+type SheetItem = { text: string; meta: string; note: string; imageUrl: string | null };
+type SheetRow = { kind: "item"; item: SheetItem } | { kind: "block"; reps: number | null; items: SheetItem[] };
+
+function toSheetItem(it: EditItem, poseById: Record<string, PoseCatalogItem>): SheetItem {
+  return {
+    text: it.poseId ? (poseById[it.poseId]?.name ?? "?") : it.customLabel,
+    note: it.note,
+    meta: formatItemMeta(it.reps, it.holdValue, it.holdUnit),
+    imageUrl: it.poseId ? (poseById[it.poseId]?.imageUrl ?? null) : null,
+  };
+}
+
+function buildSheetText(sections: { label: string; rows: SheetRow[] }[], personLabel: string) {
   const lines = [personLabel ? `Sequenza per ${personLabel}` : "Sequenza"];
   sections.forEach((s) => {
-    if (s.items.length === 0) return;
+    const hasContent = s.rows.some((r) => (r.kind === "item" ? true : r.items.length > 0));
+    if (!hasContent) return;
     lines.push("");
     lines.push(s.label.toUpperCase());
-    s.items.forEach((it) => {
-      const meta = it.meta ? ` [${it.meta}]` : "";
-      const note = it.note ? `  (${it.note})` : "";
-      lines.push(`- ${it.text}${meta}${note}`);
+    s.rows.forEach((r) => {
+      if (r.kind === "item") {
+        const meta = r.item.meta ? ` [${r.item.meta}]` : "";
+        const note = r.item.note ? `  (${r.item.note})` : "";
+        lines.push(`- ${r.item.text}${meta}${note}`);
+      } else if (r.items.length > 0) {
+        lines.push(`  Ripeti ×${r.reps ?? "?"}:`);
+        r.items.forEach((it) => {
+          const meta = it.meta ? ` [${it.meta}]` : "";
+          const note = it.note ? `  (${it.note})` : "";
+          lines.push(`  - ${it.text}${meta}${note}`);
+        });
+      }
     });
   });
   return lines.join("\n");
@@ -119,6 +153,8 @@ export function SequenceEditor({
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
   const [activeDragPose, setActiveDragPose] = useState<PoseCatalogItem | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<{ sectionUid: string; blockUid: string | null } | null>(null);
 
   const poseById = useMemo(() => Object.fromEntries(poseCatalog.map((p) => [p.id, p])), [poseCatalog]);
 
@@ -127,6 +163,16 @@ export function SequenceEditor({
     // render) perché `navigator` non esiste durante il render lato server.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
+
+  useEffect(() => {
+    // Sotto la stessa soglia "lg" usata per il layout a due colonne: sotto,
+    // niente drag-and-drop (inaffidabile su touch), si passa a tocco+frecce.
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
   }, []);
 
   useEffect(() => {
@@ -156,7 +202,7 @@ export function SequenceEditor({
 
   function handleOuterDragStart(e: DragStartEvent) {
     const data = e.active.data.current as { type?: string; pose?: PoseCatalogItem } | undefined;
-    setActiveDragPose(data?.type === "palette" ? data.pose ?? null : null);
+    setActiveDragPose(data?.type === "palette" ? (data.pose ?? null) : null);
   }
 
   function handleOuterDragEnd(e: DragEndEvent) {
@@ -166,7 +212,12 @@ export function SequenceEditor({
     const activeData = active.data.current as { type?: string; pose?: PoseCatalogItem } | undefined;
     if (activeData?.type === "palette" && activeData.pose) {
       const overId = String(over.id);
-      if (overId.startsWith("section-drop:")) addPoseItem(overId.slice("section-drop:".length), activeData.pose);
+      if (overId.startsWith("block-drop:")) {
+        const [, sUid, bUid] = overId.split(":");
+        addPoseItem(sUid, bUid, activeData.pose);
+      } else if (overId.startsWith("section-drop:")) {
+        addPoseItem(overId.slice("section-drop:".length), null, activeData.pose);
+      }
       return;
     }
     if (active.id === over.id) return;
@@ -177,13 +228,38 @@ export function SequenceEditor({
     });
   }
 
-  function moveItem(sectionUid: string, activeUid: string, overUid: string) {
+  function moveRow(sectionUid: string, activeUid: string, overUid: string) {
     setSections((cur) =>
       cur.map((s) => {
         if (s.uid !== sectionUid) return s;
-        const from = s.items.findIndex((it) => it.uid === activeUid);
-        const to = s.items.findIndex((it) => it.uid === overUid);
-        return from < 0 || to < 0 ? s : { ...s, items: arrayMove(s.items, from, to) };
+        const from = s.rows.findIndex((r) => r.uid === activeUid);
+        const to = s.rows.findIndex((r) => r.uid === overUid);
+        return from < 0 || to < 0 ? s : { ...s, rows: arrayMove(s.rows, from, to) };
+      })
+    );
+  }
+  function moveRowByIndex(sectionUid: string, idx: number, delta: number) {
+    setSections((cur) =>
+      cur.map((s) => {
+        if (s.uid !== sectionUid) return s;
+        const to = idx + delta;
+        return to < 0 || to >= s.rows.length ? s : { ...s, rows: arrayMove(s.rows, idx, to) };
+      })
+    );
+  }
+  function moveItemInBlockByIndex(sectionUid: string, blockUid: string, idx: number, delta: number) {
+    setSections((cur) =>
+      cur.map((s) => {
+        if (s.uid !== sectionUid) return s;
+        return {
+          ...s,
+          rows: s.rows.map((r) => {
+            if (r.kind !== "block" || r.block.uid !== blockUid) return r;
+            const to = idx + delta;
+            if (to < 0 || to >= r.block.items.length) return r;
+            return { ...r, block: { ...r.block, items: arrayMove(r.block.items, idx, to) } };
+          }),
+        };
       })
     );
   }
@@ -198,38 +274,82 @@ export function SequenceEditor({
     setSections((cur) => cur.filter((s) => s.uid !== sectionUid));
   }
   function addCustomSection() {
-    setSections((cur) => [...cur, { uid: uid(), kind: "custom", label: "Nuova sezione", enabled: true, items: [] }]);
+    setSections((cur) => [...cur, { uid: uid(), kind: "custom", label: "Nuova sezione", enabled: true, rows: [] }]);
+  }
+  function moveSectionByIndex(idx: number, delta: number) {
+    setSections((cur) => {
+      const to = idx + delta;
+      return to < 0 || to >= cur.length ? cur : arrayMove(cur, idx, to);
+    });
   }
 
-  function addPoseItem(sectionUid: string, pose: PoseCatalogItem) {
+  function addPoseItem(sectionUid: string, blockUid: string | null, pose: PoseCatalogItem) {
+    const newItem = editItemFrom({ poseId: pose.id, customLabel: "", note: "", reps: null, holdValue: null, holdUnit: null });
     setSections((cur) =>
-      cur.map((s) =>
-        s.uid === sectionUid
-          ? { ...s, items: [...s.items, { uid: uid(), poseId: pose.id, customLabel: "", note: "", reps: null, holdValue: null, holdUnit: null }] }
-          : s
-      )
+      cur.map((s) => {
+        if (s.uid !== sectionUid) return s;
+        if (blockUid === null) return { ...s, rows: [...s.rows, { uid: newItem.uid, kind: "item", item: newItem }] };
+        return { ...s, rows: s.rows.map((r) => (r.kind === "block" && r.block.uid === blockUid ? { ...r, block: { ...r.block, items: [...r.block.items, newItem] } } : r)) };
+      })
     );
   }
-  function addCustomItem(sectionUid: string, label: string) {
+  function addCustomItem(sectionUid: string, blockUid: string | null, label: string) {
     if (!label.trim()) return;
+    const newItem = editItemFrom({ poseId: null, customLabel: label.trim(), note: "", reps: null, holdValue: null, holdUnit: null });
     setSections((cur) =>
-      cur.map((s) =>
-        s.uid === sectionUid
-          ? { ...s, items: [...s.items, { uid: uid(), poseId: null, customLabel: label.trim(), note: "", reps: null, holdValue: null, holdUnit: null }] }
-          : s
-      )
+      cur.map((s) => {
+        if (s.uid !== sectionUid) return s;
+        if (blockUid === null) return { ...s, rows: [...s.rows, { uid: newItem.uid, kind: "item", item: newItem }] };
+        return { ...s, rows: s.rows.map((r) => (r.kind === "block" && r.block.uid === blockUid ? { ...r, block: { ...r.block, items: [...r.block.items, newItem] } } : r)) };
+      })
     );
   }
-  function updateItem(sectionUid: string, itemUid: string, patch: Partial<EditItem>) {
+  function updateItem(sectionUid: string, blockUid: string | null, itemUid: string, patch: Partial<EditItem>) {
     setSections((cur) =>
-      cur.map((s) => (s.uid === sectionUid ? { ...s, items: s.items.map((it) => (it.uid === itemUid ? { ...it, ...patch } : it)) } : s))
+      cur.map((s) => {
+        if (s.uid !== sectionUid) return s;
+        if (blockUid === null) return { ...s, rows: s.rows.map((r) => (r.kind === "item" && r.item.uid === itemUid ? { ...r, item: { ...r.item, ...patch } } : r)) };
+        return {
+          ...s,
+          rows: s.rows.map((r) =>
+            r.kind === "block" && r.block.uid === blockUid
+              ? { ...r, block: { ...r.block, items: r.block.items.map((it) => (it.uid === itemUid ? { ...it, ...patch } : it)) } }
+              : r
+          ),
+        };
+      })
     );
   }
-  function removeItem(sectionUid: string, itemUid: string) {
-    setSections((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, items: s.items.filter((it) => it.uid !== itemUid) } : s)));
+  function removeItem(sectionUid: string, blockUid: string | null, itemUid: string) {
+    setSections((cur) =>
+      cur.map((s) => {
+        if (s.uid !== sectionUid) return s;
+        if (blockUid === null) return { ...s, rows: s.rows.filter((r) => !(r.kind === "item" && r.item.uid === itemUid)) };
+        return {
+          ...s,
+          rows: s.rows.map((r) => (r.kind === "block" && r.block.uid === blockUid ? { ...r, block: { ...r.block, items: r.block.items.filter((it) => it.uid !== itemUid) } } : r)),
+        };
+      })
+    );
   }
 
-  const totalActive = sections.reduce((sum, s) => (s.enabled ? sum + s.items.length : sum), 0);
+  function addBlock(sectionUid: string) {
+    const blockUid = uid();
+    setSections((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, rows: [...s.rows, { uid: blockUid, kind: "block", block: { uid: blockUid, reps: 3, items: [] } }] } : s)));
+  }
+  function removeBlock(sectionUid: string, blockUid: string) {
+    setSections((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, rows: s.rows.filter((r) => r.uid !== blockUid) } : s)));
+  }
+  function updateBlockReps(sectionUid: string, blockUid: string, reps: number | null) {
+    setSections((cur) =>
+      cur.map((s) => (s.uid === sectionUid ? { ...s, rows: s.rows.map((r) => (r.kind === "block" && r.block.uid === blockUid ? { ...r, block: { ...r.block, reps } } : r)) } : s))
+    );
+  }
+
+  const totalActive = sections.reduce((sum, s) => {
+    if (!s.enabled) return sum;
+    return sum + s.rows.reduce((rSum, r) => rSum + (r.kind === "item" ? 1 : r.block.items.length), 0);
+  }, 0);
 
   const sheetSections = useMemo(
     () =>
@@ -237,12 +357,12 @@ export function SequenceEditor({
         .filter((s) => s.enabled)
         .map((s) => ({
           label: s.label,
-          items: s.items.map((it) => ({
-            text: it.poseId ? poseById[it.poseId]?.name ?? "?" : it.customLabel,
-            note: it.note,
-            meta: formatItemMeta(it.reps, it.holdValue, it.holdUnit),
-            imageUrl: it.poseId ? poseById[it.poseId]?.imageUrl ?? null : null,
-          })),
+          rows: s.rows.map(
+            (r): SheetRow =>
+              r.kind === "item"
+                ? { kind: "item", item: toSheetItem(r.item, poseById) }
+                : { kind: "block", reps: r.block.reps, items: r.block.items.map((it) => toSheetItem(it, poseById)) }
+          ),
         })),
     [sections, poseById]
   );
@@ -257,21 +377,48 @@ export function SequenceEditor({
         clientId,
         guestName: clientId ? "" : guestName.trim(),
         name: name.trim() || "Sequenza senza nome",
-        sections: sections.map((s, sIdx) => ({
-          kind: s.kind,
-          label: s.label,
-          enabled: s.enabled,
-          position: sIdx,
-          items: s.items.map((it, iIdx) => ({
-            poseId: it.poseId,
-            customLabel: it.customLabel,
-            note: it.note,
-            position: iIdx,
-            reps: it.reps,
-            holdValue: it.holdValue,
-            holdUnit: it.holdUnit,
-          })),
-        })),
+        sections: sections.map((s, sIdx) => {
+          const blocks: { tempId: string; reps: number | null; position: number }[] = [];
+          const items: {
+            blockTempId: string | null;
+            poseId: string | null;
+            customLabel: string;
+            note: string;
+            position: number;
+            reps: number | null;
+            holdValue: number | null;
+            holdUnit: HoldUnit | null;
+          }[] = [];
+          s.rows.forEach((row, rowIdx) => {
+            if (row.kind === "item") {
+              items.push({
+                blockTempId: null,
+                poseId: row.item.poseId,
+                customLabel: row.item.customLabel,
+                note: row.item.note,
+                position: rowIdx,
+                reps: row.item.reps,
+                holdValue: row.item.holdValue,
+                holdUnit: row.item.holdUnit,
+              });
+            } else {
+              blocks.push({ tempId: row.block.uid, reps: row.block.reps, position: rowIdx });
+              row.block.items.forEach((it, itemIdx) => {
+                items.push({
+                  blockTempId: row.block.uid,
+                  poseId: it.poseId,
+                  customLabel: it.customLabel,
+                  note: it.note,
+                  position: itemIdx,
+                  reps: it.reps,
+                  holdValue: it.holdValue,
+                  holdUnit: it.holdUnit,
+                });
+              });
+            }
+          });
+          return { kind: s.kind, label: s.label, enabled: s.enabled, position: sIdx, blocks, items };
+        }),
       });
       onSaved(saved);
     } catch {
@@ -353,6 +500,35 @@ export function SequenceEditor({
         <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="py-6 text-center">
           Caricamento template…
         </div>
+      ) : isMobile ? (
+        <div className="flex flex-col gap-2.5 mb-3">
+          {sections.map((section, idx) => (
+            <MobileSectionCard
+              key={section.uid}
+              section={section}
+              poseById={poseById}
+              isFirst={idx === 0}
+              isLast={idx === sections.length - 1}
+              onMoveUp={() => moveSectionByIndex(idx, -1)}
+              onMoveDown={() => moveSectionByIndex(idx, 1)}
+              onToggle={(v) => toggleSection(section.uid, v)}
+              onRename={(v) => renameSection(section.uid, v)}
+              onRemove={() => removeSection(section.uid)}
+              onAddCustomItem={(blockUid, label) => addCustomItem(section.uid, blockUid, label)}
+              onUpdateItem={(blockUid, itemUid, patch) => updateItem(section.uid, blockUid, itemUid, patch)}
+              onRemoveItem={(blockUid, itemUid) => removeItem(section.uid, blockUid, itemUid)}
+              onMoveRow={(rowIdx, delta) => moveRowByIndex(section.uid, rowIdx, delta)}
+              onMoveItemInBlock={(blockUid, itemIdx, delta) => moveItemInBlockByIndex(section.uid, blockUid, itemIdx, delta)}
+              onAddBlock={() => addBlock(section.uid)}
+              onRemoveBlock={(blockUid) => removeBlock(section.uid, blockUid)}
+              onUpdateBlockReps={(blockUid, reps) => updateBlockReps(section.uid, blockUid, reps)}
+              onOpenPicker={(blockUid) => setPickerTarget({ sectionUid: section.uid, blockUid })}
+            />
+          ))}
+          <button onClick={addCustomSection} className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: COLORS.primaryDark }}>
+            <Plus size={13} /> Aggiungi sezione personalizzata
+          </button>
+        </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleOuterDragStart} onDragEnd={handleOuterDragEnd}>
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px] gap-4 mb-3">
@@ -367,10 +543,15 @@ export function SequenceEditor({
                       onToggle={(v) => toggleSection(section.uid, v)}
                       onRename={(v) => renameSection(section.uid, v)}
                       onRemove={() => removeSection(section.uid)}
-                      onAddCustom={(label) => addCustomItem(section.uid, label)}
-                      onUpdateItem={(itemUid, patch) => updateItem(section.uid, itemUid, patch)}
-                      onRemoveItem={(itemUid) => removeItem(section.uid, itemUid)}
-                      onMoveItem={(activeUid, overUid) => moveItem(section.uid, activeUid, overUid)}
+                      onAddCustomItem={(blockUid, label) => addCustomItem(section.uid, blockUid, label)}
+                      onUpdateItem={(blockUid, itemUid, patch) => updateItem(section.uid, blockUid, itemUid, patch)}
+                      onRemoveItem={(blockUid, itemUid) => removeItem(section.uid, blockUid, itemUid)}
+                      onMoveRow={(activeUid, overUid) => moveRow(section.uid, activeUid, overUid)}
+                      onMoveItemInBlock={(blockUid, itemIdx, delta) => moveItemInBlockByIndex(section.uid, blockUid, itemIdx, delta)}
+                      onAddBlock={() => addBlock(section.uid)}
+                      onRemoveBlock={(blockUid) => removeBlock(section.uid, blockUid)}
+                      onUpdateBlockReps={(blockUid, reps) => updateBlockReps(section.uid, blockUid, reps)}
+                      onOpenPicker={(blockUid) => setPickerTarget({ sectionUid: section.uid, blockUid })}
                     />
                   ))}
                 </div>
@@ -395,6 +576,18 @@ export function SequenceEditor({
             )}
           </DragOverlay>
         </DndContext>
+      )}
+
+      {pickerTarget && (
+        <PosePickerSheet
+          poseCatalog={poseCatalog}
+          poseCategories={poseCategories}
+          onClose={() => setPickerTarget(null)}
+          onPick={(pose) => {
+            addPoseItem(pickerTarget.sectionUid, pickerTarget.blockUid, pose);
+            setPickerTarget(null);
+          }}
+        />
       )}
 
       {error && (
@@ -442,34 +635,35 @@ export function SequenceEditor({
             {totalActive === 0 ? (
               <div style={{ fontSize: 13, color: COLORS.inkSoft }}>Nessuna posizione attiva: aggiungi almeno un elemento alla sequenza.</div>
             ) : (
-              sheetSections.map((s, idx) =>
-                s.items.length === 0 ? null : (
+              sheetSections.map((s, idx) => {
+                const hasContent = s.rows.some((r) => (r.kind === "item" ? true : r.items.length > 0));
+                if (!hasContent) return null;
+                return (
                   <div key={idx} className="mb-4">
                     <div style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.primaryDark, textTransform: "uppercase", letterSpacing: 0.3 }} className="mb-1.5">
                       {s.label}
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      {s.items.map((it, i2) => (
-                        <div key={i2} className="flex items-center gap-2.5" style={{ fontSize: 13, borderBottom: `1px dashed ${COLORS.border}`, paddingBottom: 6 }}>
-                          {it.imageUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={it.imageUrl} alt="" width={32} height={32} style={{ borderRadius: 6, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
-                          )}
-                          <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
-                            <span style={{ fontFamily: "var(--font-display)" }}>
-                              {it.text}
-                              {it.meta && (
-                                <span style={{ fontFamily: "inherit", fontWeight: 600, color: COLORS.primaryDark, fontSize: 11.5 }}> · {it.meta}</span>
-                              )}
-                            </span>
-                            {it.note && <span style={{ color: COLORS.inkSoft, fontSize: 12, textAlign: "right" }}>{it.note}</span>}
+                      {s.rows.map((r, rIdx) =>
+                        r.kind === "item" ? (
+                          <SheetItemRow key={rIdx} item={r.item} />
+                        ) : r.items.length === 0 ? null : (
+                          <div key={rIdx} className="pl-2.5" style={{ borderLeft: `2px solid ${withAlpha(COLORS.gold, 50)}` }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.primaryDark }} className="mb-1.5 flex items-center gap-1">
+                              <Repeat size={11} /> Ripeti ×{r.reps ?? "?"}
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                              {r.items.map((it, i2) => (
+                                <SheetItemRow key={i2} item={it} />
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      )}
                     </div>
                   </div>
-                )
-              )
+                );
+              })
             )}
 
             <div className="flex items-center gap-2 mt-4 flex-wrap">
@@ -498,6 +692,8 @@ export function SequenceEditor({
                     #sequence-print-sheet h1 { font-family: 'Fraunces', serif; font-size: 1.4rem; margin: 0 0 4px; }
                     #sequence-print-sheet .p-sub { color: #5C5470; font-size: 0.85rem; margin: 0 0 18px; }
                     #sequence-print-sheet .p-section-title { font-size: 0.78rem; font-weight: 600; color: #9C4FA0; margin: 20px 0 6px; text-transform: uppercase; }
+                    #sequence-print-sheet .p-block { padding-left: 10px; border-left: 2px solid #E4C77A; margin: 6px 0; }
+                    #sequence-print-sheet .p-block-title { font-size: 0.72rem; font-weight: 700; color: #9C4FA0; margin-bottom: 4px; }
                     #sequence-print-sheet .p-row { display: flex; align-items: center; gap: 12px; padding: 5px 0; border-bottom: 1px dashed #DCD3EC; break-inside: avoid; }
                     #sequence-print-sheet .p-thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: #DFD5EE; flex-shrink: 0; }
                     #sequence-print-sheet .p-text { display: flex; justify-content: space-between; gap: 14px; flex: 1; }
@@ -507,31 +703,129 @@ export function SequenceEditor({
                 `}</style>
                 <h1>{personLabel ? `Sequenza per ${personLabel}` : "Sequenza"}</h1>
                 <p className="p-sub">{new Date().toLocaleDateString("it-IT")}</p>
-                {sheetSections.map((s, idx) =>
-                  s.items.length === 0 ? null : (
+                {sheetSections.map((s, idx) => {
+                  const hasContent = s.rows.some((r) => (r.kind === "item" ? true : r.items.length > 0));
+                  if (!hasContent) return null;
+                  return (
                     <div key={idx}>
                       <div className="p-section-title">{s.label}</div>
-                      {s.items.map((it, i2) => (
-                        <div key={i2} className="p-row">
-                          {it.imageUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img className="p-thumb" src={it.imageUrl} alt="" />
-                          )}
-                          <div className="p-text">
-                            <span>
-                              {it.text} {it.meta && <span className="p-meta">· {it.meta}</span>}
-                            </span>
-                            {it.note && <span className="p-note">{it.note}</span>}
+                      {s.rows.map((r, rIdx) =>
+                        r.kind === "item" ? (
+                          <SheetItemPrintRow key={rIdx} item={r.item} />
+                        ) : r.items.length === 0 ? null : (
+                          <div key={rIdx} className="p-block">
+                            <div className="p-block-title">Ripeti ×{r.reps ?? "?"}</div>
+                            {r.items.map((it, i2) => (
+                              <SheetItemPrintRow key={i2} item={it} />
+                            ))}
                           </div>
-                        </div>
-                      ))}
+                        )
+                      )}
                     </div>
-                  )
-                )}
+                  );
+                })}
               </div>,
               document.body
             )}
         </Modal>
+      )}
+    </div>
+  );
+}
+
+function SheetItemRow({ item }: { item: SheetItem }) {
+  return (
+    <div className="flex items-center gap-2.5" style={{ fontSize: 13, borderBottom: `1px dashed ${COLORS.border}`, paddingBottom: 6 }}>
+      {item.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={item.imageUrl} alt="" width={32} height={32} style={{ borderRadius: 6, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+      )}
+      <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
+        <span style={{ fontFamily: "var(--font-display)" }}>
+          {item.text}
+          {item.meta && <span style={{ fontFamily: "inherit", fontWeight: 600, color: COLORS.primaryDark, fontSize: 11.5 }}> · {item.meta}</span>}
+        </span>
+        {item.note && <span style={{ color: COLORS.inkSoft, fontSize: 12, textAlign: "right" }}>{item.note}</span>}
+      </div>
+    </div>
+  );
+}
+
+function SheetItemPrintRow({ item }: { item: SheetItem }) {
+  return (
+    <div className="p-row">
+      {item.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="p-thumb" src={item.imageUrl} alt="" />
+      )}
+      <div className="p-text">
+        <span>
+          {item.text} {item.meta && <span className="p-meta">· {item.meta}</span>}
+        </span>
+        {item.note && <span className="p-note">{item.note}</span>}
+      </div>
+    </div>
+  );
+}
+
+function ItemMetaInputs({ item, onUpdate }: { item: EditItem; onUpdate: (patch: Partial<EditItem>) => void }) {
+  return (
+    <div className="flex items-center gap-2.5 flex-wrap">
+      <label className="flex items-center gap-1" style={{ fontSize: 11, color: COLORS.inkSoft }}>
+        ripetizioni ×
+        <input
+          type="number"
+          min={0}
+          value={item.reps ?? ""}
+          onChange={(e) => onUpdate({ reps: e.target.value === "" ? null : Number(e.target.value) })}
+          style={{ ...inputStyle, width: 52, padding: "3px 6px", fontSize: 11.5 }}
+        />
+      </label>
+      <label className="flex items-center gap-1" style={{ fontSize: 11, color: COLORS.inkSoft }}>
+        per
+        <input
+          type="number"
+          min={0}
+          value={item.holdValue ?? ""}
+          onChange={(e) => onUpdate({ holdValue: e.target.value === "" ? null : Number(e.target.value) })}
+          placeholder="durata"
+          style={{ ...inputStyle, width: 60, padding: "3px 6px", fontSize: 11.5 }}
+        />
+        <select value={item.holdUnit ?? "seconds"} onChange={(e) => onUpdate({ holdUnit: e.target.value as HoldUnit })} style={{ ...inputStyle, padding: "3px 6px", fontSize: 11.5, width: "auto" }}>
+          <option value="seconds">secondi</option>
+          <option value="minutes">minuti</option>
+          <option value="breaths">respiri</option>
+        </select>
+      </label>
+    </div>
+  );
+}
+
+// Ripetizioni e durata sono nascoste finché non servono: evita di riempire
+// ogni riga con due campi vuoti quando la maggior parte delle posizioni non
+// li usa.
+function ItemMetaSection({ item, onUpdate }: { item: EditItem; onUpdate: (patch: Partial<EditItem>) => void }) {
+  const [show, setShow] = useState(item.reps != null || item.holdValue != null);
+  return (
+    <div className="mt-1.5" style={{ paddingLeft: 22 }}>
+      {show ? (
+        <div className="flex items-center gap-1.5">
+          <ItemMetaInputs item={item} onUpdate={onUpdate} />
+          <button
+            onClick={() => {
+              onUpdate({ reps: null, holdValue: null, holdUnit: null });
+              setShow(false);
+            }}
+            title="Nascondi ripetizioni/durata"
+            style={{ color: COLORS.inkSoft }}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      ) : (
+        <button onClick={() => setShow(true)} className="flex items-center gap-1 text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+          <Plus size={11} /> ripetizioni o durata
+        </button>
       )}
     </div>
   );
@@ -543,20 +837,30 @@ function SectionEditor({
   onToggle,
   onRename,
   onRemove,
-  onAddCustom,
+  onAddCustomItem,
   onUpdateItem,
   onRemoveItem,
-  onMoveItem,
+  onMoveRow,
+  onMoveItemInBlock,
+  onAddBlock,
+  onRemoveBlock,
+  onUpdateBlockReps,
+  onOpenPicker,
 }: {
   section: EditSection;
   poseById: Record<string, PoseCatalogItem>;
   onToggle: (v: boolean) => void;
   onRename: (v: string) => void;
   onRemove: () => void;
-  onAddCustom: (label: string) => void;
-  onUpdateItem: (itemUid: string, patch: Partial<EditItem>) => void;
-  onRemoveItem: (itemUid: string) => void;
-  onMoveItem: (activeUid: string, overUid: string) => void;
+  onAddCustomItem: (blockUid: string | null, label: string) => void;
+  onUpdateItem: (blockUid: string | null, itemUid: string, patch: Partial<EditItem>) => void;
+  onRemoveItem: (blockUid: string | null, itemUid: string) => void;
+  onMoveRow: (activeUid: string, overUid: string) => void;
+  onMoveItemInBlock: (blockUid: string, idx: number, delta: number) => void;
+  onAddBlock: () => void;
+  onRemoveBlock: (blockUid: string) => void;
+  onUpdateBlockReps: (blockUid: string, reps: number | null) => void;
+  onOpenPicker: (blockUid: string | null) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.uid });
   const [expanded, setExpanded] = useState(true);
@@ -565,16 +869,18 @@ function SectionEditor({
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `section-drop:${section.uid}` });
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
-  function handleItemDragEnd(e: DragEndEvent) {
+  function handleRowDragEnd(e: DragEndEvent) {
     const { active, over } = e;
-    if (over && active.id !== over.id) onMoveItem(String(active.id), String(over.id));
+    if (over && active.id !== over.id) onMoveRow(String(active.id), String(over.id));
   }
   function submitCustom() {
     if (!customText.trim()) return;
-    onAddCustom(customText);
+    onAddCustomItem(null, customText);
     setCustomText("");
     setAddingCustom(false);
   }
+
+  const itemCount = section.rows.reduce((sum, r) => sum + (r.kind === "item" ? 1 : r.block.items.length), 0);
 
   return (
     <div
@@ -599,7 +905,7 @@ function SectionEditor({
             onClick={(e) => e.stopPropagation()}
             style={{ fontSize: 13, fontWeight: 600, border: "none", outline: "none", background: "transparent", color: COLORS.ink, minWidth: 0 }}
           />
-          <span style={{ fontSize: 11, color: COLORS.inkSoft }}>{section.items.length} posizioni</span>
+          <span style={{ fontSize: 11, color: COLORS.inkSoft }}>{itemCount} posizioni</span>
         </button>
         <Switch checked={section.enabled} onChange={onToggle} label="" onText="Attiva" offText="Off" />
         <button onClick={onRemove} title="Rimuovi sezione" style={{ color: COLORS.danger }}>
@@ -609,50 +915,72 @@ function SectionEditor({
 
       {expanded && section.enabled && (
         <div ref={setDropRef} className="px-2.5 pb-2.5 rounded-b-xl" style={{ background: isOver ? withAlpha(COLORS.primary, 10) : "transparent" }}>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd}>
-            <SortableContext items={section.items.map((it) => it.uid)} strategy={verticalListSortingStrategy}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRowDragEnd}>
+            <SortableContext items={section.rows.map((r) => r.uid)} strategy={verticalListSortingStrategy}>
               <div className="flex flex-col gap-1.5 mb-2">
-                {section.items.map((item) => (
-                  <ItemRow
-                    key={item.uid}
-                    item={item}
-                    pose={item.poseId ? poseById[item.poseId] : undefined}
-                    onUpdate={(patch) => onUpdateItem(item.uid, patch)}
-                    onRemove={() => onRemoveItem(item.uid)}
-                  />
-                ))}
+                {section.rows.map((row) =>
+                  row.kind === "item" ? (
+                    <ItemRow
+                      key={row.uid}
+                      item={row.item}
+                      pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
+                      onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
+                      onRemove={() => onRemoveItem(null, row.item.uid)}
+                    />
+                  ) : (
+                    <BlockCard
+                      key={row.uid}
+                      sectionUid={section.uid}
+                      block={row.block}
+                      poseById={poseById}
+                      onUpdateReps={(reps) => onUpdateBlockReps(row.block.uid, reps)}
+                      onRemoveBlock={() => onRemoveBlock(row.block.uid)}
+                      onUpdateItem={(itemUid, patch) => onUpdateItem(row.block.uid, itemUid, patch)}
+                      onRemoveItem={(itemUid) => onRemoveItem(row.block.uid, itemUid)}
+                      onMoveItemUp={(idx) => onMoveItemInBlock(row.block.uid, idx, -1)}
+                      onMoveItemDown={(idx) => onMoveItemInBlock(row.block.uid, idx, 1)}
+                      onOpenPicker={() => onOpenPicker(row.block.uid)}
+                      onAddCustom={(label) => onAddCustomItem(row.block.uid, label)}
+                    />
+                  )
+                )}
               </div>
             </SortableContext>
           </DndContext>
 
-          {section.items.length === 0 && (
+          {section.rows.length === 0 && (
             <div style={{ fontSize: 11.5, color: COLORS.inkSoft, textAlign: "center", padding: "14px 8px", border: `1px dashed ${COLORS.border}`, borderRadius: 10 }} className="mb-2">
               Trascina qui una posizione dal catalogo a destra
             </div>
           )}
 
-          {addingCustom ? (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <input
-                value={customText}
-                onChange={(e) => setCustomText(e.target.value)}
-                placeholder="Nome voce libera"
-                style={{ ...inputStyle, fontSize: 12.5, flex: 1, minWidth: 120 }}
-                onKeyDown={(e) => e.key === "Enter" && submitCustom()}
-                autoFocus
-              />
-              <button onClick={submitCustom} className="text-xs font-semibold px-2.5 py-1.5 rounded-lg text-white" style={{ background: COLORS.primary }}>
-                Aggiungi
+          <div className="flex items-center gap-3 flex-wrap">
+            {addingCustom ? (
+              <div className="flex items-center gap-1.5 flex-1" style={{ minWidth: 160 }}>
+                <input
+                  value={customText}
+                  onChange={(e) => setCustomText(e.target.value)}
+                  placeholder="Nome voce libera"
+                  style={{ ...inputStyle, fontSize: 12.5, flex: 1 }}
+                  onKeyDown={(e) => e.key === "Enter" && submitCustom()}
+                  autoFocus
+                />
+                <button onClick={submitCustom} className="text-xs font-semibold px-2.5 py-1.5 rounded-lg text-white" style={{ background: COLORS.primary }}>
+                  Aggiungi
+                </button>
+                <button onClick={() => setAddingCustom(false)} className="text-xs px-1" style={{ color: COLORS.inkSoft }}>
+                  Annulla
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setAddingCustom(true)} className="flex items-center gap-1 text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+                <Plus size={12} /> Voce libera
               </button>
-              <button onClick={() => setAddingCustom(false)} className="text-xs px-1" style={{ color: COLORS.inkSoft }}>
-                Annulla
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => setAddingCustom(true)} className="flex items-center gap-1 text-xs font-medium" style={{ color: COLORS.primaryDark }}>
-              <Plus size={12} /> Voce libera (non a catalogo)
+            )}
+            <button onClick={onAddBlock} className="flex items-center gap-1 text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+              <Repeat size={12} /> Blocco ripetuto
             </button>
-          )}
+          </div>
         </div>
       )}
     </div>
@@ -684,40 +1012,394 @@ function ItemRow({ item, pose, onUpdate, onRemove }: { item: EditItem; pose?: Po
           <X size={14} />
         </button>
       </div>
-      <div className="flex items-center gap-2.5 mt-1.5 flex-wrap" style={{ paddingLeft: 22 }}>
-        <label className="flex items-center gap-1" style={{ fontSize: 11, color: COLORS.inkSoft }}>
-          ×
-          <input
-            type="number"
-            min={0}
-            value={item.reps ?? ""}
-            onChange={(e) => onUpdate({ reps: e.target.value === "" ? null : Number(e.target.value) })}
-            placeholder="ripetizioni"
-            style={{ ...inputStyle, width: 60, padding: "3px 6px", fontSize: 11.5 }}
+      <ItemMetaSection item={item} onUpdate={onUpdate} />
+    </div>
+  );
+}
+
+// Interazione a frecce (nessun drag): usata per gli item dentro un blocco
+// (in ogni piattaforma) e per le righe di primo livello su mobile, dove il
+// drag-and-drop è poco affidabile.
+function ArrowItemRow({
+  item,
+  pose,
+  isFirst,
+  isLast,
+  onUpdate,
+  onRemove,
+  onMoveUp,
+  onMoveDown,
+}: {
+  item: EditItem;
+  pose?: PoseCatalogItem;
+  isFirst: boolean;
+  isLast: boolean;
+  onUpdate: (patch: Partial<EditItem>) => void;
+  onRemove: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  const label = pose?.name || item.customLabel || "Voce senza nome";
+  return (
+    <div className="p-2 rounded-xl" style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}` }}>
+      <div className="flex items-center gap-2">
+        <div className="flex flex-col">
+          <button onClick={onMoveUp} disabled={isFirst} style={{ color: isFirst ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta su">
+            <ChevronUp size={12} />
+          </button>
+          <button onClick={onMoveDown} disabled={isLast} style={{ color: isLast ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta giù">
+            <ChevronDown size={12} />
+          </button>
+        </div>
+        {pose?.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={pose.imageUrl} alt={label} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+        )}
+        <div className="flex-1 min-w-0">
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
+          <input value={item.note} onChange={(e) => onUpdate({ note: e.target.value })} placeholder="nota (facoltativa)" style={{ ...inputStyle, padding: "4px 8px", fontSize: 12, marginTop: 2 }} />
+        </div>
+        <button onClick={onRemove} title="Rimuovi" style={{ color: COLORS.inkSoft }}>
+          <X size={14} />
+        </button>
+      </div>
+      <ItemMetaSection item={item} onUpdate={onUpdate} />
+    </div>
+  );
+}
+
+// Contenuto condiviso di un blocco (intestazione ripetizioni + items al suo
+// interno, sempre riordinabili a frecce, mai a drag — anche su desktop:
+// un blocco è pensato per restare piccolo, le frecce bastano).
+function BlockBody({
+  block,
+  poseById,
+  onUpdateReps,
+  onRemoveBlock,
+  onUpdateItem,
+  onRemoveItem,
+  onMoveItemUp,
+  onMoveItemDown,
+  onOpenPicker,
+  onAddCustom,
+  dropRef,
+  isOver,
+}: {
+  block: EditBlock;
+  poseById: Record<string, PoseCatalogItem>;
+  onUpdateReps: (reps: number | null) => void;
+  onRemoveBlock: () => void;
+  onUpdateItem: (itemUid: string, patch: Partial<EditItem>) => void;
+  onRemoveItem: (itemUid: string) => void;
+  onMoveItemUp: (idx: number) => void;
+  onMoveItemDown: (idx: number) => void;
+  onOpenPicker: () => void;
+  onAddCustom: (label: string) => void;
+  dropRef?: (node: HTMLElement | null) => void;
+  isOver?: boolean;
+}) {
+  const [addingCustom, setAddingCustom] = useState(false);
+  const [customText, setCustomText] = useState("");
+
+  function submitCustom() {
+    if (!customText.trim()) return;
+    onAddCustom(customText);
+    setCustomText("");
+    setAddingCustom(false);
+  }
+
+  return (
+    <div ref={dropRef} className="p-2.5 rounded-xl" style={{ background: isOver ? withAlpha(COLORS.primary, 10) : withAlpha(COLORS.gold, 8), border: `1.5px dashed ${withAlpha(COLORS.gold, 45)}` }}>
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <Repeat size={13} style={{ color: COLORS.primaryDark, flexShrink: 0 }} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: COLORS.ink }}>Ripeti il blocco ×</span>
+        <input
+          type="number"
+          min={1}
+          value={block.reps ?? ""}
+          onChange={(e) => onUpdateReps(e.target.value === "" ? null : Number(e.target.value))}
+          style={{ ...inputStyle, width: 52, padding: "3px 6px", fontSize: 12 }}
+        />
+        <div className="flex-1" />
+        <button onClick={onRemoveBlock} title="Rimuovi blocco" style={{ color: COLORS.danger }}>
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-1.5 mb-2">
+        {block.items.map((item, idx) => (
+          <ArrowItemRow
+            key={item.uid}
+            item={item}
+            pose={item.poseId ? poseById[item.poseId] : undefined}
+            isFirst={idx === 0}
+            isLast={idx === block.items.length - 1}
+            onUpdate={(patch) => onUpdateItem(item.uid, patch)}
+            onRemove={() => onRemoveItem(item.uid)}
+            onMoveUp={() => onMoveItemUp(idx)}
+            onMoveDown={() => onMoveItemDown(idx)}
           />
-        </label>
-        <label className="flex items-center gap-1" style={{ fontSize: 11, color: COLORS.inkSoft }}>
-          per
-          <input
-            type="number"
-            min={0}
-            value={item.holdValue ?? ""}
-            onChange={(e) => onUpdate({ holdValue: e.target.value === "" ? null : Number(e.target.value) })}
-            placeholder="durata"
-            style={{ ...inputStyle, width: 60, padding: "3px 6px", fontSize: 11.5 }}
-          />
-          <select value={item.holdUnit ?? "seconds"} onChange={(e) => onUpdate({ holdUnit: e.target.value as HoldUnit })} style={{ ...inputStyle, padding: "3px 6px", fontSize: 11.5, width: "auto" }}>
-            <option value="seconds">secondi</option>
-            <option value="minutes">minuti</option>
-            <option value="breaths">respiri</option>
-          </select>
-        </label>
+        ))}
+      </div>
+
+      {block.items.length === 0 && (
+        <div style={{ fontSize: 11, color: COLORS.inkSoft, textAlign: "center", padding: "10px 8px", border: `1px dashed ${COLORS.border}`, borderRadius: 8 }} className="mb-2">
+          Nessuna posizione nel blocco
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={onOpenPicker} className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg text-white" style={{ background: COLORS.primary }}>
+          <Plus size={11} /> Aggiungi al blocco
+        </button>
+        {addingCustom ? (
+          <div className="flex items-center gap-1.5 flex-1" style={{ minWidth: 140 }}>
+            <input
+              value={customText}
+              onChange={(e) => setCustomText(e.target.value)}
+              placeholder="Nome voce libera"
+              style={{ ...inputStyle, fontSize: 12, flex: 1 }}
+              onKeyDown={(e) => e.key === "Enter" && submitCustom()}
+              autoFocus
+            />
+            <button onClick={submitCustom} className="text-xs font-semibold px-2 py-1 rounded-lg" style={{ border: `1px solid ${COLORS.border}` }}>
+              OK
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setAddingCustom(true)} className="text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+            + voce libera
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalogItem[]; poseCategories: PoseCategory[] }) {
+// Blocco su desktop: l'intero blocco è trascinabile come riga unica tra le
+// altre righe della sezione, e accetta anche il drop diretto di una posa
+// dal pannello catalogo.
+function BlockCard({
+  sectionUid,
+  block,
+  poseById,
+  onUpdateReps,
+  onRemoveBlock,
+  onUpdateItem,
+  onRemoveItem,
+  onMoveItemUp,
+  onMoveItemDown,
+  onOpenPicker,
+  onAddCustom,
+}: {
+  sectionUid: string;
+  block: EditBlock;
+  poseById: Record<string, PoseCatalogItem>;
+  onUpdateReps: (reps: number | null) => void;
+  onRemoveBlock: () => void;
+  onUpdateItem: (itemUid: string, patch: Partial<EditItem>) => void;
+  onRemoveItem: (itemUid: string) => void;
+  onMoveItemUp: (idx: number) => void;
+  onMoveItemDown: (idx: number) => void;
+  onOpenPicker: () => void;
+  onAddCustom: (label: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.uid });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `block-drop:${sectionUid}:${block.uid}` });
+
+  return (
+    <div ref={setNodeRef} className="flex items-start gap-2" style={{ opacity: isDragging ? 0.6 : 1, transform: CSS.Transform.toString(transform), transition }}>
+      <button {...attributes} {...listeners} className="cursor-grab flex items-center mt-2.5" style={{ color: COLORS.inkSoft, touchAction: "none" }} title="Trascina per riordinare">
+        <GripVertical size={14} />
+      </button>
+      <div className="flex-1 min-w-0">
+        <BlockBody
+          block={block}
+          poseById={poseById}
+          onUpdateReps={onUpdateReps}
+          onRemoveBlock={onRemoveBlock}
+          onUpdateItem={onUpdateItem}
+          onRemoveItem={onRemoveItem}
+          onMoveItemUp={onMoveItemUp}
+          onMoveItemDown={onMoveItemDown}
+          onOpenPicker={onOpenPicker}
+          onAddCustom={onAddCustom}
+          dropRef={setDropRef}
+          isOver={isOver}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MobileSectionCard({
+  section,
+  poseById,
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
+  onToggle,
+  onRename,
+  onRemove,
+  onAddCustomItem,
+  onUpdateItem,
+  onRemoveItem,
+  onMoveRow,
+  onMoveItemInBlock,
+  onAddBlock,
+  onRemoveBlock,
+  onUpdateBlockReps,
+  onOpenPicker,
+}: {
+  section: EditSection;
+  poseById: Record<string, PoseCatalogItem>;
+  isFirst: boolean;
+  isLast: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onToggle: (v: boolean) => void;
+  onRename: (v: string) => void;
+  onRemove: () => void;
+  onAddCustomItem: (blockUid: string | null, label: string) => void;
+  onUpdateItem: (blockUid: string | null, itemUid: string, patch: Partial<EditItem>) => void;
+  onRemoveItem: (blockUid: string | null, itemUid: string) => void;
+  onMoveRow: (idx: number, delta: number) => void;
+  onMoveItemInBlock: (blockUid: string, idx: number, delta: number) => void;
+  onAddBlock: () => void;
+  onRemoveBlock: (blockUid: string) => void;
+  onUpdateBlockReps: (blockUid: string, reps: number | null) => void;
+  onOpenPicker: (blockUid: string | null) => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const [addingCustom, setAddingCustom] = useState(false);
+  const [customText, setCustomText] = useState("");
+
+  function submitCustom() {
+    if (!customText.trim()) return;
+    onAddCustomItem(null, customText);
+    setCustomText("");
+    setAddingCustom(false);
+  }
+
+  const itemCount = section.rows.reduce((sum, r) => sum + (r.kind === "item" ? 1 : r.block.items.length), 0);
+
+  return (
+    <div style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, background: section.enabled ? COLORS.card : COLORS.subtle }}>
+      <div className="flex items-center gap-1.5 p-2.5">
+        <div className="flex flex-col">
+          <button onClick={onMoveUp} disabled={isFirst} style={{ color: isFirst ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta su">
+            <ChevronUp size={14} />
+          </button>
+          <button onClick={onMoveDown} disabled={isLast} style={{ color: isLast ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta giù">
+            <ChevronDown size={14} />
+          </button>
+        </div>
+        <button onClick={() => setExpanded((v) => !v)} className="flex-1 text-left flex items-center gap-2 min-w-0">
+          <input
+            value={section.label}
+            onChange={(e) => onRename(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            style={{ fontSize: 13, fontWeight: 600, border: "none", outline: "none", background: "transparent", color: COLORS.ink, minWidth: 0 }}
+          />
+          <span style={{ fontSize: 11, color: COLORS.inkSoft, flexShrink: 0 }}>{itemCount}</span>
+        </button>
+        <Switch checked={section.enabled} onChange={onToggle} label="" onText="On" offText="Off" />
+        <button onClick={onRemove} title="Rimuovi sezione" style={{ color: COLORS.danger }}>
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      {expanded && section.enabled && (
+        <div className="px-2.5 pb-2.5">
+          <div className="flex flex-col gap-1.5 mb-2">
+            {section.rows.map((row, idx) =>
+              row.kind === "item" ? (
+                <ArrowItemRow
+                  key={row.uid}
+                  item={row.item}
+                  pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
+                  isFirst={idx === 0}
+                  isLast={idx === section.rows.length - 1}
+                  onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
+                  onRemove={() => onRemoveItem(null, row.item.uid)}
+                  onMoveUp={() => onMoveRow(idx, -1)}
+                  onMoveDown={() => onMoveRow(idx, 1)}
+                />
+              ) : (
+                <div key={row.uid} className="flex items-start gap-1.5">
+                  <div className="flex flex-col mt-2.5">
+                    <button onClick={() => onMoveRow(idx, -1)} disabled={idx === 0} style={{ color: idx === 0 ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta su">
+                      <ChevronUp size={12} />
+                    </button>
+                    <button
+                      onClick={() => onMoveRow(idx, 1)}
+                      disabled={idx === section.rows.length - 1}
+                      style={{ color: idx === section.rows.length - 1 ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }}
+                      title="Sposta giù"
+                    >
+                      <ChevronDown size={12} />
+                    </button>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <BlockBody
+                      block={row.block}
+                      poseById={poseById}
+                      onUpdateReps={(reps) => onUpdateBlockReps(row.block.uid, reps)}
+                      onRemoveBlock={() => onRemoveBlock(row.block.uid)}
+                      onUpdateItem={(itemUid, patch) => onUpdateItem(row.block.uid, itemUid, patch)}
+                      onRemoveItem={(itemUid) => onRemoveItem(row.block.uid, itemUid)}
+                      onMoveItemUp={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, -1)}
+                      onMoveItemDown={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, 1)}
+                      onOpenPicker={() => onOpenPicker(row.block.uid)}
+                      onAddCustom={(label) => onAddCustomItem(row.block.uid, label)}
+                    />
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+
+          {section.rows.length === 0 && (
+            <div style={{ fontSize: 11.5, color: COLORS.inkSoft, textAlign: "center", padding: "14px 8px", border: `1px dashed ${COLORS.border}`, borderRadius: 10 }} className="mb-2">
+              Nessuna posizione ancora
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => onOpenPicker(null)} className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg text-white" style={{ background: COLORS.primary }}>
+              <Plus size={13} /> Aggiungi dal catalogo
+            </button>
+            <button onClick={onAddBlock} className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ border: `1px solid ${COLORS.border}`, color: COLORS.primaryDark }}>
+              <Repeat size={13} /> Blocco ripetuto
+            </button>
+            {addingCustom ? (
+              <div className="flex items-center gap-1.5 flex-1" style={{ minWidth: 160 }}>
+                <input
+                  value={customText}
+                  onChange={(e) => setCustomText(e.target.value)}
+                  placeholder="Nome voce libera"
+                  style={{ ...inputStyle, fontSize: 12.5, flex: 1 }}
+                  onKeyDown={(e) => e.key === "Enter" && submitCustom()}
+                  autoFocus
+                />
+                <button onClick={submitCustom} className="text-xs font-semibold px-2 py-1.5 rounded-lg" style={{ border: `1px solid ${COLORS.border}` }}>
+                  OK
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setAddingCustom(true)} className="text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+                + voce libera
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function usePoseFilter(poseCatalog: PoseCatalogItem[], poseCategories: PoseCategory[]) {
   const [macro, setMacro] = useState<PoseMacro>("asana");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [query, setQuery] = useState("");
@@ -733,16 +1415,20 @@ function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalog
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [poseCatalog, macro, categoryFilter, query]);
 
-  return (
-    <div
-      className="p-3.5 rounded-2xl lg:sticky lg:top-3 lg:max-h-[calc(100dvh-160px)] flex flex-col"
-      style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: `0 1px 2px ${withAlpha(COLORS.ink, 4)}` }}
-    >
-      <div className="flex items-center gap-1.5 mb-3">
-        <Sparkles size={14} style={{ color: COLORS.primaryDark }} />
-        <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.heading }}>Catalogo posizioni</div>
-      </div>
+  return { macro, setMacro, categoryFilter, setCategoryFilter, query, setQuery, categoriesForMacro, filtered };
+}
 
+function MacroCategoryPicker({
+  macro,
+  setMacro,
+  categoryFilter,
+  setCategoryFilter,
+  query,
+  setQuery,
+  categoriesForMacro,
+}: Pick<ReturnType<typeof usePoseFilter>, "macro" | "setMacro" | "categoryFilter" | "setCategoryFilter" | "query" | "setQuery" | "categoriesForMacro">) {
+  return (
+    <>
       <div className="flex items-center gap-1 p-1 rounded-xl mb-2.5" style={{ background: COLORS.subtle }}>
         <button
           onClick={() => {
@@ -790,6 +1476,81 @@ function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalog
           </button>
         ))}
       </div>
+    </>
+  );
+}
+
+function PosePickerSheet({
+  poseCatalog,
+  poseCategories,
+  onPick,
+  onClose,
+}: {
+  poseCatalog: PoseCatalogItem[];
+  poseCategories: PoseCategory[];
+  onPick: (pose: PoseCatalogItem) => void;
+  onClose: () => void;
+}) {
+  const { macro, setMacro, categoryFilter, setCategoryFilter, query, setQuery, categoriesForMacro, filtered } = usePoseFilter(poseCatalog, poseCategories);
+  return (
+    <Modal onClose={onClose} width={480}>
+      <div className="p-4 flex flex-col" style={{ maxHeight: "82dvh" }}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-1.5">
+            <Sparkles size={14} style={{ color: COLORS.primaryDark }} />
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, color: COLORS.heading }}>Aggiungi posizione</div>
+          </div>
+          <button onClick={onClose} style={{ color: COLORS.inkSoft }} title="Chiudi">
+            <X size={18} />
+          </button>
+        </div>
+
+        <MacroCategoryPicker macro={macro} setMacro={setMacro} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} query={query} setQuery={setQuery} categoriesForMacro={categoriesForMacro} />
+
+        <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
+          <div className="flex flex-col gap-1.5">
+            {filtered.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => onPick(p)}
+                className="flex items-center gap-2.5 p-2 rounded-xl text-left"
+                style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}` }}
+              >
+                {p.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.imageUrl} alt="" width={34} height={34} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 34, height: 34, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
+                )}
+                <span style={{ fontSize: 13.5, color: COLORS.ink }}>{p.name}</span>
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div style={{ fontSize: 12, color: COLORS.inkSoft }} className="text-center py-6">
+                Nessuna posizione trovata.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalogItem[]; poseCategories: PoseCategory[] }) {
+  const { macro, setMacro, categoryFilter, setCategoryFilter, query, setQuery, categoriesForMacro, filtered } = usePoseFilter(poseCatalog, poseCategories);
+
+  return (
+    <div
+      className="p-3.5 rounded-2xl lg:sticky lg:top-3 lg:max-h-[calc(100dvh-160px)] flex flex-col"
+      style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: `0 1px 2px ${withAlpha(COLORS.ink, 4)}` }}
+    >
+      <div className="flex items-center gap-1.5 mb-3">
+        <Sparkles size={14} style={{ color: COLORS.primaryDark }} />
+        <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.heading }}>Catalogo posizioni</div>
+      </div>
+
+      <MacroCategoryPicker macro={macro} setMacro={setMacro} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} query={query} setQuery={setQuery} categoriesForMacro={categoriesForMacro} />
 
       <div className="overflow-y-auto overflow-x-hidden lg:flex-1" style={{ minHeight: 0, maxHeight: "min(60vh, 420px)" }}>
         <div className="flex flex-col gap-1 pr-0.5">
