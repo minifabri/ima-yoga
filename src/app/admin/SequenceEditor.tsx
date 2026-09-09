@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, Check, GripVertical, Plus, Printer, Share2, Trash2, X } from "lucide-react";
+import { AlertCircle, Check, GripVertical, Plus, Printer, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -355,7 +355,7 @@ export function SequenceEditor({
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleOuterDragStart} onDragEnd={handleOuterDragEnd}>
-          <div className="grid gap-4 mb-3" style={{ gridTemplateColumns: "minmax(0, 1fr) 240px" }}>
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px] gap-4 mb-3">
             <div>
               <SortableContext items={sections.map((s) => s.uid)} strategy={verticalListSortingStrategy}>
                 <div className="flex flex-col gap-2.5">
@@ -735,20 +735,22 @@ function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalog
 
   return (
     <div
-      className="p-3 rounded-xl"
-      style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, position: "sticky", top: 12, maxHeight: "calc(100dvh - 160px)", display: "flex", flexDirection: "column" }}
+      className="p-3.5 rounded-2xl lg:sticky lg:top-3 lg:max-h-[calc(100dvh-160px)] flex flex-col"
+      style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: `0 1px 2px ${withAlpha(COLORS.ink, 4)}` }}
     >
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: COLORS.heading }} className="mb-2">
-        Catalogo posizioni
+      <div className="flex items-center gap-1.5 mb-3">
+        <Sparkles size={14} style={{ color: COLORS.primaryDark }} />
+        <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.heading }}>Catalogo posizioni</div>
       </div>
-      <div className="flex items-center gap-1.5 mb-2">
+
+      <div className="flex items-center gap-1 p-1 rounded-xl mb-2.5" style={{ background: COLORS.subtle }}>
         <button
           onClick={() => {
             setMacro("asana");
             setCategoryFilter("all");
           }}
-          className="px-2 py-1 rounded-lg text-xs font-semibold"
-          style={{ background: macro === "asana" ? COLORS.primary : COLORS.subtle, color: macro === "asana" ? "#fff" : COLORS.ink }}
+          className="flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition"
+          style={{ background: macro === "asana" ? COLORS.primary : "transparent", color: macro === "asana" ? "#fff" : COLORS.inkSoft }}
         >
           Asana
         </button>
@@ -757,17 +759,22 @@ function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalog
             setMacro("pranayama");
             setCategoryFilter("all");
           }}
-          className="px-2 py-1 rounded-lg text-xs font-semibold"
-          style={{ background: macro === "pranayama" ? COLORS.primary : COLORS.subtle, color: macro === "pranayama" ? "#fff" : COLORS.ink }}
+          className="flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition"
+          style={{ background: macro === "pranayama" ? COLORS.primary : "transparent", color: macro === "pranayama" ? "#fff" : COLORS.inkSoft }}
         >
           Pranayama
         </button>
       </div>
-      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cerca per nome o tag…" style={{ ...inputStyle, fontSize: 12.5, marginBottom: 8 }} />
-      <div className="flex items-center gap-1 flex-wrap mb-2">
+
+      <div className="relative mb-2.5">
+        <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: COLORS.inkSoft }} />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cerca per nome o tag…" style={{ ...inputStyle, fontSize: 12.5, paddingLeft: 28 }} />
+      </div>
+
+      <div className="flex items-center gap-1 flex-wrap mb-3">
         <button
           onClick={() => setCategoryFilter("all")}
-          className="px-2 py-0.5 rounded-full font-medium"
+          className="px-2.5 py-1 rounded-full font-medium transition"
           style={{ fontSize: 11, background: categoryFilter === "all" ? COLORS.primaryDark : COLORS.subtle, color: categoryFilter === "all" ? "#fff" : COLORS.inkSoft }}
         >
           Tutte
@@ -776,21 +783,22 @@ function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalog
           <button
             key={c.id}
             onClick={() => setCategoryFilter(c.id)}
-            className="px-2 py-0.5 rounded-full font-medium"
+            className="px-2.5 py-1 rounded-full font-medium transition"
             style={{ fontSize: 11, background: categoryFilter === c.id ? COLORS.primaryDark : COLORS.subtle, color: categoryFilter === c.id ? "#fff" : COLORS.inkSoft }}
           >
             {c.name}
           </button>
         ))}
       </div>
-      <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
-        <div className="grid grid-cols-3 gap-1.5">
+
+      <div className="overflow-y-auto overflow-x-hidden lg:flex-1" style={{ minHeight: 0, maxHeight: "min(60vh, 420px)" }}>
+        <div className="flex flex-col gap-1 pr-0.5">
           {filtered.map((p) => (
             <PaletteThumb key={p.id} pose={p} />
           ))}
         </div>
         {filtered.length === 0 && (
-          <div style={{ fontSize: 11.5, color: COLORS.inkSoft }} className="text-center py-4">
+          <div style={{ fontSize: 11.5, color: COLORS.inkSoft }} className="text-center py-6">
             Nessuna posizione trovata.
           </div>
         )}
@@ -807,16 +815,27 @@ function PaletteThumb({ pose }: { pose: PoseCatalogItem }) {
       {...attributes}
       {...listeners}
       title={pose.name}
-      className="flex flex-col items-center gap-1 p-1.5 rounded-lg cursor-grab"
-      style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, opacity: isDragging ? 0.3 : 1, touchAction: "none" }}
+      className="flex items-center gap-2.5 p-1.5 rounded-xl cursor-grab text-left transition min-w-0"
+      style={{
+        background: isDragging ? withAlpha(COLORS.primary, 10) : COLORS.bg,
+        border: `1px solid ${isDragging ? COLORS.primary : COLORS.border}`,
+        opacity: isDragging ? 0.5 : 1,
+        touchAction: "none",
+      }}
+      onMouseEnter={(e) => {
+        if (!isDragging) e.currentTarget.style.background = withAlpha(COLORS.primary, 7);
+      }}
+      onMouseLeave={(e) => {
+        if (!isDragging) e.currentTarget.style.background = COLORS.bg;
+      }}
     >
       {pose.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={pose.imageUrl} alt={pose.name} width={44} height={44} style={{ borderRadius: 6, objectFit: "cover", background: COLORS.subtle }} />
+        <img src={pose.imageUrl} alt="" width={32} height={32} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
       ) : (
-        <div style={{ width: 44, height: 44, borderRadius: 6, background: COLORS.subtle }} />
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
       )}
-      <span style={{ fontSize: 10, lineHeight: 1.15, textAlign: "center" }}>{pose.name}</span>
+      <span style={{ fontSize: 12, lineHeight: 1.3, color: COLORS.ink, overflowWrap: "anywhere", minWidth: 0 }}>{pose.name}</span>
     </button>
   );
 }
