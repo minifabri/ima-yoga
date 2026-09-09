@@ -53,14 +53,25 @@ function parseCsv(text: string): string[][] {
 const HEADER_ALIASES: Record<string, string> = {
   nome: "name",
   name: "name",
+  sanscrito: "name",
+  sanskrit: "name",
   categoria: "category",
   category: "category",
   tag: "tags",
   tags: "tags",
   immagine: "image",
   image: "image",
-  sanscrito: "sanskrit",
-  sanskrit: "sanskrit",
+  nome_it: "nameIt",
+  nomeit: "nameIt",
+  italiano: "nameIt",
+  name_it: "nameIt",
+  nameit: "nameIt",
+  nome_en: "nameEn",
+  nomeen: "nameEn",
+  inglese: "nameEn",
+  english: "nameEn",
+  name_en: "nameEn",
+  nameen: "nameEn",
   descrizione: "description",
   description: "description",
   macro: "macro",
@@ -71,7 +82,8 @@ type ParsedRow = {
   categoryName: string;
   tags: string[];
   imageUrl: string;
-  sanskritName: string;
+  nameIt: string;
+  nameEn: string;
   description: string;
   macro: PoseMacro;
   error: string;
@@ -86,7 +98,8 @@ function parseRows(csvText: string, defaultMacro: PoseMacro): ParsedRow[] {
   const catIdx = idx("category");
   const tagsIdx = idx("tags");
   const imageIdx = idx("image");
-  const sanskritIdx = idx("sanskrit");
+  const nameItIdx = idx("nameIt");
+  const nameEnIdx = idx("nameEn");
   const descIdx = idx("description");
   const macroIdx = idx("macro");
 
@@ -101,7 +114,8 @@ function parseRows(csvText: string, defaultMacro: PoseMacro): ParsedRow[] {
         .map((t) => t.trim())
         .filter(Boolean),
       imageUrl: (imageIdx >= 0 ? r[imageIdx] : "").trim(),
-      sanskritName: (sanskritIdx >= 0 ? r[sanskritIdx] : "").trim(),
+      nameIt: (nameItIdx >= 0 ? r[nameItIdx] : "").trim(),
+      nameEn: (nameEnIdx >= 0 ? r[nameEnIdx] : "").trim(),
       description: (descIdx >= 0 ? r[descIdx] : "").trim(),
       macro: macroRaw === "pranayama" ? "pranayama" : macroRaw === "asana" ? "asana" : defaultMacro,
       error: name ? "" : "Nome mancante",
@@ -170,7 +184,8 @@ export function PoseBulkImportModal({
       const toInsert = validRows.map((r) => ({
         macro: r.macro,
         name: r.name,
-        sanskritName: r.sanskritName,
+        nameIt: r.nameIt,
+        nameEn: r.nameEn,
         description: r.description,
         categoryId: r.categoryName ? categoryIdByKey.get(`${r.macro}:${r.categoryName.toLowerCase()}`) ?? null : null,
         tags: r.tags,
@@ -193,7 +208,7 @@ export function PoseBulkImportModal({
           Importa posizioni da CSV
         </div>
         <div className="mb-3" style={{ fontSize: 12, color: COLORS.inkSoft }}>
-          Colonne riconosciute: <strong>nome</strong> (obbligatoria), categoria, tag (separati da “;”), immagine (percorso o URL), sanscrito, descrizione, macro (asana/pranayama — default {defaultMacro === "asana" ? "asana" : "pranayama"}). Prima riga = intestazioni.
+          Colonne riconosciute: <strong>nome</strong> (obbligatoria, nome sanscrito), categoria, tag (separati da “;”), immagine (percorso o URL), nome_it (per la ricerca), nome_en (per la ricerca), descrizione, macro (asana/pranayama — default {defaultMacro === "asana" ? "asana" : "pranayama"}). Prima riga = intestazioni.
         </div>
 
         <div className="flex items-center gap-2 mb-2">
@@ -221,7 +236,9 @@ export function PoseBulkImportModal({
             setParsed(null);
           }}
           rows={6}
-          placeholder={"nome,categoria,tag,immagine\nAdho Mukha Svanasana,In piedi,principianti;spalle,/asanas/mia-posa.png"}
+          placeholder={
+            "nome,categoria,tag,immagine,nome_it,nome_en\nAdho Mukha Svanasana,In piedi,principianti;spalle,/asanas/mia-posa.png,Cane a testa in giù,Downward Facing Dog"
+          }
           style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12, resize: "vertical" }}
         />
 

@@ -1,16 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AlertCircle, Plus, Search, Tag, Trash2, Upload } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { Field, IconButton, inputStyle } from "./ui";
 import { fetchPoseCatalog, savePose, deletePose, fetchPoseCategories, savePoseCategory, deletePoseCategory } from "./data";
 import { PoseBulkImportModal } from "./PoseBulkImport";
+import { PoseThumbnailGenerator } from "./PoseThumbnailGenerator";
 import type { PoseCatalogItem, PoseCategory, PoseMacro } from "./types";
 
 function emptyDraft(macro: PoseMacro): Omit<PoseCatalogItem, "id"> {
-  return { macro, name: "", sanskritName: "", description: "", categoryId: null, tags: [], imageUrl: null };
+  return { macro, name: "", nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null };
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
@@ -46,9 +56,22 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
     return poses
       .filter((p) => p.macro === macro)
       .filter((p) => categoryFilter === "all" || p.categoryId === categoryFilter)
-      .filter((p) => !q || p.name.toLowerCase().includes(q) || p.tags.some((t) => t.toLowerCase().includes(q)))
+      .filter(
+        (p) =>
+          !q ||
+          p.name.toLowerCase().includes(q) ||
+          p.nameIt.toLowerCase().includes(q) ||
+          p.nameEn.toLowerCase().includes(q) ||
+          p.tags.some((t) => t.toLowerCase().includes(q))
+      )
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [poses, macro, categoryFilter, query]);
+
+  const editFormRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (editingId) editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [editingId]);
 
   function startNew() {
     setDraft(emptyDraft(macro));
@@ -56,9 +79,67 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
     setEditingId("new");
   }
   function startEdit(p: PoseCatalogItem) {
-    setDraft({ macro: p.macro, name: p.name, sanskritName: p.sanskritName, description: p.description, categoryId: p.categoryId, tags: p.tags, imageUrl: p.imageUrl });
+    setDraft({ macro: p.macro, name: p.name, nameIt: p.nameIt, nameEn: p.nameEn, description: p.description, categoryId: p.categoryId, tags: p.tags, imageUrl: p.imageUrl });
     setTagsInput(p.tags.join(", "));
     setEditingId(p.id);
+  }
+
+  function renderEditForm() {
+    return (
+      <div ref={editFormRef} className="mt-1.5 mb-1.5 p-3.5 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+        <div className="grid sm:grid-cols-2 gap-3 mb-3">
+          <Field label="Nome (sanscrito)">
+            <input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Es. Adho Mukha Svanasana" style={inputStyle} />
+          </Field>
+          <Field label="Categoria">
+            <select value={draft.categoryId ?? ""} onChange={(e) => setDraft((d) => ({ ...d, categoryId: e.target.value || null }))} style={inputStyle}>
+              <option value="">Nessuna categoria</option>
+              {categoriesForMacro.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3 mb-3">
+          <Field label="Nome italiano (facoltativo, per la ricerca)">
+            <input value={draft.nameIt} onChange={(e) => setDraft((d) => ({ ...d, nameIt: e.target.value }))} placeholder="Es. Cane a testa in giù" style={inputStyle} />
+          </Field>
+          <Field label="Nome inglese (facoltativo, per la ricerca)">
+            <input value={draft.nameEn} onChange={(e) => setDraft((d) => ({ ...d, nameEn: e.target.value }))} placeholder="Es. Downward Facing Dog" style={inputStyle} />
+          </Field>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3 mb-3">
+          <Field label="Tag (separati da virgola)">
+            <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="es. principianti, spalle, apertura anche" style={inputStyle} />
+          </Field>
+          <Field label="Immagine (percorso o URL, facoltativo)">
+            <input value={draft.imageUrl ?? ""} onChange={(e) => setDraft((d) => ({ ...d, imageUrl: e.target.value || null }))} placeholder="/asanas/mia-posa.png" style={inputStyle} />
+          </Field>
+        </div>
+        <div className="mb-3">
+          <PoseThumbnailGenerator
+            supabase={supabase}
+            poseSlug={slugify(draft.name || "posa")}
+            onGenerated={(url) => setDraft((d) => ({ ...d, imageUrl: url }))}
+          />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3 mb-3">
+          <Field label="Descrizione (facoltativa)">
+            <input value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} style={inputStyle} />
+          </Field>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={handleSaveDraft} className="px-3 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: COLORS.primary }}>
+            Salva posizione
+          </button>
+          <button onClick={() => setEditingId(null)} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
+            Annulla
+          </button>
+        </div>
+      </div>
+    );
   }
 
   async function handleSaveDraft() {
@@ -203,49 +284,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         />
       )}
 
-      {editingId && (
-        <div className="mb-4 p-3.5 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-          <div className="grid sm:grid-cols-2 gap-3 mb-3">
-            <Field label="Nome">
-              <input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Es. Adho Mukha Svanasana" style={inputStyle} />
-            </Field>
-            <Field label="Nome sanscrito (facoltativo, se diverso)">
-              <input value={draft.sanskritName} onChange={(e) => setDraft((d) => ({ ...d, sanskritName: e.target.value }))} style={inputStyle} />
-            </Field>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-3 mb-3">
-            <Field label="Categoria">
-              <select value={draft.categoryId ?? ""} onChange={(e) => setDraft((d) => ({ ...d, categoryId: e.target.value || null }))} style={inputStyle}>
-                <option value="">Nessuna categoria</option>
-                {categoriesForMacro.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Tag (separati da virgola)">
-              <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="es. principianti, spalle, apertura anche" style={inputStyle} />
-            </Field>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-3 mb-3">
-            <Field label="Immagine (percorso o URL, facoltativo)">
-              <input value={draft.imageUrl ?? ""} onChange={(e) => setDraft((d) => ({ ...d, imageUrl: e.target.value || null }))} placeholder="/asanas/mia-posa.png" style={inputStyle} />
-            </Field>
-            <Field label="Descrizione (facoltativa)">
-              <input value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} style={inputStyle} />
-            </Field>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={handleSaveDraft} className="px-3 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: COLORS.primary }}>
-              Salva posizione
-            </button>
-            <button onClick={() => setEditingId(null)} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
-              Annulla
-            </button>
-          </div>
-        </div>
-      )}
+      {editingId === "new" && renderEditForm()}
 
       {loading ? (
         <div style={{ fontSize: 13, color: COLORS.inkSoft }}>Caricamento…</div>
@@ -256,27 +295,30 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
       ) : (
         <div className="flex flex-col gap-1.5">
           {filtered.map((p) => (
-            <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-              {p.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.imageUrl} alt={p.name} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
-              ) : (
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
-              )}
-              <button onClick={() => startEdit(p)} className="flex-1 text-left min-w-0">
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</div>
-                <div className="flex items-center gap-1.5 flex-wrap" style={{ fontSize: 11, color: COLORS.inkSoft }}>
-                  {p.categoryId && <span>{categoryById[p.categoryId]?.name}</span>}
-                  {p.tags.length > 0 && (
-                    <span className="flex items-center gap-1">
-                      <Tag size={10} /> {p.tags.join(", ")}
-                    </span>
-                  )}
-                </div>
-              </button>
-              <button onClick={() => handleDeletePose(p.id)} title="Elimina posizione" style={{ color: COLORS.inkSoft }}>
-                <Trash2 size={14} />
-              </button>
+            <div key={p.id}>
+              <div className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+                {p.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.imageUrl} alt={p.name} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
+                )}
+                <button onClick={() => (editingId === p.id ? setEditingId(null) : startEdit(p))} className="flex-1 text-left min-w-0">
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</div>
+                  <div className="flex items-center gap-1.5 flex-wrap" style={{ fontSize: 11, color: COLORS.inkSoft }}>
+                    {p.categoryId && <span>{categoryById[p.categoryId]?.name}</span>}
+                    {p.tags.length > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Tag size={10} /> {p.tags.join(", ")}
+                      </span>
+                    )}
+                  </div>
+                </button>
+                <button onClick={() => handleDeletePose(p.id)} title="Elimina posizione" style={{ color: COLORS.inkSoft }}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              {editingId === p.id && renderEditForm()}
             </div>
           ))}
         </div>

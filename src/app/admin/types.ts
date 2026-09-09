@@ -210,7 +210,8 @@ export type PoseCatalogItem = {
   id: string;
   macro: PoseMacro;
   name: string;
-  sanskritName: string;
+  nameIt: string;
+  nameEn: string;
   description: string;
   categoryId: string | null;
   tags: string[];

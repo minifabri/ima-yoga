@@ -1411,7 +1411,14 @@ function usePoseFilter(poseCatalog: PoseCatalogItem[], poseCategories: PoseCateg
     return poseCatalog
       .filter((p) => p.macro === macro)
       .filter((p) => categoryFilter === "all" || p.categoryId === categoryFilter)
-      .filter((p) => !q || p.name.toLowerCase().includes(q) || p.tags.some((t) => t.toLowerCase().includes(q)))
+      .filter(
+        (p) =>
+          !q ||
+          p.name.toLowerCase().includes(q) ||
+          p.nameIt.toLowerCase().includes(q) ||
+          p.nameEn.toLowerCase().includes(q) ||
+          p.tags.some((t) => t.toLowerCase().includes(q))
+      )
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [poseCatalog, macro, categoryFilter, query]);
 

@@ -856,6 +856,16 @@ export async function uploadEventImage(supabase: DB, eventSlug: string, variant:
   return data.publicUrl;
 }
 
+// Carica la thumbnail generata (silhouette) su Supabase Storage (bucket
+// pubblico "pose-thumbnails", scrittura riservata all'admin via RLS).
+export async function uploadPoseThumbnail(supabase: DB, poseSlug: string, blob: Blob): Promise<string> {
+  const path = `${poseSlug}-${Date.now()}.png`;
+  const { error } = await supabase.storage.from("pose-thumbnails").upload(path, blob, { upsert: true, cacheControl: "3600", contentType: "image/png" });
+  if (error) throw error;
+  const { data } = supabase.storage.from("pose-thumbnails").getPublicUrl(path);
+  return data.publicUrl;
+}
+
 function mapEventBudget(row: {
   id: string;
   event_id: string | null;
@@ -954,7 +964,8 @@ function mapPoseCatalogItem(row: {
   id: string;
   macro: PoseMacro;
   name: string;
-  sanskrit_name: string | null;
+  name_it: string | null;
+  name_en: string | null;
   description: string | null;
   category_id: string | null;
   tags: string[] | null;
@@ -964,7 +975,8 @@ function mapPoseCatalogItem(row: {
     id: row.id,
     macro: row.macro,
     name: row.name,
-    sanskritName: row.sanskrit_name || "",
+    nameIt: row.name_it || "",
+    nameEn: row.name_en || "",
     description: row.description || "",
     categoryId: row.category_id,
     tags: row.tags || [],
@@ -985,7 +997,8 @@ export async function savePose(
   const payload = {
     macro: pose.macro,
     name: pose.name,
-    sanskrit_name: pose.sanskritName || null,
+    name_it: pose.nameIt || null,
+    name_en: pose.nameEn || null,
     description: pose.description || null,
     category_id: pose.categoryId,
     tags: pose.tags,
@@ -1012,7 +1025,8 @@ export async function bulkInsertPoses(
   const payload = poses.map((p) => ({
     macro: p.macro,
     name: p.name,
-    sanskrit_name: p.sanskritName || null,
+    name_it: p.nameIt || null,
+    name_en: p.nameEn || null,
     description: p.description || null,
     category_id: p.categoryId,
     tags: p.tags,
