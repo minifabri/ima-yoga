@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AdminData,
   Announcement,
-  AshtangaSequence,
   BudgetLineItem,
   ClassItem,
   ClassType,
@@ -17,6 +16,13 @@ import type {
   NotificationItem,
   NotificationType,
   PackageItem,
+  PoseCatalogItem,
+  PoseCategory,
+  PoseMacro,
+  Sequence,
+  SequenceTemplate,
+  SequenceTemplateSection,
+  SectionKind,
   Settings,
   VisitorStats,
   WorkLogActorRole,
@@ -905,56 +911,272 @@ export async function deleteEventBudget(supabase: DB, id: string) {
   if (error) throw error;
 }
 
-// ---- sequenze Ashtanga ----
-function mapAshtangaSequence(row: {
+// ---- catalogo posizioni ----
+function mapPoseCategory(row: { id: string; macro: PoseMacro; name: string; position: number }): PoseCategory {
+  return { id: row.id, macro: row.macro, name: row.name, position: row.position };
+}
+
+export async function fetchPoseCategories(supabase: DB): Promise<PoseCategory[]> {
+  const { data, error } = await supabase.from("pose_categories").select("*").order("macro").order("position");
+  if (error) throw error;
+  return (data ?? []).map(mapPoseCategory);
+}
+
+export async function savePoseCategory(
+  supabase: DB,
+  category: Omit<PoseCategory, "id"> & { id?: string }
+): Promise<PoseCategory> {
+  const payload = { macro: category.macro, name: category.name, position: category.position };
+  const query = category.id
+    ? supabase.from("pose_categories").update(payload).eq("id", category.id).select().single()
+    : supabase.from("pose_categories").insert(payload).select().single();
+  const { data, error } = await query;
+  if (error) throw error;
+  return mapPoseCategory(data);
+}
+
+export async function deletePoseCategory(supabase: DB, id: string) {
+  const { error } = await supabase.from("pose_categories").delete().eq("id", id);
+  if (error) throw error;
+}
+
+function mapPoseCatalogItem(row: {
   id: string;
+  macro: PoseMacro;
+  name: string;
+  sanskrit_name: string | null;
+  description: string | null;
+  category_id: string | null;
+  tags: string[] | null;
+  image_url: string | null;
+}): PoseCatalogItem {
+  return {
+    id: row.id,
+    macro: row.macro,
+    name: row.name,
+    sanskritName: row.sanskrit_name || "",
+    description: row.description || "",
+    categoryId: row.category_id,
+    tags: row.tags || [],
+    imageUrl: row.image_url,
+  };
+}
+
+export async function fetchPoseCatalog(supabase: DB): Promise<PoseCatalogItem[]> {
+  const { data, error } = await supabase.from("poses").select("*").order("name");
+  if (error) throw error;
+  return (data ?? []).map(mapPoseCatalogItem);
+}
+
+export async function savePose(
+  supabase: DB,
+  pose: Omit<PoseCatalogItem, "id"> & { id?: string }
+): Promise<PoseCatalogItem> {
+  const payload = {
+    macro: pose.macro,
+    name: pose.name,
+    sanskrit_name: pose.sanskritName || null,
+    description: pose.description || null,
+    category_id: pose.categoryId,
+    tags: pose.tags,
+    image_url: pose.imageUrl,
+  };
+  const query = pose.id
+    ? supabase.from("poses").update(payload).eq("id", pose.id).select().single()
+    : supabase.from("poses").insert(payload).select().single();
+  const { data, error } = await query;
+  if (error) throw error;
+  return mapPoseCatalogItem(data);
+}
+
+export async function deletePose(supabase: DB, id: string) {
+  const { error } = await supabase.from("poses").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---- template di sezioni per tipo di classe ----
+type TemplateSectionRow = {
+  id: string;
+  template_id: string;
+  kind: SectionKind;
+  label: string;
+  position: number;
+  enabled: boolean;
+};
+
+function mapTemplateSection(s: TemplateSectionRow): SequenceTemplateSection {
+  return { id: s.id, templateId: s.template_id, kind: s.kind, label: s.label, position: s.position, enabled: s.enabled };
+}
+
+function mapSequenceTemplate(row: { id: string; class_type_id: string; sequence_template_sections: TemplateSectionRow[] }): SequenceTemplate {
+  return {
+    id: row.id,
+    classTypeId: row.class_type_id,
+    sections: (row.sequence_template_sections || []).slice().sort((a, b) => a.position - b.position).map(mapTemplateSection),
+  };
+}
+
+export async function fetchSequenceTemplate(supabase: DB, classTypeId: string): Promise<SequenceTemplate | null> {
+  const { data, error } = await supabase
+    .from("sequence_templates")
+    .select("*, sequence_template_sections(*)")
+    .eq("class_type_id", classTypeId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapSequenceTemplate(data) : null;
+}
+
+export async function saveSequenceTemplateSections(
+  supabase: DB,
+  templateId: string,
+  sections: { kind: SectionKind; label: string; position: number; enabled: boolean }[]
+): Promise<SequenceTemplateSection[]> {
+  const { error: delError } = await supabase.from("sequence_template_sections").delete().eq("template_id", templateId);
+  if (delError) throw delError;
+  const payload = sections.map((s) => ({ template_id: templateId, kind: s.kind, label: s.label, position: s.position, enabled: s.enabled }));
+  const { data, error } = await supabase.from("sequence_template_sections").insert(payload).select();
+  if (error) throw error;
+  return (data ?? []).slice().sort((a, b) => a.position - b.position).map(mapTemplateSection);
+}
+
+// ---- sequenze ----
+type SequenceRow = {
+  id: string;
+  class_type_id: string;
   client_id: string | null;
   guest_name: string | null;
   name: string;
-  disabled_poses: string[] | null;
-  notes: Record<string, string> | null;
   created_at: string;
   updated_at: string;
-}): AshtangaSequence {
+  sequence_sections: {
+    id: string;
+    sequence_id: string;
+    kind: SectionKind;
+    label: string;
+    position: number;
+    enabled: boolean;
+    sequence_items: {
+      id: string;
+      section_id: string;
+      pose_id: string | null;
+      custom_label: string | null;
+      note: string | null;
+      position: number;
+    }[];
+  }[];
+};
+
+function mapSequence(row: SequenceRow): Sequence {
   return {
     id: row.id,
+    classTypeId: row.class_type_id,
     clientId: row.client_id,
     guestName: row.guest_name || "",
     name: row.name,
-    disabledPoses: row.disabled_poses || [],
-    notes: row.notes || {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    sections: (row.sequence_sections || [])
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map((s) => ({
+        id: s.id,
+        sequenceId: s.sequence_id,
+        kind: s.kind,
+        label: s.label,
+        position: s.position,
+        enabled: s.enabled,
+        items: (s.sequence_items || [])
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .map((it) => ({
+            id: it.id,
+            sectionId: it.section_id,
+            poseId: it.pose_id,
+            customLabel: it.custom_label || "",
+            note: it.note || "",
+            position: it.position,
+          })),
+      })),
   };
 }
 
-export async function fetchAshtangaSequences(supabase: DB): Promise<AshtangaSequence[]> {
-  const { data, error } = await supabase.from("ashtanga_sequences").select("*").order("updated_at", { ascending: false });
+const SEQUENCE_SELECT = "*, sequence_sections(*, sequence_items(*))";
+
+export async function fetchSequences(supabase: DB): Promise<Sequence[]> {
+  const { data, error } = await supabase.from("sequences").select(SEQUENCE_SELECT).order("updated_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map(mapAshtangaSequence);
+  return (data ?? []).map(mapSequence);
 }
 
-export async function saveAshtangaSequence(
+export async function fetchSequence(supabase: DB, id: string): Promise<Sequence> {
+  const { data, error } = await supabase.from("sequences").select(SEQUENCE_SELECT).eq("id", id).single();
+  if (error) throw error;
+  return mapSequence(data);
+}
+
+// Salva l'intera sequenza sostituendo sempre sezioni e items con lo stato
+// corrente dell'editor: più semplice e sicuro di un diff incrementale, dato
+// il volume ridotto di righe coinvolte in una sequenza.
+export async function saveSequence(
   supabase: DB,
-  sequence: Omit<AshtangaSequence, "id" | "createdAt" | "updatedAt"> & { id?: string }
-): Promise<AshtangaSequence> {
+  sequence: {
+    id?: string;
+    classTypeId: string;
+    clientId: string | null;
+    guestName: string;
+    name: string;
+    sections: {
+      kind: SectionKind;
+      label: string;
+      position: number;
+      enabled: boolean;
+      items: { poseId: string | null; customLabel: string; note: string; position: number }[];
+    }[];
+  }
+): Promise<Sequence> {
   const payload = {
+    class_type_id: sequence.classTypeId,
     client_id: sequence.clientId,
     guest_name: sequence.guestName || null,
     name: sequence.name,
-    disabled_poses: sequence.disabledPoses,
-    notes: sequence.notes,
   };
 
   const query = sequence.id
-    ? supabase.from("ashtanga_sequences").update(payload).eq("id", sequence.id).select().single()
-    : supabase.from("ashtanga_sequences").insert(payload).select().single();
-  const { data, error } = await query;
-  if (error) throw error;
-  return mapAshtangaSequence(data);
+    ? supabase.from("sequences").update(payload).eq("id", sequence.id).select().single()
+    : supabase.from("sequences").insert(payload).select().single();
+  const { data: seqRow, error: seqError } = await query;
+  if (seqError) throw seqError;
+
+  if (sequence.id) {
+    const { error: delError } = await supabase.from("sequence_sections").delete().eq("sequence_id", seqRow.id);
+    if (delError) throw delError;
+  }
+
+  for (const section of sequence.sections) {
+    const { data: sectionRow, error: sectionError } = await supabase
+      .from("sequence_sections")
+      .insert({ sequence_id: seqRow.id, kind: section.kind, label: section.label, position: section.position, enabled: section.enabled })
+      .select()
+      .single();
+    if (sectionError) throw sectionError;
+    if (section.items.length > 0) {
+      const { error: itemsError } = await supabase.from("sequence_items").insert(
+        section.items.map((it) => ({
+          section_id: sectionRow.id,
+          pose_id: it.poseId,
+          custom_label: it.customLabel || null,
+          note: it.note || "",
+          position: it.position,
+        }))
+      );
+      if (itemsError) throw itemsError;
+    }
+  }
+
+  return fetchSequence(supabase, seqRow.id);
 }
 
-export async function deleteAshtangaSequence(supabase: DB, id: string) {
-  const { error } = await supabase.from("ashtanga_sequences").delete().eq("id", id);
+export async function deleteSequence(supabase: DB, id: string) {
+  const { error } = await supabase.from("sequences").delete().eq("id", id);
   if (error) throw error;
 }

@@ -3,20 +3,44 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, Check, Printer, RotateCcw, Share2 } from "lucide-react";
+import { AlertCircle, Check, GripVertical, Plus, Printer, Share2, Trash2, X } from "lucide-react";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { COLORS } from "./colors";
 import { Field, Modal, Switch, inputStyle } from "./ui";
-import { saveAshtangaSequence, deleteAshtangaSequence } from "./data";
-import { ASHTANGA_SECTIONS, POSE_ICON, type AshtangaSectionKey } from "./ashtangaData";
-import type { AshtangaSequence, ClientItem } from "./types";
+import { saveSequence, deleteSequence, fetchSequenceTemplate } from "./data";
+import type { ClassType, ClientItem, PoseCatalogItem, PoseCategory, Sequence, SectionKind } from "./types";
 
-function buildSheetText(sections: { label: string; active: { name: string; note: string }[] }[], personLabel: string) {
+type EditItem = { uid: string; poseId: string | null; customLabel: string; note: string };
+type EditSection = { uid: string; kind: SectionKind; label: string; enabled: boolean; items: EditItem[] };
+
+function uid(): string {
+  return typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function sectionsFromSequence(sequence: Sequence): EditSection[] {
+  return sequence.sections.map((s) => ({
+    uid: uid(),
+    kind: s.kind,
+    label: s.label,
+    enabled: s.enabled,
+    items: s.items.map((it) => ({ uid: uid(), poseId: it.poseId, customLabel: it.customLabel, note: it.note })),
+  }));
+}
+
+function sectionsFromTemplate(template: { sections: { kind: SectionKind; label: string; enabled: boolean }[] } | null): EditSection[] {
+  if (!template) return [];
+  return template.sections.map((s) => ({ uid: uid(), kind: s.kind, label: s.label, enabled: s.enabled, items: [] }));
+}
+
+function buildSheetText(sections: { label: string; items: { text: string; note: string }[] }[], personLabel: string) {
   const lines = [personLabel ? `Sequenza per ${personLabel}` : "Sequenza"];
   sections.forEach((s) => {
-    if (s.active.length === 0) return;
+    if (s.items.length === 0) return;
     lines.push("");
     lines.push(s.label.toUpperCase());
-    s.active.forEach((p) => lines.push(`- ${p.name}${p.note ? `  (${p.note})` : ""}`));
+    s.items.forEach((it) => lines.push(`- ${it.text}${it.note ? `  (${it.note})` : ""}`));
   });
   return lines.join("\n");
 }
@@ -24,29 +48,38 @@ function buildSheetText(sections: { label: string; active: { name: string; note:
 export function SequenceEditor({
   supabase,
   sequence,
+  classTypes,
   clients,
+  poseCatalog,
+  poseCategories,
   onSaved,
   onDeleted,
   onClose,
 }: {
   supabase: SupabaseClient;
-  sequence: AshtangaSequence | null;
+  sequence: Sequence | null;
+  classTypes: ClassType[];
   clients: ClientItem[];
-  onSaved: (s: AshtangaSequence) => void;
+  poseCatalog: PoseCatalogItem[];
+  poseCategories: PoseCategory[];
+  onSaved: (s: Sequence) => void;
   onDeleted?: (id: string) => void;
   onClose?: () => void;
 }) {
+  const [classTypeId, setClassTypeId] = useState<string>(sequence?.classTypeId ?? classTypes[0]?.id ?? "");
   const [name, setName] = useState(sequence?.name ?? "");
   const [clientId, setClientId] = useState<string | null>(sequence?.clientId ?? null);
   const [guestName, setGuestName] = useState(sequence?.guestName ?? "");
-  const [disabled, setDisabled] = useState<Set<string>>(new Set(sequence?.disabledPoses ?? []));
-  const [notes, setNotes] = useState<Record<string, string>>(sequence?.notes ?? {});
-  const [activeSection, setActiveSection] = useState<AshtangaSectionKey>(ASHTANGA_SECTIONS[0].key);
+  const [sections, setSections] = useState<EditSection[]>(sequence ? sectionsFromSequence(sequence) : []);
+  const [loadingTemplate, setLoadingTemplate] = useState(!sequence);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showSheet, setShowSheet] = useState(false);
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
+
+  const poseById = useMemo(() => Object.fromEntries(poseCatalog.map((p) => [p.id, p])), [poseCatalog]);
+  const categoryById = useMemo(() => Object.fromEntries(poseCategories.map((c) => [c.id, c])), [poseCategories]);
 
   useEffect(() => {
     // Rilevamento della Web Share API: deve avvenire dopo il mount (non nel
@@ -55,46 +88,119 @@ export function SequenceEditor({
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
   }, []);
 
+  useEffect(() => {
+    if (sequence) return; // sequenza esistente: sezioni già caricate dal suo stato salvato
+    if (!classTypeId) return;
+    let cancelled = false;
+    setLoadingTemplate(true);
+    fetchSequenceTemplate(supabase, classTypeId)
+      .then((t) => {
+        if (!cancelled) setSections(sectionsFromTemplate(t));
+      })
+      .catch(() => {
+        if (!cancelled) setSections([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingTemplate(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [classTypeId, sequence, supabase]);
+
   const activeClient = clientId ? clients.find((c) => c.id === clientId) : null;
   const personLabel = activeClient?.name || guestName.trim();
 
-  const sectionsWithState = useMemo(
-    () =>
-      ASHTANGA_SECTIONS.map((s) => ({
-        ...s,
-        active: s.poses.filter((p) => !disabled.has(p)).map((p) => ({ name: p, note: notes[p] || "" })),
-      })),
-    [disabled, notes]
-  );
-  const totalActive = sectionsWithState.reduce((sum, s) => sum + s.active.length, 0);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
-  function togglePose(poseName: string, enabled: boolean) {
-    setDisabled((cur) => {
-      const next = new Set(cur);
-      if (enabled) next.delete(poseName);
-      else next.add(poseName);
-      return next;
+  function handleSectionDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    setSections((cur) => {
+      const from = cur.findIndex((s) => s.uid === active.id);
+      const to = cur.findIndex((s) => s.uid === over.id);
+      return from < 0 || to < 0 ? cur : arrayMove(cur, from, to);
     });
   }
-  function setNote(poseName: string, text: string) {
-    setNotes((cur) => ({ ...cur, [poseName]: text }));
+
+  function moveItem(sectionUid: string, activeUid: string, overUid: string) {
+    setSections((cur) =>
+      cur.map((s) => {
+        if (s.uid !== sectionUid) return s;
+        const from = s.items.findIndex((it) => it.uid === activeUid);
+        const to = s.items.findIndex((it) => it.uid === overUid);
+        return from < 0 || to < 0 ? s : { ...s, items: arrayMove(s.items, from, to) };
+      })
+    );
   }
-  function resetAll() {
-    setDisabled(new Set());
-    setNotes({});
+
+  function toggleSection(sectionUid: string, enabled: boolean) {
+    setSections((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, enabled } : s)));
   }
+  function renameSection(sectionUid: string, label: string) {
+    setSections((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, label } : s)));
+  }
+  function removeSection(sectionUid: string) {
+    setSections((cur) => cur.filter((s) => s.uid !== sectionUid));
+  }
+  function addCustomSection() {
+    setSections((cur) => [...cur, { uid: uid(), kind: "custom", label: "Nuova sezione", enabled: true, items: [] }]);
+  }
+
+  function addPoseItem(sectionUid: string, pose: PoseCatalogItem) {
+    setSections((cur) =>
+      cur.map((s) => (s.uid === sectionUid ? { ...s, items: [...s.items, { uid: uid(), poseId: pose.id, customLabel: "", note: "" }] } : s))
+    );
+  }
+  function addCustomItem(sectionUid: string, label: string) {
+    if (!label.trim()) return;
+    setSections((cur) =>
+      cur.map((s) => (s.uid === sectionUid ? { ...s, items: [...s.items, { uid: uid(), poseId: null, customLabel: label.trim(), note: "" }] } : s))
+    );
+  }
+  function setItemNote(sectionUid: string, itemUid: string, note: string) {
+    setSections((cur) =>
+      cur.map((s) => (s.uid === sectionUid ? { ...s, items: s.items.map((it) => (it.uid === itemUid ? { ...it, note } : it)) } : s))
+    );
+  }
+  function removeItem(sectionUid: string, itemUid: string) {
+    setSections((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, items: s.items.filter((it) => it.uid !== itemUid) } : s)));
+  }
+
+  const totalActive = sections.reduce((sum, s) => (s.enabled ? sum + s.items.length : sum), 0);
+
+  const sheetSections = useMemo(
+    () =>
+      sections
+        .filter((s) => s.enabled)
+        .map((s) => ({
+          label: s.label,
+          items: s.items.map((it) => ({
+            text: it.poseId ? poseById[it.poseId]?.name ?? "?" : it.customLabel,
+            note: it.note,
+            imageUrl: it.poseId ? poseById[it.poseId]?.imageUrl ?? null : null,
+          })),
+        })),
+    [sections, poseById]
+  );
 
   async function handleSave() {
     setSaving(true);
     setError("");
     try {
-      const saved = await saveAshtangaSequence(supabase, {
+      const saved = await saveSequence(supabase, {
         id: sequence?.id,
+        classTypeId,
         clientId,
         guestName: clientId ? "" : guestName.trim(),
         name: name.trim() || "Sequenza senza nome",
-        disabledPoses: Array.from(disabled),
-        notes,
+        sections: sections.map((s, sIdx) => ({
+          kind: s.kind,
+          label: s.label,
+          enabled: s.enabled,
+          position: sIdx,
+          items: s.items.map((it, iIdx) => ({ poseId: it.poseId, customLabel: it.customLabel, note: it.note, position: iIdx })),
+        })),
       });
       onSaved(saved);
     } catch {
@@ -109,7 +215,7 @@ export function SequenceEditor({
     setSaving(true);
     setError("");
     try {
-      await deleteAshtangaSequence(supabase, sequence.id);
+      await deleteSequence(supabase, sequence.id);
       onDeleted?.(sequence.id);
     } catch {
       setError("Errore nell'eliminazione.");
@@ -118,7 +224,7 @@ export function SequenceEditor({
   }
 
   function handleCopy() {
-    const text = buildSheetText(sectionsWithState, personLabel);
+    const text = buildSheetText(sheetSections, personLabel);
     navigator.clipboard
       .writeText(text)
       .then(() => {
@@ -128,14 +234,14 @@ export function SequenceEditor({
       .catch(() => {});
   }
   function handleShare() {
-    const text = buildSheetText(sectionsWithState, personLabel);
-    navigator.share({ title: personLabel ? `Sequenza per ${personLabel}` : "Sequenza Ashtanga", text }).catch(() => {});
+    const text = buildSheetText(sheetSections, personLabel);
+    navigator.share({ title: personLabel ? `Sequenza per ${personLabel}` : "Sequenza", text }).catch(() => {});
   }
   function handlePrint() {
     window.print();
   }
 
-  const currentSection = ASHTANGA_SECTIONS.find((s) => s.key === activeSection)!;
+  const selectedType = classTypes.find((t) => t.id === classTypeId);
 
   return (
     <div>
@@ -143,13 +249,21 @@ export function SequenceEditor({
         <Field label="Nome sequenza">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Es. Sequenza base, Post-infortunio ginocchio" style={inputStyle} />
         </Field>
+        <Field label="Tipo di sequenza">
+          <select value={classTypeId} onChange={(e) => setClassTypeId(e.target.value)} disabled={!!sequence} style={inputStyle}>
+            {classTypes.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-3 mb-4">
         <Field label="Allievo collegato">
-          <select
-            value={clientId ?? ""}
-            onChange={(e) => setClientId(e.target.value || null)}
-            style={inputStyle}
-          >
-            <option value="">Nessuno — nome libero</option>
+          <select value={clientId ?? ""} onChange={(e) => setClientId(e.target.value || null)} style={inputStyle}>
+            <option value="">Nessuno — nome libero o bozza</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -157,63 +271,46 @@ export function SequenceEditor({
             ))}
           </select>
         </Field>
+        {!clientId && (
+          <Field label="Nome allievo (facoltativo)">
+            <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="nome allievo, o lascia vuoto per una bozza" style={inputStyle} />
+          </Field>
+        )}
       </div>
 
-      {!clientId && (
-        <div className="mb-4">
-          <Field label="Nome allievo (facoltativo)">
-            <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="nome allievo" style={inputStyle} />
-          </Field>
+      {loadingTemplate ? (
+        <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="py-6 text-center">
+          Caricamento template…
         </div>
+      ) : (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
+          <SortableContext items={sections.map((s) => s.uid)} strategy={verticalListSortingStrategy}>
+            <div className="flex flex-col gap-2.5 mb-3">
+              {sections.map((section) => (
+                <SectionEditor
+                  key={section.uid}
+                  section={section}
+                  poseCatalog={poseCatalog}
+                  categoryById={categoryById}
+                  poseById={poseById}
+                  onToggle={(v) => toggleSection(section.uid, v)}
+                  onRename={(v) => renameSection(section.uid, v)}
+                  onRemove={() => removeSection(section.uid)}
+                  onAddPose={(p) => addPoseItem(section.uid, p)}
+                  onAddCustom={(label) => addCustomItem(section.uid, label)}
+                  onSetNote={(itemUid, note) => setItemNote(section.uid, itemUid, note)}
+                  onRemoveItem={(itemUid) => removeItem(section.uid, itemUid)}
+                  onMoveItem={(activeUid, overUid) => moveItem(section.uid, activeUid, overUid)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <div className="flex flex-wrap gap-1.5">
-          {ASHTANGA_SECTIONS.map((s) => {
-            const count = s.poses.filter((p) => !disabled.has(p)).length;
-            const isActive = s.key === activeSection;
-            return (
-              <button
-                key={s.key}
-                onClick={() => setActiveSection(s.key)}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1"
-                style={{ background: isActive ? COLORS.primary : COLORS.subtle, color: isActive ? "#fff" : COLORS.ink }}
-              >
-                {s.label} <span style={{ opacity: 0.75 }}>{count}/{s.poses.length}</span>
-              </button>
-            );
-          })}
-        </div>
-        <button onClick={resetAll} className="flex items-center gap-1 text-xs font-medium" style={{ color: COLORS.inkSoft }}>
-          <RotateCcw size={12} /> Reimposta tutto
-        </button>
-      </div>
-
-      <div className="flex flex-col gap-1.5 mb-4">
-        {currentSection.poses.map((poseName) => {
-          const enabled = !disabled.has(poseName);
-          return (
-            <div
-              key={poseName}
-              className="flex items-center gap-3 p-2.5 rounded-xl"
-              style={{ background: enabled ? COLORS.card : COLORS.subtle, border: `1px solid ${COLORS.border}`, opacity: enabled ? 1 : 0.6 }}
-            >
-              <Switch checked={enabled} onChange={(v) => togglePose(poseName, v)} label="" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={POSE_ICON[poseName]} alt={poseName} width={40} height={40} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
-              <div className="flex-1 min-w-0">
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{poseName}</div>
-                <input
-                  value={notes[poseName] || ""}
-                  onChange={(e) => setNote(poseName, e.target.value)}
-                  placeholder="nota (facoltativa)"
-                  style={{ ...inputStyle, padding: "4px 8px", fontSize: 12, marginTop: 2 }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <button onClick={addCustomSection} className="flex items-center gap-1.5 text-xs font-semibold mb-4" style={{ color: COLORS.primaryDark }}>
+        <Plus size={13} /> Aggiungi sezione personalizzata
+      </button>
 
       {error && (
         <div className="mb-3 flex items-center gap-1.5" style={{ fontSize: 12, color: COLORS.danger }}>
@@ -228,7 +325,9 @@ export function SequenceEditor({
               Elimina sequenza
             </button>
           )}
-          <span style={{ fontSize: 12, color: COLORS.inkSoft }}>{totalActive} posizioni attive</span>
+          <span style={{ fontSize: 12, color: COLORS.inkSoft }}>
+            {totalActive} posizioni attive{selectedType ? ` · ${selectedType.name}` : ""}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowSheet(true)} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
@@ -256,22 +355,24 @@ export function SequenceEditor({
             </div>
 
             {totalActive === 0 ? (
-              <div style={{ fontSize: 13, color: COLORS.inkSoft }}>Nessuna posizione attiva: riattiva almeno un elemento della sequenza.</div>
+              <div style={{ fontSize: 13, color: COLORS.inkSoft }}>Nessuna posizione attiva: aggiungi almeno un elemento alla sequenza.</div>
             ) : (
-              sectionsWithState.map((s) =>
-                s.active.length === 0 ? null : (
-                  <div key={s.key} className="mb-4">
+              sheetSections.map((s, idx) =>
+                s.items.length === 0 ? null : (
+                  <div key={idx} className="mb-4">
                     <div style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.primaryDark, textTransform: "uppercase", letterSpacing: 0.3 }} className="mb-1.5">
                       {s.label}
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      {s.active.map((p) => (
-                        <div key={p.name} className="flex items-center gap-2.5" style={{ fontSize: 13, borderBottom: `1px dashed ${COLORS.border}`, paddingBottom: 6 }}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={POSE_ICON[p.name]} alt="" width={32} height={32} style={{ borderRadius: 6, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+                      {s.items.map((it, i2) => (
+                        <div key={i2} className="flex items-center gap-2.5" style={{ fontSize: 13, borderBottom: `1px dashed ${COLORS.border}`, paddingBottom: 6 }}>
+                          {it.imageUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={it.imageUrl} alt="" width={32} height={32} style={{ borderRadius: 6, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+                          )}
                           <div className="flex-1 flex items-center justify-between gap-2">
-                            <span style={{ fontFamily: "var(--font-display)" }}>{p.name}</span>
-                            {p.note && <span style={{ color: COLORS.inkSoft, fontSize: 12, textAlign: "right" }}>{p.note}</span>}
+                            <span style={{ fontFamily: "var(--font-display)" }}>{it.text}</span>
+                            {it.note && <span style={{ color: COLORS.inkSoft, fontSize: 12, textAlign: "right" }}>{it.note}</span>}
                           </div>
                         </div>
                       ))}
@@ -298,34 +399,36 @@ export function SequenceEditor({
 
           {typeof document !== "undefined" &&
             createPortal(
-              <div id="ashtanga-print-sheet">
+              <div id="sequence-print-sheet">
                 <style>{`
-                  @media screen { #ashtanga-print-sheet { display: none; } }
+                  @media screen { #sequence-print-sheet { display: none; } }
                   @media print {
-                    body > *:not(#ashtanga-print-sheet) { display: none !important; }
-                    #ashtanga-print-sheet { display: block !important; padding: 24px; max-width: 680px; margin: 0 auto; font-family: 'IBM Plex Sans', sans-serif; color: #2A2440; }
-                    #ashtanga-print-sheet h1 { font-family: 'Fraunces', serif; font-size: 1.4rem; margin: 0 0 4px; }
-                    #ashtanga-print-sheet .p-sub { color: #5C5470; font-size: 0.85rem; margin: 0 0 18px; }
-                    #ashtanga-print-sheet .p-section-title { font-size: 0.78rem; font-weight: 600; color: #9C4FA0; margin: 20px 0 6px; text-transform: uppercase; }
-                    #ashtanga-print-sheet .p-row { display: flex; align-items: center; gap: 12px; padding: 5px 0; border-bottom: 1px dashed #DCD3EC; break-inside: avoid; }
-                    #ashtanga-print-sheet .p-thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: #DFD5EE; flex-shrink: 0; }
-                    #ashtanga-print-sheet .p-text { display: flex; justify-content: space-between; gap: 14px; flex: 1; }
-                    #ashtanga-print-sheet .p-note { color: #5C5470; font-size: 0.85rem; text-align: right; }
+                    body > *:not(#sequence-print-sheet) { display: none !important; }
+                    #sequence-print-sheet { display: block !important; padding: 24px; max-width: 680px; margin: 0 auto; font-family: 'IBM Plex Sans', sans-serif; color: #2A2440; }
+                    #sequence-print-sheet h1 { font-family: 'Fraunces', serif; font-size: 1.4rem; margin: 0 0 4px; }
+                    #sequence-print-sheet .p-sub { color: #5C5470; font-size: 0.85rem; margin: 0 0 18px; }
+                    #sequence-print-sheet .p-section-title { font-size: 0.78rem; font-weight: 600; color: #9C4FA0; margin: 20px 0 6px; text-transform: uppercase; }
+                    #sequence-print-sheet .p-row { display: flex; align-items: center; gap: 12px; padding: 5px 0; border-bottom: 1px dashed #DCD3EC; break-inside: avoid; }
+                    #sequence-print-sheet .p-thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: #DFD5EE; flex-shrink: 0; }
+                    #sequence-print-sheet .p-text { display: flex; justify-content: space-between; gap: 14px; flex: 1; }
+                    #sequence-print-sheet .p-note { color: #5C5470; font-size: 0.85rem; text-align: right; }
                   }
                 `}</style>
-                <h1>{personLabel ? `Sequenza per ${personLabel}` : "Sequenza Ashtanga"}</h1>
+                <h1>{personLabel ? `Sequenza per ${personLabel}` : "Sequenza"}</h1>
                 <p className="p-sub">{new Date().toLocaleDateString("it-IT")}</p>
-                {sectionsWithState.map((s) =>
-                  s.active.length === 0 ? null : (
-                    <div key={s.key}>
+                {sheetSections.map((s, idx) =>
+                  s.items.length === 0 ? null : (
+                    <div key={idx}>
                       <div className="p-section-title">{s.label}</div>
-                      {s.active.map((p) => (
-                        <div key={p.name} className="p-row">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img className="p-thumb" src={POSE_ICON[p.name]} alt="" />
+                      {s.items.map((it, i2) => (
+                        <div key={i2} className="p-row">
+                          {it.imageUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img className="p-thumb" src={it.imageUrl} alt="" />
+                          )}
                           <div className="p-text">
-                            <span>{p.name}</span>
-                            {p.note && <span className="p-note">{p.note}</span>}
+                            <span>{it.text}</span>
+                            {it.note && <span className="p-note">{it.note}</span>}
                           </div>
                         </div>
                       ))}
@@ -337,6 +440,167 @@ export function SequenceEditor({
             )}
         </Modal>
       )}
+    </div>
+  );
+}
+
+function SectionEditor({
+  section,
+  poseCatalog,
+  categoryById,
+  poseById,
+  onToggle,
+  onRename,
+  onRemove,
+  onAddPose,
+  onAddCustom,
+  onSetNote,
+  onRemoveItem,
+  onMoveItem,
+}: {
+  section: EditSection;
+  poseCatalog: PoseCatalogItem[];
+  categoryById: Record<string, PoseCategory>;
+  poseById: Record<string, PoseCatalogItem>;
+  onToggle: (v: boolean) => void;
+  onRename: (v: string) => void;
+  onRemove: () => void;
+  onAddPose: (pose: PoseCatalogItem) => void;
+  onAddCustom: (label: string) => void;
+  onSetNote: (itemUid: string, note: string) => void;
+  onRemoveItem: (itemUid: string) => void;
+  onMoveItem: (activeUid: string, overUid: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.uid });
+  const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState(true);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const macroFilter = section.kind === "pranayama" ? "pranayama" : "asana";
+    return poseCatalog
+      .filter((p) => p.macro === macroFilter)
+      .filter((p) => {
+        const category = p.categoryId ? categoryById[p.categoryId]?.name ?? "" : "";
+        return p.name.toLowerCase().includes(q) || category.toLowerCase().includes(q) || p.tags.some((t) => t.toLowerCase().includes(q));
+      })
+      .slice(0, 8);
+  }, [query, poseCatalog, categoryById, section.kind]);
+
+  function handleItemDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (over && active.id !== over.id) onMoveItem(String(active.id), String(over.id));
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: 12,
+        background: section.enabled ? COLORS.card : COLORS.subtle,
+        opacity: isDragging ? 0.6 : 1,
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      <div className="flex items-center gap-2 p-2.5">
+        <button {...attributes} {...listeners} className="cursor-grab flex items-center" style={{ color: COLORS.inkSoft, touchAction: "none" }} title="Trascina per riordinare">
+          <GripVertical size={15} />
+        </button>
+        <button onClick={() => setExpanded((v) => !v)} className="flex-1 text-left flex items-center gap-2">
+          <input
+            value={section.label}
+            onChange={(e) => onRename(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            style={{ fontSize: 13, fontWeight: 600, border: "none", outline: "none", background: "transparent", color: COLORS.ink, minWidth: 0 }}
+          />
+          <span style={{ fontSize: 11, color: COLORS.inkSoft }}>{section.items.length} posizioni</span>
+        </button>
+        <Switch checked={section.enabled} onChange={onToggle} label="" onText="Attiva" offText="Off" />
+        <button onClick={onRemove} title="Rimuovi sezione" style={{ color: COLORS.danger }}>
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+      {expanded && section.enabled && (
+        <div className="px-2.5 pb-2.5">
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd}>
+            <SortableContext items={section.items.map((it) => it.uid)} strategy={verticalListSortingStrategy}>
+              <div className="flex flex-col gap-1.5 mb-2">
+                {section.items.map((item) => (
+                  <ItemRow key={item.uid} item={item} pose={item.poseId ? poseById[item.poseId] : undefined} onSetNote={(note) => onSetNote(item.uid, note)} onRemove={() => onRemoveItem(item.uid)} />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+
+          <div className="relative">
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cerca posizione per nome, categoria o tag…" style={{ ...inputStyle, fontSize: 12.5 }} />
+            {query.trim() && (
+              <div className="absolute left-0 right-0 mt-1 rounded-lg overflow-hidden z-10" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: "0 8px 20px rgba(0,0,0,0.12)" }}>
+                {suggestions.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      onAddPose(p);
+                      setQuery("");
+                    }}
+                    className="flex items-center gap-2 w-full text-left px-2.5 py-1.5"
+                    style={{ fontSize: 12.5 }}
+                  >
+                    {p.imageUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.imageUrl} alt="" width={24} height={24} style={{ borderRadius: 5, objectFit: "cover", flexShrink: 0 }} />
+                    )}
+                    <span>{p.name}</span>
+                    {p.categoryId && <span style={{ color: COLORS.inkSoft, fontSize: 11 }}>· {categoryById[p.categoryId]?.name}</span>}
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    onAddCustom(query);
+                    setQuery("");
+                  }}
+                  className="flex items-center gap-1.5 w-full text-left px-2.5 py-1.5"
+                  style={{ fontSize: 12, color: COLORS.primaryDark, borderTop: suggestions.length ? `1px solid ${COLORS.border}` : "none" }}
+                >
+                  <Plus size={12} /> Aggiungi &quot;{query}&quot; come voce libera
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ItemRow({ item, pose, onSetNote, onRemove }: { item: EditItem; pose?: PoseCatalogItem; onSetNote: (note: string) => void; onRemove: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.uid });
+  const label = pose?.name || item.customLabel || "Voce senza nome";
+  return (
+    <div
+      ref={setNodeRef}
+      className="flex items-center gap-2.5 p-2 rounded-xl"
+      style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, opacity: isDragging ? 0.6 : 1, transform: CSS.Transform.toString(transform), transition }}
+    >
+      <button {...attributes} {...listeners} className="cursor-grab flex items-center" style={{ color: COLORS.inkSoft, touchAction: "none" }} title="Trascina per riordinare">
+        <GripVertical size={14} />
+      </button>
+      {pose?.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={pose.imageUrl} alt={label} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+      )}
+      <div className="flex-1 min-w-0">
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
+        <input value={item.note} onChange={(e) => onSetNote(e.target.value)} placeholder="nota (facoltativa)" style={{ ...inputStyle, padding: "4px 8px", fontSize: 12, marginTop: 2 }} />
+      </div>
+      <button onClick={onRemove} title="Rimuovi" style={{ color: COLORS.inkSoft }}>
+        <X size={14} />
+      </button>
     </div>
   );
 }
