@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, ChevronDown, ChevronRight, LayoutGrid, List, Plus, Search, Tag, Trash2, Upload } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronRight, LayoutGrid, List, Pencil, Plus, Search, Tag, Trash2, Upload } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { Field, IconButton, inputStyle } from "./ui";
 import { fetchPoseCatalog, savePose, deletePose, deletePoseThumbnail, fetchPoseCategories, savePoseCategory, deletePoseCategory } from "./data";
@@ -41,6 +41,12 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   const [showImport, setShowImport] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showManualImageUrl, setShowManualImageUrl] = useState(false);
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [showManageCategories, setShowManageCategories] = useState(false);
+
+  function toggleTagFilter(tag: string) {
+    setTagFilter((cur) => (cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag]));
+  }
 
   function toggleExpanded(id: string) {
     setExpandedIds((cur) => {
@@ -67,11 +73,18 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
 
   const hasQuery = query.trim().length > 0;
 
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of poses) if (p.macro === macro) for (const t of p.tags) set.add(t);
+    return [...set].sort();
+  }, [poses, macro]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return poses
       .filter((p) => p.macro === macro)
       .filter((p) => categoryFilter === "all" || p.categoryId === categoryFilter)
+      .filter((p) => tagFilter.length === 0 || p.tags.some((t) => tagFilter.includes(t)))
       .filter((p) => {
         if (!q) return true;
         const parent = p.parentPoseId ? poseById[p.parentPoseId] : undefined;
@@ -85,7 +98,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         );
       })
       .sort((a, b) => poseDisplayName(a, undefined).localeCompare(poseDisplayName(b, undefined)));
-  }, [poses, macro, categoryFilter, query, poseById]);
+  }, [poses, macro, categoryFilter, tagFilter, query, poseById]);
 
   // Fuori dalla ricerca, le varianti si annidano sotto la loro posizione base
   // invece di comparire come righe indipendenti (indipendentemente dal filtro
@@ -354,7 +367,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 600, color: COLORS.heading }}>Catalogo posizioni</div>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 600, color: COLORS.heading }}>Catalogo</div>
         <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
           <button
             onClick={() => setViewMode("list")}
@@ -396,33 +409,101 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         </div>
       )}
 
-      <div className="mb-4">
-        <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.inkSoft }} className="mb-1.5">
-          Categorie {macro === "asana" ? "asana" : "pranayama"}
+      <div className="grid md:grid-cols-2 gap-5 mb-4">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.inkSoft }}>Categorie {macro === "asana" ? "asana" : "pranayama"}</div>
+            <button onClick={() => setShowManageCategories((v) => !v)} style={{ fontSize: 11, fontWeight: 600, color: COLORS.primaryDark }}>
+              {showManageCategories ? "Fatto" : "Gestisci categorie"}
+            </button>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setCategoryFilter("all")}
+              className="rounded-lg font-semibold"
+              style={{ fontSize: 13, padding: "7px 15px", background: categoryFilter === "all" ? COLORS.primary : COLORS.subtle, color: categoryFilter === "all" ? "#fff" : COLORS.ink }}
+            >
+              Tutte
+            </button>
+            {categoriesForMacro.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setCategoryFilter(c.id)}
+                className="rounded-lg font-semibold"
+                style={{ fontSize: 13, padding: "7px 15px", background: categoryFilter === c.id ? COLORS.primary : COLORS.subtle, color: categoryFilter === c.id ? "#fff" : COLORS.ink }}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+
+          {showManageCategories && (
+            <div className="mt-3 p-3 rounded-lg" style={{ background: COLORS.subtle }}>
+              <div className="flex flex-col gap-1.5 mb-2">
+                {categoriesForMacro.map((c) => {
+                  const used = poses.some((p) => p.categoryId === c.id);
+                  return (
+                    <div key={c.id} className="flex items-center justify-between">
+                      <span style={{ fontSize: 12.5, color: COLORS.ink }}>{c.name}</span>
+                      <button onClick={() => handleDeleteCategory(c.id)} disabled={used} title={used ? "In uso" : "Elimina categoria"} style={{ color: used ? COLORS.border : COLORS.danger }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
+                {categoriesForMacro.length === 0 && <div style={{ fontSize: 12, color: COLORS.inkSoft }}>Nessuna categoria ancora.</div>}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Nuova categoria"
+                  style={{ ...inputStyle, background: COLORS.card, fontSize: 12 }}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+                />
+                <IconButton onClick={handleAddCategory} style={{ background: COLORS.card, flexShrink: 0 }}>
+                  <Plus size={14} />
+                </IconButton>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-1.5 flex-wrap mb-2">
-          <button onClick={() => setCategoryFilter("all")} className="px-2.5 py-1 rounded-lg text-xs font-medium" style={{ background: categoryFilter === "all" ? COLORS.primary : COLORS.subtle, color: categoryFilter === "all" ? "#fff" : COLORS.ink }}>
-            Tutte
-          </button>
-          {categoriesForMacro.map((c) => {
-            const used = poses.some((p) => p.categoryId === c.id);
-            return (
-              <span key={c.id} className="inline-flex items-center gap-1">
-                <button onClick={() => setCategoryFilter(c.id)} className="px-2.5 py-1 rounded-lg text-xs font-medium" style={{ background: categoryFilter === c.id ? COLORS.primary : COLORS.subtle, color: categoryFilter === c.id ? "#fff" : COLORS.ink }}>
-                  {c.name}
-                </button>
-                <button onClick={() => handleDeleteCategory(c.id)} disabled={used} title={used ? "In uso" : "Elimina categoria"} style={{ color: used ? COLORS.border : COLORS.danger }}>
-                  <Trash2 size={11} />
-                </button>
-              </span>
-            );
-          })}
-        </div>
-        <div className="flex items-center gap-2">
-          <input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="Nuova categoria" style={{ ...inputStyle, maxWidth: 220, fontSize: 12 }} onKeyDown={(e) => e.key === "Enter" && handleAddCategory()} />
-          <IconButton onClick={handleAddCategory} style={{ background: COLORS.subtle }}>
-            <Plus size={14} />
-          </IconButton>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.inkSoft }}>Tag</div>
+            {tagFilter.length > 0 && (
+              <button onClick={() => setTagFilter([])} style={{ fontSize: 11, fontWeight: 600, color: COLORS.inkSoft }}>
+                Azzera
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {allTags.length === 0 ? (
+              <div style={{ fontSize: 12, color: COLORS.inkSoft }}>Nessun tag ancora.</div>
+            ) : (
+              allTags.map((t) => {
+                const active = tagFilter.includes(t);
+                return (
+                  <button
+                    key={t}
+                    onClick={() => toggleTagFilter(t)}
+                    className="rounded-full"
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      padding: "4px 11px",
+                      border: `1px solid ${active ? COLORS.primary : COLORS.border}`,
+                      background: active ? COLORS.primary : "transparent",
+                      color: active ? "#fff" : COLORS.inkSoft,
+                    }}
+                  >
+                    {t}
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 
@@ -555,13 +636,25 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
     const displayImage = poseDisplayImage(p, undefined);
     return (
       <div className="rounded-xl overflow-hidden flex flex-col" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-        <div className="flex items-center justify-center" style={{ height: 110, background: COLORS.subtle }}>
+        <div className="flex items-center justify-center relative" style={{ height: 110, background: COLORS.subtle }}>
           {displayImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={displayImage} alt={displayName} style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain" }} />
           ) : (
             <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.card }} />
           )}
+          <div className="absolute flex items-center gap-1" style={{ top: 6, right: 6 }}>
+            <IconButton
+              onClick={() => (editingId === p.id ? setEditingId(null) : startEdit(p))}
+              title="Modifica posizione"
+              style={{ width: 28, height: 28, background: withAlpha(COLORS.card, 85), color: COLORS.ink }}
+            >
+              <Pencil size={13} />
+            </IconButton>
+            <IconButton onClick={() => handleDeletePose(p.id)} title="Elimina posizione" style={{ width: 28, height: 28, background: withAlpha(COLORS.card, 85), color: COLORS.danger }}>
+              <Trash2 size={13} />
+            </IconButton>
+          </div>
         </div>
         <div className="p-3 flex flex-col gap-1.5 flex-1">
           <button onClick={() => (editingId === p.id ? setEditingId(null) : startEdit(p))} className="text-left">
@@ -583,20 +676,25 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
                 const vName = poseDisplayName(v, p);
                 const vImage = poseDisplayImage(v, p);
                 return (
-                  <button key={v.id} onClick={() => startEdit(v)} className="flex items-center gap-2 text-left">
-                    <div className="flex items-center justify-center flex-shrink-0 rounded-md overflow-hidden" style={{ width: 28, height: 28, background: COLORS.subtle }}>
-                      {vImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={vImage} alt={vName} style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain" }} />
-                      ) : (
-                        <div style={{ width: 14, height: 14, borderRadius: 4, background: COLORS.card }} />
-                      )}
-                    </div>
-                    <div className="flex-1" style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.ink }}>{vName}</div>
-                      {v.tags.length > 0 && <div style={{ fontSize: 10, color: COLORS.inkSoft }}>{v.tags.join(" · ")}</div>}
-                    </div>
-                  </button>
+                  <div key={v.id} className="flex items-center gap-2">
+                    <button onClick={() => startEdit(v)} className="flex items-center gap-2 flex-1 text-left" style={{ minWidth: 0 }}>
+                      <div className="flex items-center justify-center flex-shrink-0 rounded-md overflow-hidden" style={{ width: 28, height: 28, background: COLORS.subtle }}>
+                        {vImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={vImage} alt={vName} style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain" }} />
+                        ) : (
+                          <div style={{ width: 14, height: 14, borderRadius: 4, background: COLORS.card }} />
+                        )}
+                      </div>
+                      <div className="flex-1" style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.ink }}>{vName}</div>
+                        {v.tags.length > 0 && <div style={{ fontSize: 10, color: COLORS.inkSoft }}>{v.tags.join(" · ")}</div>}
+                      </div>
+                    </button>
+                    <button onClick={() => handleDeletePose(v.id)} title="Elimina variante" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 );
               })}
             </div>
