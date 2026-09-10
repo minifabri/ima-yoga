@@ -132,6 +132,13 @@ export function SurveyPublicView({
     setCurrentIndex((i) => Math.max(i - 1, 0));
   }
 
+  function restartPreview() {
+    setAnswers({});
+    setCurrentIndex(0);
+    setStepError("");
+    setPhase("flow");
+  }
+
   async function handleSubmit() {
     setSubmitError("");
     // L'admin può scorrere l'intero flusso per vedere come si presenta, ma
@@ -245,9 +252,16 @@ export function SurveyPublicView({
             <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 14, fontWeight: 700, color: COLORS.success }}>
               <Check size={15} /> Anteprima completata
             </div>
-            <div style={{ fontSize: 12.5, color: COLORS.inkSoft }}>
+            <div style={{ fontSize: 12.5, color: COLORS.inkSoft }} className="mb-3">
               Hai visto l&apos;intero flusso di risposta. Le tue selezioni non sono state salvate — questo era solo un giro di prova.
             </div>
+            <button
+              onClick={restartPreview}
+              className="px-3.5 py-2 rounded-full text-sm font-semibold text-white"
+              style={{ background: COLORS.primary }}
+            >
+              Ricomincia anteprima
+            </button>
           </div>
         ) : alreadyResponded ? (
           <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
