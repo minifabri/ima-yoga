@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, Route, BookOpen, ArrowLeft } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, Route, BookOpen, ArrowLeft, ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
@@ -22,6 +22,7 @@ import { NoticesView } from "./NoticesView";
 import { WorklogView } from "./WorklogView";
 import { StatsView } from "./StatsView";
 import { EventsView } from "./EventsView";
+import { SurveysView } from "./SurveysView";
 import { ToolsView } from "./ToolsView";
 import { SequencesView } from "./SequencesView";
 import { PoseCatalogView } from "./PoseCatalogView";
@@ -61,6 +62,7 @@ type ConfirmDeleteState = { type: "class" | "client"; id: string } | null;
 
 const moreMenuItems = [
   { key: "events", label: "Eventi", icon: Ticket },
+  { key: "surveys", label: "Sondaggi", icon: ClipboardList },
   { key: "earnings", label: "Guadagni", icon: PiggyBank },
   { key: "tools", label: "Strumenti", icon: Calculator },
   { key: "sequences", label: "Sequenze", icon: Route },
@@ -86,6 +88,7 @@ const mobileHubSecondaryItems = [
   { key: "tools", label: "Strumenti", icon: Calculator },
   { key: "sequences", label: "Sequenze", icon: Route },
   { key: "pose-catalog", label: "Catalogo", icon: BookOpen },
+  { key: "surveys", label: "Sondaggi", icon: ClipboardList },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
 ];
@@ -93,7 +96,7 @@ const mobileHubSecondaryItems = [
 export function AdminApp({ initial }: { initial: AdminData }) {
   const supabase = useMemo(() => createClient(), []);
 
-  const [view, setView] = useState<"home" | "calendar" | "clients" | "payments" | "events" | "earnings" | "tools" | "sequences" | "pose-catalog" | "notices" | "worklog" | "stats" | "settings">("home");
+  const [view, setView] = useState<"home" | "calendar" | "clients" | "payments" | "events" | "surveys" | "earnings" | "tools" | "sequences" | "pose-catalog" | "notices" | "worklog" | "stats" | "settings">("home");
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>(initial.classTypes);
   const [levels, setLevels] = useState<Level[]>(initial.levels);
@@ -729,6 +732,8 @@ export function AdminApp({ initial }: { initial: AdminData }) {
           />
         ) : view === "events" ? (
           <EventsView supabase={supabase} />
+        ) : view === "surveys" ? (
+          <SurveysView supabase={supabase} />
         ) : view === "earnings" ? (
           <EarningsView
             supabase={supabase}

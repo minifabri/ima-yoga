@@ -4,6 +4,8 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import { logAdminAction } from "@/lib/supabase/audit";
+import { addPersonalNotices } from "./data";
+import { sendSurveyPublishedEmail } from "@/lib/notifications";
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
@@ -127,4 +129,64 @@ export async function adminResendPasswordReset(clientId: string): Promise<{ ok: 
   );
 
   return { ok: true };
+}
+
+// Notifica opzionale (email e/o avviso in-sito) inviata a tutti i clienti
+// attivi quando l'admin pubblica un sondaggio. Le email vanno lette dal
+// client service-role perché l'indirizzo vive in auth.users, non in
+// profiles (stesso motivo per cui il cron dei promemoria lezione usa
+// adminClient.auth.admin.getUserById per ogni destinatario).
+export async function notifySurveyPublished(
+  surveyId: string,
+  surveySlug: string,
+  surveyTitle: string,
+  opts: { sendEmail: boolean; sendSiteNotice: boolean }
+): Promise<{ ok: boolean; emailsSent?: number; noticesSent?: number; error?: string }> {
+  const { ctx, error } = await requireAdminContext();
+  if (!ctx) return { ok: false, error };
+  if (!opts.sendEmail && !opts.sendSiteNotice) return { ok: true, emailsSent: 0, noticesSent: 0 };
+
+  const { data: clientProfiles, error: clientsErr } = await ctx.supabase
+    .from("profiles")
+    .select("id, auth_user_id, full_name")
+    .eq("role", "client")
+    .eq("disabled", false);
+  if (clientsErr) return { ok: false, error: clientsErr.message };
+
+  const origin = await getOrigin();
+  const linkPath = `/sondaggi/${surveySlug}`;
+  const surveyUrl = `${origin || "https://ima-yoga.vercel.app"}${linkPath}`;
+
+  let emailsSent = 0;
+  let noticesSent = 0;
+
+  if (opts.sendSiteNotice && clientProfiles && clientProfiles.length > 0) {
+    const clientIds = clientProfiles.map((c) => c.id);
+    await addPersonalNotices(ctx.supabase, clientIds, `Nuovo sondaggio disponibile: «${surveyTitle}». Tocca qui per rispondere.`, {
+      kind: "survey_published",
+      linkPath,
+    });
+    noticesSent = clientIds.length;
+  }
+
+  if (opts.sendEmail && clientProfiles) {
+    for (const profile of clientProfiles) {
+      if (!profile.auth_user_id) continue;
+      const { data: userData } = await ctx.adminClient.auth.admin.getUserById(profile.auth_user_id);
+      const email = userData?.user?.email;
+      if (!email) continue;
+      const ok = await sendSurveyPublishedEmail({ to: email, fullName: profile.full_name || "", surveyTitle, surveyUrl });
+      if (ok) emailsSent++;
+    }
+  }
+
+  await logAdminAction(
+    ctx.supabase,
+    "notify_survey_published",
+    "surveys",
+    surveyId,
+    `Notifica pubblicazione sondaggio "${surveyTitle}" — email: ${emailsSent}, avvisi: ${noticesSent}.`
+  );
+
+  return { ok: true, emailsSent, noticesSent };
 }
