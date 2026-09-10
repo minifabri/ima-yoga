@@ -6,7 +6,9 @@ export type PublicSurveyOption = {
 export type PublicSurveyQuestion = {
   id: string;
   questionText: string;
+  questionType: "choice" | "text";
   required: boolean;
+  allowMultiple: boolean;
   allowOther: boolean;
   options: PublicSurveyOption[];
 };

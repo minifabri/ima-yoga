@@ -208,7 +208,9 @@ export type SurveyQuestion = {
   id: string;
   position: number;
   questionText: string;
+  questionType: "choice" | "text";
   required: boolean;
+  allowMultiple: boolean;
   allowOther: boolean;
   options: SurveyQuestionOption[];
 };

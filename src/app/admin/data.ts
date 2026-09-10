@@ -983,7 +983,9 @@ type SurveyRow = {
     id: string;
     position: number;
     question_text: string;
+    question_type: "choice" | "text";
     required: boolean;
+    allow_multiple: boolean;
     allow_other: boolean;
     survey_question_options: { id: string; position: number; label: string }[];
   }[];
@@ -1011,7 +1013,9 @@ function mapSurvey(row: SurveyRow): SurveyItem {
         id: q.id,
         position: q.position,
         questionText: q.question_text,
+        questionType: q.question_type,
         required: q.required,
+        allowMultiple: q.allow_multiple,
         allowOther: q.allow_other,
         options: (q.survey_question_options || [])
           .slice()
@@ -1072,7 +1076,9 @@ export async function saveSurveyQuestions(
   surveyId: string,
   questions: {
     questionText: string;
+    questionType: "choice" | "text";
     required: boolean;
+    allowMultiple: boolean;
     allowOther: boolean;
     position: number;
     options: { label: string; position: number }[];
@@ -1089,7 +1095,9 @@ export async function saveSurveyQuestions(
         survey_id: surveyId,
         position: q.position,
         question_text: q.questionText,
+        question_type: q.questionType,
         required: q.required,
+        allow_multiple: q.allowMultiple,
         allow_other: q.allowOther,
       }))
     )
@@ -1108,7 +1116,9 @@ export async function saveSurveyQuestions(
     id: row.id,
     position: row.position,
     questionText: row.question_text,
+    questionType: row.question_type,
     required: row.required,
+    allowMultiple: row.allow_multiple,
     allowOther: row.allow_other,
     options: (insertedOptions ?? [])
       .filter((o) => o.question_id === row.id)

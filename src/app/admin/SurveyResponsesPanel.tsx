@@ -78,6 +78,30 @@ export function SurveyResponsesPanel({ survey, onClose }: { survey: SurveyItem; 
             {survey.questions.map((q) => {
               const answers = responses.flatMap((r) => r.answers.filter((a) => a.questionId === q.id));
               const respondentCount = answers.length;
+
+              if (q.questionType === "text") {
+                const texts = answers.map((a) => a.otherText).filter((t): t is string => !!t && t.trim().length > 0);
+                return (
+                  <div key={q.id}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.heading }} className="mb-2">
+                      {q.questionText}
+                      {!q.required && <span style={{ fontSize: 10.5, fontWeight: 500, color: COLORS.inkSoft }}> (facoltativa)</span>}
+                    </div>
+                    {texts.length === 0 ? (
+                      <div style={{ fontSize: 12, color: COLORS.inkSoft }}>Nessuna risposta a questa domanda.</div>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {texts.map((t, i) => (
+                          <div key={i} className="px-2.5 py-1.5 rounded-lg" style={{ fontSize: 12, color: COLORS.ink, background: COLORS.subtle }}>
+                            &ldquo;{t}&rdquo;
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
               const counts: Record<string, number> = {};
               q.options.forEach((o) => (counts[o.id] = 0));
               answers.forEach((a) => a.optionIds.forEach((oid) => (counts[oid] = (counts[oid] ?? 0) + 1)));
@@ -143,8 +167,13 @@ export function SurveyResponsesPanel({ survey, onClose }: { survey: SurveyItem; 
                     <div className="px-3 pb-3 flex flex-col gap-2" style={{ borderTop: `1px solid ${COLORS.border}` }}>
                       {survey.questions.map((q) => {
                         const a = r.answers.find((x) => x.questionId === q.id);
-                        const labels = (a?.optionIds ?? []).map((oid) => optionLabelById[oid]).filter(Boolean);
-                        if (a?.otherText) labels.push(`Altro: ${a.otherText}`);
+                        const labels =
+                          q.questionType === "text"
+                            ? a?.otherText
+                              ? [a.otherText]
+                              : []
+                            : (a?.optionIds ?? []).map((oid) => optionLabelById[oid]).filter(Boolean);
+                        if (q.questionType !== "text" && a?.otherText) labels.push(`Altro: ${a.otherText}`);
                         return (
                           <div key={q.id} className="pt-2">
                             <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft }}>{q.questionText}</div>

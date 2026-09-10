@@ -75,8 +75,14 @@ export function SurveyPublicView({
   }
 
   function toggleOption(qId: string, optionId: string) {
+    const allowMultiple = survey.questions.find((q) => q.id === qId)?.allowMultiple ?? true;
     setAnswers((cur) => {
       const a = cur[qId] ?? { optionIds: [], otherSelected: false, otherText: "" };
+      if (!allowMultiple) {
+        // A scelta singola selezionarne una sostituisce sempre la
+        // precedente (e l'eventuale "Altro"), come un radio button.
+        return { ...cur, [qId]: { ...a, optionIds: [optionId], otherSelected: false } };
+      }
       const has = a.optionIds.includes(optionId);
       return { ...cur, [qId]: { ...a, optionIds: has ? a.optionIds.filter((id) => id !== optionId) : [...a.optionIds, optionId] } };
     });
@@ -84,8 +90,12 @@ export function SurveyPublicView({
   }
 
   function toggleOther(qId: string) {
+    const allowMultiple = survey.questions.find((q) => q.id === qId)?.allowMultiple ?? true;
     setAnswers((cur) => {
       const a = cur[qId] ?? { optionIds: [], otherSelected: false, otherText: "" };
+      if (!allowMultiple) {
+        return { ...cur, [qId]: { ...a, optionIds: [], otherSelected: true } };
+      }
       return { ...cur, [qId]: { ...a, otherSelected: !a.otherSelected, otherText: a.otherSelected ? "" : a.otherText } };
     });
     setStepError("");
@@ -101,6 +111,7 @@ export function SurveyPublicView({
   function canAdvance(q: PublicSurveyQuestion): boolean {
     if (!q.required) return true;
     const a = answerFor(q.id);
+    if (q.questionType === "text") return a.otherText.trim().length > 0;
     if (a.optionIds.length > 0) return true;
     if (a.otherSelected && a.otherText.trim()) return true;
     return false;
@@ -138,7 +149,7 @@ export function SurveyPublicView({
         return {
           question_id: q.id,
           option_ids: a.optionIds,
-          other_text: a.otherSelected ? a.otherText.trim() : "",
+          other_text: q.questionType === "text" || a.otherSelected ? a.otherText.trim() : "",
         };
       });
       const { error } = await supabase.rpc("submit_survey_response", {
@@ -381,22 +392,22 @@ function SurveyFlow({
 }) {
   const isReview = currentIndex === survey.questions.length;
 
+  const currentQuestion = survey.questions[currentIndex];
+
   return (
-    <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-      <div style={{ overflow: "hidden" }}>
-        <div
-          className="flex items-start"
-          style={{ transform: `translateX(-${currentIndex * 100}%)`, transition: "transform .4s cubic-bezier(.4,0,.2,1)" }}
-        >
-          {survey.questions.map((q) => (
-            <div key={q.id} style={{ flex: "0 0 100%", width: "100%", minWidth: "100%" }}>
-              <QuestionStep q={q} answer={answerFor(q.id)} onToggleOption={onToggleOption} onToggleOther={onToggleOther} onSetOtherText={onSetOtherText} />
-            </div>
-          ))}
-          <div style={{ flex: "0 0 100%", width: "100%", minWidth: "100%" }}>
-            <ReviewStep survey={survey} answers={answers} />
-          </div>
-        </div>
+    <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, overflow: "hidden" }}>
+      <div key={currentIndex} className="survey-step-in">
+        {isReview || !currentQuestion ? (
+          <ReviewStep survey={survey} answers={answers} />
+        ) : (
+          <QuestionStep
+            q={currentQuestion}
+            answer={answerFor(currentQuestion.id)}
+            onToggleOption={onToggleOption}
+            onToggleOther={onToggleOther}
+            onSetOtherText={onSetOtherText}
+          />
+        )}
       </div>
 
       {stepError && (
@@ -471,6 +482,24 @@ function QuestionStep({
     } as CSSProperties;
   }
 
+  if (q.questionType === "text") {
+    return (
+      <div className="pr-1">
+        <div style={{ fontSize: 15.5, fontWeight: 600, color: COLORS.heading, lineHeight: 1.4 }} className="mb-3">
+          {q.questionText}
+        </div>
+        <textarea
+          autoFocus
+          rows={4}
+          value={answer.otherText}
+          onChange={(e) => onSetOtherText(q.id, e.target.value)}
+          placeholder="Scrivi qui…"
+          style={{ ...inputStyle, resize: "vertical" }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="pr-1">
       <div style={{ fontSize: 15.5, fontWeight: 600, color: COLORS.heading, lineHeight: 1.4 }} className="mb-1">
@@ -525,8 +554,13 @@ function ReviewStep({ survey, answers }: { survey: PublicSurveyData; answers: Re
       <div className="flex flex-col gap-3 mb-2">
         {survey.questions.map((q) => {
           const a = answers[q.id];
-          const labels = (a?.optionIds ?? []).map((oid) => q.options.find((o) => o.id === oid)?.label).filter(Boolean) as string[];
-          if (a?.otherSelected && a.otherText.trim()) labels.push(a.otherText.trim());
+          const labels =
+            q.questionType === "text"
+              ? a?.otherText?.trim()
+                ? [a.otherText.trim()]
+                : []
+              : ((a?.optionIds ?? []).map((oid) => q.options.find((o) => o.id === oid)?.label).filter(Boolean) as string[]);
+          if (q.questionType !== "text" && a?.otherSelected && a.otherText.trim()) labels.push(a.otherText.trim());
           return (
             <div key={q.id}>
               <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.inkSoft }}>{q.questionText}</div>

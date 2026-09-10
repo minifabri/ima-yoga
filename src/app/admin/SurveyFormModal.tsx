@@ -14,7 +14,9 @@ import type { SurveyItem } from "./types";
 type ModalData = { mode: "new" } | { mode: "edit"; survey: SurveyItem };
 export type SurveyQuestionPayload = {
   questionText: string;
+  questionType: "choice" | "text";
   required: boolean;
+  allowMultiple: boolean;
   allowOther: boolean;
   position: number;
   options: { label: string; position: number }[];
@@ -69,7 +71,9 @@ export function SurveyFormModal({
     base?.questions.map((q) => ({
       tempId: q.id,
       questionText: q.questionText,
+      questionType: q.questionType,
       required: q.required,
+      allowMultiple: q.allowMultiple,
       allowOther: q.allowOther,
       options: q.options.map((o) => ({ tempId: o.id, label: o.label })),
     })) ?? [newQuestionDraft()]
@@ -107,8 +111,8 @@ export function SurveyFormModal({
     if (!slug.trim()) return setError("Indica lo slug (usato nell'URL).");
     const cleanQuestions = questions.filter((q) => q.questionText.trim());
     if (cleanQuestions.length === 0) return setError("Aggiungi almeno una domanda.");
-    if (cleanQuestions.some((q) => q.options.filter((o) => o.label.trim()).length === 0)) {
-      return setError("Ogni domanda deve avere almeno un'opzione di risposta.");
+    if (cleanQuestions.some((q) => q.questionType === "choice" && q.options.filter((o) => o.label.trim()).length === 0)) {
+      return setError("Ogni domanda a scelta deve avere almeno un'opzione di risposta.");
     }
     const startsAt = localInputToIso(startsAtInput);
     const endsAt = localInputToIso(endsAtInput);
@@ -132,12 +136,15 @@ export function SurveyFormModal({
         },
         cleanQuestions.map((q, i) => ({
           questionText: q.questionText.trim(),
+          questionType: q.questionType,
           required: q.required,
+          allowMultiple: q.allowMultiple,
           allowOther: q.allowOther,
           position: i,
-          options: q.options
-            .filter((o) => o.label.trim())
-            .map((o, oi) => ({ label: o.label.trim(), position: oi })),
+          options:
+            q.questionType === "text"
+              ? []
+              : q.options.filter((o) => o.label.trim()).map((o, oi) => ({ label: o.label.trim(), position: oi })),
         })),
         justPublished ? { sendEmail: notifyEmail, sendSiteNotice: notifySiteNotice } : null
       );

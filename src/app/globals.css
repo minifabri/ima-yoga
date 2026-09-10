@@ -283,9 +283,27 @@ body {
   animation: survey-next-in 0.3s ease backwards;
 }
 
+/* Passaggio da una domanda alla successiva: dissolvenza + lieve scivolata
+   sulla sola domanda visibile (un div per volta, non una fila di domande
+   affiancate — evitava un bug di posizionamento con l'overflow). */
+@keyframes survey-step-in {
+  0% {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.survey-step-in {
+  animation: survey-step-in 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .survey-option-pop,
-  .survey-next-in {
+  .survey-next-in,
+  .survey-step-in {
     animation: none !important;
   }
 }

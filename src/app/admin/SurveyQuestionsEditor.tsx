@@ -8,7 +8,9 @@ export type QuestionOptionDraft = { tempId: string; label: string };
 export type QuestionDraft = {
   tempId: string;
   questionText: string;
+  questionType: "choice" | "text";
   required: boolean;
+  allowMultiple: boolean;
   allowOther: boolean;
   options: QuestionOptionDraft[];
 };
@@ -17,7 +19,9 @@ export function newQuestionDraft(): QuestionDraft {
   return {
     tempId: crypto.randomUUID(),
     questionText: "",
+    questionType: "choice",
     required: true,
+    allowMultiple: true,
     allowOther: false,
     options: [{ tempId: crypto.randomUUID(), label: "" }],
   };
@@ -133,47 +137,89 @@ export function SurveyQuestionsEditor({
               </button>
             </div>
 
-            <div className="flex items-center gap-4 mb-3 flex-wrap">
-              <Switch checked={q.required} onChange={(v) => updateQuestion(q.tempId, { required: v })} label="Obbligatoria" />
-              <Switch checked={q.allowOther} onChange={(v) => updateQuestion(q.tempId, { allowOther: v })} label="Consenti &quot;Altro&quot;" />
+            <div className="flex items-center gap-1.5 mb-3">
+              <button
+                type="button"
+                onClick={() => updateQuestion(q.tempId, { questionType: "choice" })}
+                className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                style={{
+                  background: q.questionType === "choice" ? COLORS.primary : "transparent",
+                  color: q.questionType === "choice" ? "#fff" : COLORS.inkSoft,
+                  border: `1px solid ${q.questionType === "choice" ? COLORS.primary : COLORS.border}`,
+                }}
+              >
+                A scelta
+              </button>
+              <button
+                type="button"
+                onClick={() => updateQuestion(q.tempId, { questionType: "text" })}
+                className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                style={{
+                  background: q.questionType === "text" ? COLORS.primary : "transparent",
+                  color: q.questionType === "text" ? "#fff" : COLORS.inkSoft,
+                  border: `1px solid ${q.questionType === "text" ? COLORS.primary : COLORS.border}`,
+                }}
+              >
+                Risposta aperta
+              </button>
             </div>
 
-            <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.inkSoft, marginBottom: 4 }}>Opzioni di risposta</div>
-            <div className="flex flex-col gap-1.5 mb-2">
-              {q.options.map((o, oi) => (
-                <div key={o.tempId} className="flex items-center gap-1.5">
-                  <input
-                    type="text"
-                    value={o.label}
-                    onChange={(e) => updateOption(q.tempId, o.tempId, e.target.value)}
-                    placeholder={`Opzione ${oi + 1}`}
-                    style={{ ...inputStyle, flex: 1 }}
+            <div className="flex items-center gap-4 mb-3 flex-wrap">
+              <Switch checked={q.required} onChange={(v) => updateQuestion(q.tempId, { required: v })} label="Obbligatoria" />
+              {q.questionType === "choice" && (
+                <>
+                  <Switch
+                    checked={q.allowMultiple}
+                    onChange={(v) => updateQuestion(q.tempId, { allowMultiple: v })}
+                    label="Risposta multipla"
+                    onText="Sì"
+                    offText="Una sola"
                   />
-                  <button
-                    type="button"
-                    disabled={oi === 0}
-                    onClick={() => moveOption(q.tempId, oi, -1)}
-                    style={{ color: COLORS.inkSoft, opacity: oi === 0 ? 0.3 : 1 }}
-                  >
-                    <ChevronUp size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={oi === q.options.length - 1}
-                    onClick={() => moveOption(q.tempId, oi, 1)}
-                    style={{ color: COLORS.inkSoft, opacity: oi === q.options.length - 1 ? 0.3 : 1 }}
-                  >
-                    <ChevronDown size={13} />
-                  </button>
-                  <button type="button" onClick={() => removeOption(q.tempId, o.tempId)} style={{ color: COLORS.danger }}>
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              ))}
+                  <Switch checked={q.allowOther} onChange={(v) => updateQuestion(q.tempId, { allowOther: v })} label="Consenti &quot;Altro&quot;" />
+                </>
+              )}
             </div>
-            <button type="button" onClick={() => addOption(q.tempId)} className="flex items-center gap-1 text-xs font-medium" style={{ color: COLORS.primaryDark }}>
-              <Plus size={12} /> Aggiungi opzione
-            </button>
+
+            {q.questionType === "choice" && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.inkSoft, marginBottom: 4 }}>Opzioni di risposta</div>
+                <div className="flex flex-col gap-1.5 mb-2">
+                  {q.options.map((o, oi) => (
+                    <div key={o.tempId} className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={o.label}
+                        onChange={(e) => updateOption(q.tempId, o.tempId, e.target.value)}
+                        placeholder={`Opzione ${oi + 1}`}
+                        style={{ ...inputStyle, flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        disabled={oi === 0}
+                        onClick={() => moveOption(q.tempId, oi, -1)}
+                        style={{ color: COLORS.inkSoft, opacity: oi === 0 ? 0.3 : 1 }}
+                      >
+                        <ChevronUp size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={oi === q.options.length - 1}
+                        onClick={() => moveOption(q.tempId, oi, 1)}
+                        style={{ color: COLORS.inkSoft, opacity: oi === q.options.length - 1 ? 0.3 : 1 }}
+                      >
+                        <ChevronDown size={13} />
+                      </button>
+                      <button type="button" onClick={() => removeOption(q.tempId, o.tempId)} style={{ color: COLORS.danger }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={() => addOption(q.tempId)} className="flex items-center gap-1 text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+                  <Plus size={12} /> Aggiungi opzione
+                </button>
+              </>
+            )}
           </div>
         ))}
       </div>

@@ -18,7 +18,9 @@ type SurveyRpcRow = {
   questions: {
     id: string;
     question_text: string;
+    question_type: "choice" | "text";
     required: boolean;
+    allow_multiple: boolean;
     allow_other: boolean;
     options: { id: string; label: string }[];
   }[];
@@ -63,7 +65,9 @@ export default async function SurveyPage({ params }: { params: Promise<{ slug: s
   const questions: PublicSurveyQuestion[] = (data.questions || []).map((q) => ({
     id: q.id,
     questionText: q.question_text,
+    questionType: q.question_type,
     required: q.required,
+    allowMultiple: q.allow_multiple,
     allowOther: q.allow_other,
     options: (q.options || []).map((o) => ({ id: o.id, label: o.label })),
   }));
@@ -84,6 +88,12 @@ export default async function SurveyPage({ params }: { params: Promise<{ slug: s
   };
 
   return (
-    <SurveyPublicView survey={survey} loggedIn={!!user} profileRole={profile?.role ?? null} clientFullName={profile?.full_name || ""} />
+    <SurveyPublicView
+      key={survey.id}
+      survey={survey}
+      loggedIn={!!user}
+      profileRole={profile?.role ?? null}
+      clientFullName={profile?.full_name || ""}
+    />
   );
 }
