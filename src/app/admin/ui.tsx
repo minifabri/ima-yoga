@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { COLORS, withAlpha } from "./colors";
 
 export const inputStyle: CSSProperties = {
@@ -20,7 +20,7 @@ export function IconButton({
   children,
   style,
 }: {
-  onClick?: () => void;
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
   title?: string;
   children: ReactNode;
   style?: CSSProperties;
