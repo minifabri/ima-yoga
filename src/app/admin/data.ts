@@ -25,6 +25,10 @@ import type {
   SequenceTemplateSection,
   SectionKind,
   Settings,
+  SurveyAnswerItem,
+  SurveyItem,
+  SurveyQuestion,
+  SurveyResponseItem,
   VisitorStats,
   WorkLogActorRole,
   WorkLogEntry,
@@ -100,7 +104,8 @@ function mapClientNotice(row: {
   id: string;
   client_id: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted";
+  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published";
+  link_path: string | null;
   read: boolean;
   created_at: string;
   profiles: { full_name: string } | null;
@@ -111,6 +116,7 @@ function mapClientNotice(row: {
     clientName: row.profiles?.full_name ?? "",
     message: row.message,
     kind: row.kind,
+    linkPath: row.link_path,
     read: row.read,
     createdAt: row.created_at,
   };
@@ -578,10 +584,22 @@ export async function deleteAnnouncement(supabase: DB, id: string) {
 // ---------------------------------------------------------
 // Avvisi personali ai clienti
 // ---------------------------------------------------------
-export async function addPersonalNotices(supabase: DB, clientIds: string[], message: string): Promise<ClientNotice[]> {
+export async function addPersonalNotices(
+  supabase: DB,
+  clientIds: string[],
+  message: string,
+  opts?: { kind?: ClientNotice["kind"]; linkPath?: string }
+): Promise<ClientNotice[]> {
   const { data, error } = await supabase
     .from("client_notices")
-    .insert(clientIds.map((clientId) => ({ client_id: clientId, message, kind: "custom" as const })))
+    .insert(
+      clientIds.map((clientId) => ({
+        client_id: clientId,
+        message,
+        kind: opts?.kind ?? ("custom" as const),
+        link_path: opts?.linkPath ?? null,
+      }))
+    )
     .select("*, profiles(full_name)");
   if (error) throw error;
   return (data ?? []).map(mapClientNotice);
@@ -943,6 +961,224 @@ export async function saveEventBudget(
 export async function deleteEventBudget(supabase: DB, id: string) {
   const { error } = await supabase.from("event_budgets").delete().eq("id", id);
   if (error) throw error;
+}
+
+// ---------------------------------------------------------
+// Sondaggi
+// ---------------------------------------------------------
+type SurveyRow = {
+  id: string;
+  slug: string;
+  title: string;
+  description_html: string;
+  cover_image_light_url: string | null;
+  cover_image_dark_url: string | null;
+  cover_image_fit: "contain" | "cover";
+  published: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  archived: boolean;
+  created_at: string;
+  survey_questions: {
+    id: string;
+    position: number;
+    question_text: string;
+    question_type: "choice" | "text";
+    required: boolean;
+    allow_multiple: boolean;
+    allow_other: boolean;
+    survey_question_options: { id: string; position: number; label: string }[];
+  }[];
+  survey_responses: { count: number }[];
+};
+
+function mapSurvey(row: SurveyRow): SurveyItem {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    descriptionHtml: row.description_html,
+    coverImageLightUrl: row.cover_image_light_url,
+    coverImageDarkUrl: row.cover_image_dark_url,
+    coverImageFit: row.cover_image_fit,
+    published: row.published,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    archived: row.archived,
+    createdAt: row.created_at,
+    questions: (row.survey_questions || [])
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map((q) => ({
+        id: q.id,
+        position: q.position,
+        questionText: q.question_text,
+        questionType: q.question_type,
+        required: q.required,
+        allowMultiple: q.allow_multiple,
+        allowOther: q.allow_other,
+        options: (q.survey_question_options || [])
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .map((o) => ({ id: o.id, position: o.position, label: o.label })),
+      })),
+    responseCount: row.survey_responses?.[0]?.count ?? 0,
+  };
+}
+
+const SURVEY_SELECT = "*, survey_questions(*, survey_question_options(*)), survey_responses(count)";
+
+export async function fetchSurveys(supabase: DB): Promise<SurveyItem[]> {
+  const { data, error } = await supabase.from("surveys").select(SURVEY_SELECT).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapSurvey);
+}
+
+export async function saveSurvey(
+  supabase: DB,
+  survey: Omit<SurveyItem, "id" | "questions" | "responseCount" | "createdAt"> & { id?: string }
+): Promise<SurveyItem> {
+  const payload = {
+    slug: survey.slug,
+    title: survey.title,
+    description_html: survey.descriptionHtml,
+    cover_image_light_url: survey.coverImageLightUrl,
+    cover_image_dark_url: survey.coverImageDarkUrl,
+    cover_image_fit: survey.coverImageFit,
+    published: survey.published,
+    starts_at: survey.startsAt,
+    ends_at: survey.endsAt,
+    archived: survey.archived,
+  };
+  const query = survey.id
+    ? supabase.from("surveys").update(payload).eq("id", survey.id).select(SURVEY_SELECT).single()
+    : supabase.from("surveys").insert(payload).select(SURVEY_SELECT).single();
+  const { data, error } = await query;
+  if (error) throw error;
+  return mapSurvey(data);
+}
+
+export async function deleteSurvey(supabase: DB, id: string) {
+  const { error } = await supabase.from("surveys").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function setSurveyArchived(supabase: DB, id: string, archived: boolean) {
+  const { error } = await supabase.from("surveys").update({ archived }).eq("id", id);
+  if (error) throw error;
+}
+
+// Sostituisce sempre domande e opzioni con lo stato corrente dell'editor,
+// come saveSequence per le sezioni di una sequenza — più semplice e sicuro
+// di un diff incrementale, dato il volume ridotto di righe coinvolte.
+export async function saveSurveyQuestions(
+  supabase: DB,
+  surveyId: string,
+  questions: {
+    questionText: string;
+    questionType: "choice" | "text";
+    required: boolean;
+    allowMultiple: boolean;
+    allowOther: boolean;
+    position: number;
+    options: { label: string; position: number }[];
+  }[]
+): Promise<SurveyQuestion[]> {
+  const { error: delError } = await supabase.from("survey_questions").delete().eq("survey_id", surveyId);
+  if (delError) throw delError;
+  if (questions.length === 0) return [];
+
+  const { data: insertedQuestions, error: qError } = await supabase
+    .from("survey_questions")
+    .insert(
+      questions.map((q) => ({
+        survey_id: surveyId,
+        position: q.position,
+        question_text: q.questionText,
+        question_type: q.questionType,
+        required: q.required,
+        allow_multiple: q.allowMultiple,
+        allow_other: q.allowOther,
+      }))
+    )
+    .select();
+  if (qError) throw qError;
+
+  const optionsPayload = (insertedQuestions ?? []).flatMap((row, i) =>
+    questions[i].options.map((o) => ({ question_id: row.id, position: o.position, label: o.label }))
+  );
+  const { data: insertedOptions, error: oError } = optionsPayload.length
+    ? await supabase.from("survey_question_options").insert(optionsPayload).select()
+    : { data: [] as { id: string; question_id: string; position: number; label: string }[], error: null };
+  if (oError) throw oError;
+
+  return (insertedQuestions ?? []).map((row) => ({
+    id: row.id,
+    position: row.position,
+    questionText: row.question_text,
+    questionType: row.question_type,
+    required: row.required,
+    allowMultiple: row.allow_multiple,
+    allowOther: row.allow_other,
+    options: (insertedOptions ?? [])
+      .filter((o) => o.question_id === row.id)
+      .sort((a, b) => a.position - b.position)
+      .map((o) => ({ id: o.id, position: o.position, label: o.label })),
+  }));
+}
+
+// Carica la copertina su Supabase Storage (bucket pubblico "survey-images",
+// scrittura riservata all'admin via RLS) e restituisce l'URL pubblico.
+export async function uploadSurveyImage(supabase: DB, surveySlug: string, variant: "light" | "dark", file: File): Promise<string> {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${surveySlug}/${variant}-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("survey-images").upload(path, file, { upsert: true, cacheControl: "3600" });
+  if (error) throw error;
+  const { data } = supabase.storage.from("survey-images").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+type SurveyResponseRow = {
+  id: string;
+  survey_id: string;
+  client_id: string | null;
+  guest_name: string | null;
+  is_anonymous: boolean;
+  submitted_at: string;
+  profiles: { full_name: string } | null;
+  survey_answers: {
+    question_id: string;
+    other_text: string | null;
+    survey_answer_options: { option_id: string }[];
+  }[];
+};
+
+function mapSurveyResponse(row: SurveyResponseRow): SurveyResponseItem {
+  const answers: SurveyAnswerItem[] = (row.survey_answers || []).map((a) => ({
+    questionId: a.question_id,
+    otherText: a.other_text,
+    optionIds: (a.survey_answer_options || []).map((o) => o.option_id),
+  }));
+  return {
+    id: row.id,
+    surveyId: row.survey_id,
+    clientId: row.client_id,
+    clientName: row.profiles?.full_name ?? null,
+    guestName: row.guest_name,
+    isAnonymous: row.is_anonymous,
+    submittedAt: row.submitted_at,
+    answers,
+  };
+}
+
+export async function fetchSurveyResponses(supabase: DB, surveyId: string): Promise<SurveyResponseItem[]> {
+  const { data, error } = await supabase
+    .from("survey_responses")
+    .select("*, profiles(full_name), survey_answers(question_id, other_text, survey_answer_options(option_id))")
+    .eq("survey_id", surveyId)
+    .order("submitted_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapSurveyResponse);
 }
 
 // ---- catalogo posizioni ----

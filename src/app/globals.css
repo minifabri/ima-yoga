@@ -246,6 +246,68 @@ body {
   }
 }
 
+/* Sondaggi — le opzioni compaiono come bolle (comparsa scalata all'apertura
+   della domanda) e alla selezione cambiano colore senza altre animazioni;
+   il bottone Avanti compare solo dopo la prima risposta valida. */
+
+@keyframes survey-option-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.survey-option-pop {
+  animation: survey-option-pop-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: var(--pop-delay, 0s);
+}
+
+@keyframes survey-next-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.survey-next-in {
+  animation: survey-next-in 0.3s ease backwards;
+}
+
+/* Passaggio da una domanda alla successiva: dissolvenza + lieve scivolata
+   sulla sola domanda visibile (un div per volta, non una fila di domande
+   affiancate — evitava un bug di posizionamento con l'overflow). */
+@keyframes survey-step-in {
+  0% {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.survey-step-in {
+  animation: survey-step-in 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .survey-option-pop,
+  .survey-next-in,
+  .survey-step-in {
+    animation: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cover-card,
   .cover-card-inner {
