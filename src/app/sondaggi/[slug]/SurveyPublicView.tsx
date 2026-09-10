@@ -48,7 +48,9 @@ export function SurveyPublicView({
     }
   });
 
-  const [phase, setPhase] = useState<"gate" | "guestForm" | "flow" | "done">(loggedIn && isClientProfile ? "flow" : "gate");
+  const [phase, setPhase] = useState<"gate" | "guestForm" | "flow" | "done">(
+    loggedIn && (isClientProfile || isAdminProfile) ? "flow" : "gate"
+  );
   const [guestName, setGuestName] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
 
@@ -61,8 +63,8 @@ export function SurveyPublicView({
   const imageUrl = (theme === "dark" ? survey.coverImageDarkUrl : survey.coverImageLightUrl) || survey.coverImageLightUrl || survey.coverImageDarkUrl;
 
   const [now] = useState(() => Date.now());
-  const notYetOpen = survey.startsAt ? new Date(survey.startsAt).getTime() > now : false;
-  const closed = survey.endsAt ? new Date(survey.endsAt).getTime() < now : false;
+  const notYetOpen = !isAdminProfile && survey.startsAt ? new Date(survey.startsAt).getTime() > now : false;
+  const closed = !isAdminProfile && survey.endsAt ? new Date(survey.endsAt).getTime() < now : false;
   const alreadyResponded = (loggedIn && isClientProfile && !!survey.myResponseId) || (!loggedIn && alreadyRespondedLocally) || phase === "done";
 
   const totalSteps = survey.questions.length + 1; // +1 = riepilogo
@@ -121,6 +123,13 @@ export function SurveyPublicView({
 
   async function handleSubmit() {
     setSubmitError("");
+    // L'admin può scorrere l'intero flusso per vedere come si presenta, ma
+    // non scrive una vera risposta: eviterebbe di sporcare i dati reali con
+    // un tentativo di anteprima.
+    if (isAdminProfile) {
+      setPhase("done");
+      return;
+    }
     setSubmitting(true);
     try {
       const asClient = loggedIn && isClientProfile;
@@ -208,11 +217,7 @@ export function SurveyPublicView({
           />
         )}
 
-        {isAdminProfile ? (
-          <div className="p-4 rounded-2xl text-center" style={{ background: COLORS.subtle, fontSize: 13, color: COLORS.inkSoft }}>
-            Stai visualizzando questa pagina con un account admin: la risposta non è disponibile da qui.
-          </div>
-        ) : loggedIn && !isClientProfile ? (
+        {loggedIn && !isClientProfile && !isAdminProfile ? (
           <div className="p-4 rounded-2xl text-center" style={{ background: COLORS.subtle, fontSize: 13, color: COLORS.inkSoft }}>
             Non troviamo un profilo cliente collegato al tuo account. Scrivici direttamente e ti aiutiamo a sistemarlo.
           </div>
@@ -223,6 +228,15 @@ export function SurveyPublicView({
         ) : closed ? (
           <div className="p-4 rounded-2xl text-center" style={{ background: COLORS.subtle, fontSize: 13.5, color: COLORS.inkSoft }}>
             Questo sondaggio è chiuso.
+          </div>
+        ) : isAdminProfile && phase === "done" ? (
+          <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+            <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 14, fontWeight: 700, color: COLORS.success }}>
+              <Check size={15} /> Anteprima completata
+            </div>
+            <div style={{ fontSize: 12.5, color: COLORS.inkSoft }}>
+              Hai visto l&apos;intero flusso di risposta. Le tue selezioni non sono state salvate — questo era solo un giro di prova.
+            </div>
           </div>
         ) : alreadyResponded ? (
           <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
@@ -299,10 +313,17 @@ export function SurveyPublicView({
           </div>
         ) : (
           <>
-            {loggedIn && isClientProfile && (
-              <div className="flex items-center gap-1.5 mb-3" style={{ fontSize: 12, fontWeight: 600, color: COLORS.success }}>
-                <Check size={13} /> Ciao {clientFullName.split(" ")[0]}, hai eseguito l&apos;accesso
+            {isAdminProfile ? (
+              <div className="flex items-center gap-1.5 mb-3" style={{ fontSize: 12, fontWeight: 600, color: COLORS.gold }}>
+                <EyeOff size={13} /> Modalità anteprima admin — le risposte non verranno salvate
               </div>
+            ) : (
+              loggedIn &&
+              isClientProfile && (
+                <div className="flex items-center gap-1.5 mb-3" style={{ fontSize: 12, fontWeight: 600, color: COLORS.success }}>
+                  <Check size={13} /> Ciao {clientFullName.split(" ")[0]}, hai eseguito l&apos;accesso
+                </div>
+              )
             )}
             <SurveyFlow
               survey={survey}
