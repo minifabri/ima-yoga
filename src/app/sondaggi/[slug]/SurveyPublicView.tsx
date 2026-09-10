@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { Field, inputStyle } from "@/app/admin/ui";
 import { ThemeToggle, useTheme } from "@/app/admin/ThemeToggle";
+import { PeekEyesIcon } from "@/app/admin/PeekEyesIcon";
 import type { PublicSurveyData, PublicSurveyQuestion } from "./types";
 
 type AnswerState = { optionIds: string[]; otherSelected: boolean; otherText: string };
@@ -265,17 +266,24 @@ export function SurveyPublicView({
                 <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} style={inputStyle} />
               </Field>
             )}
-            <label className="flex items-center gap-2 mb-4 mt-1" style={{ fontSize: 12.5, color: COLORS.ink }}>
-              <input
-                type="checkbox"
-                checked={isAnonymous}
-                onChange={(e) => {
-                  setIsAnonymous(e.target.checked);
-                  if (e.target.checked) setGuestName("");
-                }}
-              />
-              Preferisco rispondere in anonimo
-            </label>
+            <button
+              type="button"
+              onClick={() => {
+                const next = !isAnonymous;
+                setIsAnonymous(next);
+                if (next) setGuestName("");
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-left mb-4 mt-1 transition"
+              style={{
+                border: `1px solid ${isAnonymous ? COLORS.gold : COLORS.border}`,
+                background: isAnonymous ? withAlpha(COLORS.gold, 10) : "transparent",
+              }}
+            >
+              <PeekEyesIcon />
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: isAnonymous ? COLORS.heading : COLORS.ink }}>
+                Preferisco rispondere in anonimo
+              </span>
+            </button>
             <div className="flex gap-2">
               <button onClick={() => setPhase("gate")} className="px-3.5 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
                 Indietro
