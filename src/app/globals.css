@@ -246,6 +246,39 @@ body {
   }
 }
 
+/* Sondaggi — le opzioni compaiono come bolle (comparsa scalata all'apertura
+   della domanda) e alla selezione riusano lo stesso anello dorato pulsante
+   della prenotazione confermata (booking-gold-pulse), per coerenza visiva. */
+
+@keyframes survey-option-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.survey-option-pop {
+  animation: survey-option-pop-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: var(--pop-delay, 0s);
+}
+.survey-option-pulse {
+  animation: booking-gold-pulse 1.4s ease-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .survey-option-pop,
+  .survey-option-pulse {
+    animation: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cover-card,
   .cover-card-inner {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { Check, AlertCircle, EyeOff, ArrowLeft, ArrowRight, ClipboardCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -299,7 +299,6 @@ export function SurveyPublicView({
             <SurveyFlow
               survey={survey}
               currentIndex={currentIndex}
-              totalSteps={totalSteps}
               answers={answers}
               stepError={stepError}
               submitting={submitting}
@@ -322,7 +321,6 @@ export function SurveyPublicView({
 function SurveyFlow({
   survey,
   currentIndex,
-  totalSteps,
   answers,
   stepError,
   submitting,
@@ -337,7 +335,6 @@ function SurveyFlow({
 }: {
   survey: PublicSurveyData;
   currentIndex: number;
-  totalSteps: number;
   answers: Record<string, AnswerState>;
   stepError: string;
   submitting: boolean;
@@ -354,21 +351,6 @@ function SurveyFlow({
 
   return (
     <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-      <div className="flex items-center justify-between mb-1.5" style={{ fontSize: 11, fontWeight: 700, color: COLORS.inkSoft }}>
-        <span>{isReview ? "Riepilogo" : `Domanda ${currentIndex + 1} di ${survey.questions.length}`}</span>
-      </div>
-      <div className="mb-4" style={{ height: 5, borderRadius: 999, background: COLORS.subtle, overflow: "hidden" }}>
-        <div
-          style={{
-            height: "100%",
-            width: `${((currentIndex + 1) / totalSteps) * 100}%`,
-            background: COLORS.primary,
-            borderRadius: 999,
-            transition: "width .4s cubic-bezier(.4,0,.2,1)",
-          }}
-        />
-      </div>
-
       <div style={{ overflow: "hidden" }}>
         <div
           className="flex items-start"
@@ -442,6 +424,35 @@ function QuestionStep({
   onToggleOther: (qId: string) => void;
   onSetOtherText: (qId: string, text: string) => void;
 }) {
+  const [pulsingId, setPulsingId] = useState<string | null>(null);
+
+  function firePulse(id: string) {
+    setPulsingId(id);
+    setTimeout(() => setPulsingId((cur) => (cur === id ? null : cur)), 1500);
+  }
+  function handleToggleOption(optionId: string) {
+    const willSelect = !answer.optionIds.includes(optionId);
+    onToggleOption(q.id, optionId);
+    if (willSelect) firePulse(optionId);
+  }
+  function handleToggleOther() {
+    const willSelect = !answer.otherSelected;
+    onToggleOther(q.id);
+    if (willSelect) firePulse("other");
+  }
+
+  function badgeStyle(selected: boolean, delayMs: number): CSSProperties {
+    return {
+      padding: "9px 17px",
+      fontSize: 13.5,
+      fontWeight: 600,
+      border: `1.5px solid ${selected ? COLORS.gold : COLORS.border}`,
+      background: selected ? COLORS.gold : "transparent",
+      color: selected ? "#3a2a12" : COLORS.ink,
+      "--pop-delay": `${delayMs}ms`,
+    } as CSSProperties;
+  }
+
   return (
     <div className="pr-1">
       <div style={{ fontSize: 15.5, fontWeight: 600, color: COLORS.heading, lineHeight: 1.4 }} className="mb-1">
@@ -450,69 +461,42 @@ function QuestionStep({
       <div style={{ fontSize: 11, color: COLORS.inkSoft }} className="mb-3">
         {q.required ? "Obbligatoria · scegli una o più opzioni" : "Facoltativa · scegli una o più opzioni"}
       </div>
-      <div className="flex flex-col gap-2">
-        {q.options.map((o) => {
+      <div className="flex flex-wrap gap-2">
+        {q.options.map((o, i) => {
           const selected = answer.optionIds.includes(o.id);
           return (
             <button
               key={o.id}
               type="button"
-              onClick={() => onToggleOption(q.id, o.id)}
-              className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-left text-sm font-medium transition"
-              style={{
-                background: selected ? COLORS.primary : COLORS.subtle,
-                color: selected ? "#fff" : COLORS.ink,
-                border: `1px solid ${selected ? COLORS.primary : COLORS.border}`,
-              }}
+              onClick={() => handleToggleOption(o.id)}
+              className={`survey-option-pop rounded-full transition ${pulsingId === o.id ? "survey-option-pulse" : ""}`}
+              style={badgeStyle(selected, i * 70)}
             >
-              <span
-                className="flex items-center justify-center flex-shrink-0 rounded-md"
-                style={{ width: 18, height: 18, border: `1.5px solid ${selected ? "#fff" : COLORS.inkSoft}`, background: selected ? "rgba(255,255,255,0.15)" : "transparent" }}
-              >
-                {selected && <Check size={12} />}
-              </span>
               {o.label}
             </button>
           );
         })}
         {q.allowOther && (
-          <div>
-            <button
-              type="button"
-              onClick={() => onToggleOther(q.id)}
-              className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-left text-sm font-medium transition"
-              style={{
-                background: answer.otherSelected ? COLORS.primary : COLORS.subtle,
-                color: answer.otherSelected ? "#fff" : COLORS.ink,
-                border: `1px solid ${answer.otherSelected ? COLORS.primary : COLORS.border}`,
-              }}
-            >
-              <span
-                className="flex items-center justify-center flex-shrink-0 rounded-md"
-                style={{
-                  width: 18,
-                  height: 18,
-                  border: `1.5px solid ${answer.otherSelected ? "#fff" : COLORS.inkSoft}`,
-                  background: answer.otherSelected ? "rgba(255,255,255,0.15)" : "transparent",
-                }}
-              >
-                {answer.otherSelected && <Check size={12} />}
-              </span>
-              Altro
-            </button>
-            {answer.otherSelected && (
-              <input
-                type="text"
-                autoFocus
-                value={answer.otherText}
-                onChange={(e) => onSetOtherText(q.id, e.target.value)}
-                placeholder="Scrivi qui…"
-                style={{ ...inputStyle, marginTop: 8 }}
-              />
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={handleToggleOther}
+            className={`survey-option-pop rounded-full transition ${pulsingId === "other" ? "survey-option-pulse" : ""}`}
+            style={badgeStyle(answer.otherSelected, q.options.length * 70)}
+          >
+            Altro
+          </button>
         )}
       </div>
+      {answer.otherSelected && (
+        <input
+          type="text"
+          autoFocus
+          value={answer.otherText}
+          onChange={(e) => onSetOtherText(q.id, e.target.value)}
+          placeholder="Scrivi qui…"
+          style={{ ...inputStyle, marginTop: 10 }}
+        />
+      )}
     </div>
   );
 }
