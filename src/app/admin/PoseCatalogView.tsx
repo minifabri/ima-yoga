@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AlertCircle, ChevronDown, ChevronRight, LayoutGrid, List, Pencil, Plus, Search, Tag, Trash2, Upload } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
-import { Field, IconButton, inputStyle } from "./ui";
+import { Field, IconButton, Modal, inputStyle } from "./ui";
 import { fetchPoseCatalog, savePose, deletePose, deletePoseThumbnail, fetchPoseCategories, savePoseCategory, deletePoseCategory } from "./data";
 import { PoseBulkImportModal } from "./PoseBulkImport";
 import { PoseThumbnailGenerator } from "./PoseThumbnailGenerator";
@@ -42,6 +42,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showManualImageUrl, setShowManualImageUrl] = useState(false);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [showAllTags, setShowAllTags] = useState(false);
   const [showManageCategories, setShowManageCategories] = useState(false);
 
   function toggleTagFilter(tag: string) {
@@ -73,11 +74,15 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
 
   const hasQuery = query.trim().length > 0;
 
+  // Ordinati per uso (i più frequenti prima): sono i più rilevanti da mostrare
+  // subito, il resto si vede solo espandendo.
   const allTags = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of poses) if (p.macro === macro) for (const t of p.tags) set.add(t);
-    return [...set].sort();
+    const counts = new Map<string, number>();
+    for (const p of poses) if (p.macro === macro) for (const t of p.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([t]) => t);
   }, [poses, macro]);
+  const TAG_PREVIEW_COUNT = 10;
+  const visibleTags = showAllTags ? allTags : allTags.slice(0, TAG_PREVIEW_COUNT);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -157,7 +162,11 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
       .sort((a, b) => a.name.localeCompare(b.name));
     const previewName = isVariant ? draft.name || [parentPose?.name, draft.variantLabel].filter(Boolean).join(" ") || "—" : null;
     return (
-      <div ref={editFormRef} className="mt-1.5 mb-1.5 p-3.5 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+      <div
+        ref={editFormRef}
+        className="mt-1.5 mb-1.5 p-3.5 rounded-xl"
+        style={{ background: withAlpha(isVariant ? COLORS.gold : COLORS.primary, 6), border: `1.5px solid ${isVariant ? COLORS.gold : COLORS.primary}` }}
+      >
         <div className="mb-3">
           <Field label="Variante di (facoltativo)">
             <select
@@ -482,7 +491,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
             {allTags.length === 0 ? (
               <div style={{ fontSize: 12, color: COLORS.inkSoft }}>Nessun tag ancora.</div>
             ) : (
-              allTags.map((t) => {
+              visibleTags.map((t) => {
                 const active = tagFilter.includes(t);
                 return (
                   <button
@@ -502,6 +511,15 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
                   </button>
                 );
               })
+            )}
+            {allTags.length > TAG_PREVIEW_COUNT && (
+              <button
+                onClick={() => setShowAllTags((v) => !v)}
+                className="rounded-full"
+                style={{ fontSize: 11, fontWeight: 600, padding: "4px 11px", color: COLORS.primaryDark }}
+              >
+                {showAllTags ? "Mostra meno" : `+${allTags.length - TAG_PREVIEW_COUNT} altri`}
+              </button>
             )}
           </div>
         </div>
@@ -534,7 +552,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         />
       )}
 
-      {editingId === "new" && renderEditForm()}
+      {editingId === "new" && draft.parentPoseId === null && viewMode === "list" && renderEditForm()}
 
       {loading ? (
         <div style={{ fontSize: 13, color: COLORS.inkSoft }}>Caricamento…</div>
@@ -552,7 +570,10 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
                 {renderPoseRow(
                   p,
                   undefined,
-                  () => startNew(p.id),
+                  () => {
+                    setExpandedIds((cur) => new Set(cur).add(p.id));
+                    startNew(p.id);
+                  },
                   variants.length > 0 && !hasQuery ? { count: variants.length, expanded, onToggle: () => toggleExpanded(p.id) } : undefined
                 )}
                 {editingId === p.id && renderEditForm()}
@@ -563,20 +584,23 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
                       {editingId === v.id && renderEditForm()}
                     </div>
                   ))}
+                {editingId === "new" && draft.parentPoseId === p.id && <div className="ml-6 mt-1.5">{renderEditForm()}</div>}
               </div>
             );
           })}
         </div>
       ) : (
         <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))" }}>
-          {topLevelFiltered.map((p) => (
-            <div key={p.id}>
-              {renderPoseCard(p, hasQuery ? [] : variantsByParent.get(p.id) ?? [])}
-              {editingId === p.id && renderEditForm()}
-              {editingId && (variantsByParent.get(p.id) ?? []).some((v) => v.id === editingId) && renderEditForm()}
-            </div>
-          ))}
+          {topLevelFiltered.map((p) => renderPoseCard(p, hasQuery ? [] : variantsByParent.get(p.id) ?? []))}
         </div>
+      )}
+
+      {viewMode === "grid" && editingId !== null && (
+        <Modal onClose={() => setEditingId(null)} width={560}>
+          <div className="p-4 overflow-y-auto" style={{ flex: 1 }}>
+            {renderEditForm()}
+          </div>
+        </Modal>
       )}
     </div>
   );
@@ -589,8 +613,12 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   ) {
     const displayName = poseDisplayName(p, parent);
     const displayImage = poseDisplayImage(p, parent);
+    const isEditing = editingId === p.id;
     return (
-      <div className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+      <div
+        className="flex items-center gap-3 p-2.5 rounded-xl"
+        style={{ background: isEditing ? withAlpha(COLORS.primary, 6) : COLORS.card, border: `1.5px solid ${isEditing ? COLORS.primary : COLORS.border}` }}
+      >
         {displayImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={displayImage} alt={displayName} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
@@ -634,8 +662,23 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   function renderPoseCard(p: PoseCatalogItem, variants: PoseCatalogItem[]) {
     const displayName = poseDisplayName(p, undefined);
     const displayImage = poseDisplayImage(p, undefined);
+    const isEditingSelf = editingId === p.id;
+    const isCardHighlighted = isEditingSelf || variants.some((v) => v.id === editingId);
     return (
-      <div className="rounded-xl overflow-hidden flex flex-col" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+      <div
+        key={p.id}
+        onClick={() => startEdit(p)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            startEdit(p);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        className="rounded-xl overflow-hidden flex flex-col cursor-pointer text-left"
+        style={{ background: COLORS.card, border: `1.5px solid ${isCardHighlighted ? COLORS.primary : COLORS.border}` }}
+      >
         <div className="flex items-center justify-center relative" style={{ height: 110, background: COLORS.subtle }}>
           {displayImage ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -645,21 +688,29 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
           )}
           <div className="absolute flex items-center gap-1" style={{ top: 6, right: 6 }}>
             <IconButton
-              onClick={() => (editingId === p.id ? setEditingId(null) : startEdit(p))}
+              onClick={(e) => {
+                e.stopPropagation();
+                startEdit(p);
+              }}
               title="Modifica posizione"
               style={{ width: 28, height: 28, background: withAlpha(COLORS.card, 85), color: COLORS.ink }}
             >
               <Pencil size={13} />
             </IconButton>
-            <IconButton onClick={() => handleDeletePose(p.id)} title="Elimina posizione" style={{ width: 28, height: 28, background: withAlpha(COLORS.card, 85), color: COLORS.danger }}>
+            <IconButton
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeletePose(p.id);
+              }}
+              title="Elimina posizione"
+              style={{ width: 28, height: 28, background: withAlpha(COLORS.card, 85), color: COLORS.danger }}
+            >
               <Trash2 size={13} />
             </IconButton>
           </div>
         </div>
-        <div className="p-3 flex flex-col gap-1.5 flex-1">
-          <button onClick={() => (editingId === p.id ? setEditingId(null) : startEdit(p))} className="text-left">
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.ink }}>{displayName}</div>
-          </button>
+        <div className="p-3 flex flex-col gap-1.5 flex-1" style={{ background: isEditingSelf ? withAlpha(COLORS.primary, 6) : "transparent" }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.ink }}>{displayName}</div>
           {p.tags.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {p.tags.map((t) => (
@@ -675,9 +726,21 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
               {variants.map((v) => {
                 const vName = poseDisplayName(v, p);
                 const vImage = poseDisplayImage(v, p);
+                const isEditingVariant = editingId === v.id;
                 return (
-                  <div key={v.id} className="flex items-center gap-2">
-                    <button onClick={() => startEdit(v)} className="flex items-center gap-2 flex-1 text-left" style={{ minWidth: 0 }}>
+                  <div
+                    key={v.id}
+                    className="flex items-center gap-2 rounded-lg"
+                    style={{ background: isEditingVariant ? withAlpha(COLORS.primary, 10) : "transparent", padding: isEditingVariant ? "3px 4px" : 0 }}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEdit(v);
+                      }}
+                      className="flex items-center gap-2 flex-1 text-left"
+                      style={{ minWidth: 0 }}
+                    >
                       <div className="flex items-center justify-center flex-shrink-0 rounded-md overflow-hidden" style={{ width: 28, height: 28, background: COLORS.subtle }}>
                         {vImage ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -691,7 +754,14 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
                         {v.tags.length > 0 && <div style={{ fontSize: 10, color: COLORS.inkSoft }}>{v.tags.join(" · ")}</div>}
                       </div>
                     </button>
-                    <button onClick={() => handleDeletePose(v.id)} title="Elimina variante" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePose(v.id);
+                      }}
+                      title="Elimina variante"
+                      style={{ color: COLORS.inkSoft, flexShrink: 0 }}
+                    >
                       <Trash2 size={12} />
                     </button>
                   </div>
@@ -700,7 +770,14 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
             </div>
           )}
 
-          <button onClick={() => startNew(p.id)} className="self-start mt-1.5" style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.primaryDark }}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              startNew(p.id);
+            }}
+            className="self-start mt-1.5"
+            style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.primaryDark }}
+          >
             + Variante
           </button>
         </div>

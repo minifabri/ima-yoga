@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type CSSProperties, type ReactNode } from "react";
+import { useRef, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Image as ImageIcon } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 
@@ -21,7 +21,7 @@ export function IconButton({
   children,
   style,
 }: {
-  onClick?: () => void;
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
   title?: string;
   children: ReactNode;
   style?: CSSProperties;
