@@ -162,7 +162,11 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
       .sort((a, b) => a.name.localeCompare(b.name));
     const previewName = isVariant ? draft.name || [parentPose?.name, draft.variantLabel].filter(Boolean).join(" ") || "—" : null;
     return (
-      <div ref={editFormRef} className="mt-1.5 mb-1.5 p-3.5 rounded-xl" style={{ background: withAlpha(COLORS.primary, 6), border: `1.5px solid ${COLORS.primary}` }}>
+      <div
+        ref={editFormRef}
+        className="mt-1.5 mb-1.5 p-3.5 rounded-xl"
+        style={{ background: withAlpha(isVariant ? COLORS.gold : COLORS.primary, 6), border: `1.5px solid ${isVariant ? COLORS.gold : COLORS.primary}` }}
+      >
         <div className="mb-3">
           <Field label="Variante di (facoltativo)">
             <select
@@ -548,7 +552,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         />
       )}
 
-      {editingId === "new" && viewMode === "list" && renderEditForm()}
+      {editingId === "new" && draft.parentPoseId === null && viewMode === "list" && renderEditForm()}
 
       {loading ? (
         <div style={{ fontSize: 13, color: COLORS.inkSoft }}>Caricamento…</div>
@@ -566,7 +570,10 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
                 {renderPoseRow(
                   p,
                   undefined,
-                  () => startNew(p.id),
+                  () => {
+                    setExpandedIds((cur) => new Set(cur).add(p.id));
+                    startNew(p.id);
+                  },
                   variants.length > 0 && !hasQuery ? { count: variants.length, expanded, onToggle: () => toggleExpanded(p.id) } : undefined
                 )}
                 {editingId === p.id && renderEditForm()}
@@ -577,6 +584,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
                       {editingId === v.id && renderEditForm()}
                     </div>
                   ))}
+                {editingId === "new" && draft.parentPoseId === p.id && <div className="ml-6 mt-1.5">{renderEditForm()}</div>}
               </div>
             );
           })}
