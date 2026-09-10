@@ -64,7 +64,7 @@ const moreMenuItems = [
   { key: "earnings", label: "Guadagni", icon: PiggyBank },
   { key: "tools", label: "Strumenti", icon: Calculator },
   { key: "sequences", label: "Sequenze", icon: Route },
-  { key: "pose-catalog", label: "Catalogo posizioni", icon: BookOpen },
+  { key: "pose-catalog", label: "Catalogo", icon: BookOpen },
   { key: "notices", label: "Avvisi e comunicazioni", icon: Bell },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
@@ -85,7 +85,7 @@ const mobileHubSecondaryItems = [
   { key: "earnings", label: "Guadagni", icon: PiggyBank },
   { key: "tools", label: "Strumenti", icon: Calculator },
   { key: "sequences", label: "Sequenze", icon: Route },
-  { key: "pose-catalog", label: "Catalogo posizioni", icon: BookOpen },
+  { key: "pose-catalog", label: "Catalogo", icon: BookOpen },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
 ];

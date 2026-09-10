@@ -1745,7 +1745,7 @@ function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalog
     >
       <div className="flex items-center gap-1.5 mb-3">
         <Sparkles size={14} style={{ color: COLORS.primaryDark }} />
-        <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.heading }}>Catalogo posizioni</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.heading }}>Catalogo</div>
       </div>
 
       <MacroCategoryPicker macro={macro} setMacro={setMacro} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} query={query} setQuery={setQuery} categoriesForMacro={categoriesForMacro} />
