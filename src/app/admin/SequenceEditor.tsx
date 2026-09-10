@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AlertCircle, Check, ChevronDown, ChevronUp, GripVertical, Plus, Printer, Repeat, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
@@ -39,6 +39,13 @@ type EditSection = { uid: string; kind: SectionKind; label: string; enabled: boo
 function uid(): string {
   return typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+type CSSVarStyle = CSSProperties & Record<`--${string}`, string>;
+
+const PALETTE_WIDTH_STORAGE_KEY = "ima-yoga:sequence-editor:palette-width";
+const DEFAULT_PALETTE_WIDTH = 260;
+const MIN_PALETTE_WIDTH = 220;
+const MAX_PALETTE_WIDTH = 480;
 
 function editItemFrom(it: { poseId: string | null; customLabel: string; note: string; reps: number | null; holdValue: number | null; holdUnit: HoldUnit | null }): EditItem {
   return { uid: uid(), poseId: it.poseId, customLabel: it.customLabel, note: it.note, reps: it.reps, holdValue: it.holdValue, holdUnit: it.holdUnit };
@@ -155,6 +162,7 @@ export function SequenceEditor({
   const [activeDragPose, setActiveDragPose] = useState<PoseCatalogItem | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<{ sectionUid: string; blockUid: string | null } | null>(null);
+  const [paletteWidth, setPaletteWidth] = useState<number>(DEFAULT_PALETTE_WIDTH);
 
   const poseById = useMemo(() => Object.fromEntries(poseCatalog.map((p) => [p.id, p])), [poseCatalog]);
 
@@ -163,6 +171,20 @@ export function SequenceEditor({
     // render) perché `navigator` non esiste durante il render lato server.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
+
+  useEffect(() => {
+    let stored: string | null = null;
+    try {
+      stored = window.localStorage.getItem(PALETTE_WIDTH_STORAGE_KEY);
+    } catch {
+      stored = null;
+    }
+    const parsed = stored ? Number(stored) : NaN;
+    if (Number.isFinite(parsed)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPaletteWidth(Math.min(MAX_PALETTE_WIDTH, Math.max(MIN_PALETTE_WIDTH, parsed)));
+    }
   }, []);
 
   useEffect(() => {
@@ -226,6 +248,30 @@ export function SequenceEditor({
       const to = cur.findIndex((s) => s.uid === over.id);
       return from < 0 || to < 0 ? cur : arrayMove(cur, from, to);
     });
+  }
+
+  function handlePaletteResizeStart(e: ReactPointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = paletteWidth;
+    function handleMove(ev: PointerEvent) {
+      const next = Math.min(MAX_PALETTE_WIDTH, Math.max(MIN_PALETTE_WIDTH, startWidth - (ev.clientX - startX)));
+      setPaletteWidth(next);
+    }
+    function handleUp() {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      setPaletteWidth((current) => {
+        try {
+          window.localStorage.setItem(PALETTE_WIDTH_STORAGE_KEY, String(current));
+        } catch {
+          // ignora: localStorage non disponibile (es. modalità privata)
+        }
+        return current;
+      });
+    }
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
   }
 
   function moveRow(sectionUid: string, activeUid: string, overUid: string) {
@@ -531,7 +577,10 @@ export function SequenceEditor({
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleOuterDragStart} onDragEnd={handleOuterDragEnd}>
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px] gap-4 mb-3">
+          <div
+            className="grid grid-cols-1 lg:[grid-template-columns:minmax(0,1fr)_16px_var(--palette-w)] gap-y-4 mb-3"
+            style={{ "--palette-w": `${paletteWidth}px` } as CSSVarStyle}
+          >
             <div>
               <SortableContext items={sections.map((s) => s.uid)} strategy={verticalListSortingStrategy}>
                 <div className="flex flex-col gap-2.5">
@@ -559,6 +608,19 @@ export function SequenceEditor({
               <button onClick={addCustomSection} className="flex items-center gap-1.5 text-xs font-semibold mt-2.5" style={{ color: COLORS.primaryDark }}>
                 <Plus size={13} /> Aggiungi sezione personalizzata
               </button>
+            </div>
+
+            <div
+              onPointerDown={handlePaletteResizeStart}
+              onDoubleClick={() => setPaletteWidth(DEFAULT_PALETTE_WIDTH)}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Ridimensiona il pannello del catalogo posizioni"
+              title="Trascina per ridimensionare · doppio clic per ripristinare"
+              className="hidden lg:flex items-center justify-center cursor-col-resize select-none"
+              style={{ touchAction: "none" }}
+            >
+              <div style={{ width: 3, height: 44, borderRadius: 999, background: COLORS.border }} />
             </div>
 
             <PosePalette poseCatalog={poseCatalog} poseCategories={poseCategories} />
