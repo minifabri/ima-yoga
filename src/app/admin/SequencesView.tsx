@@ -152,8 +152,8 @@ export function SequencesView({ supabase, clients, classTypes }: { supabase: Sup
         <div className="flex flex-col gap-2.5">
           {sorted.map((s) => {
             const activeCount = s.sections.filter((sec) => sec.enabled).reduce((sum, sec) => sum + sec.items.length, 0);
-            const client = s.clientId ? clientById[s.clientId] : null;
-            const personLabel = client?.name || s.guestName || "Bozza senza allievo";
+            const assignedClients = s.clientIds.map((id) => clientById[id]).filter((c): c is ClientItem => !!c);
+            const personLabel = assignedClients.length > 0 ? assignedClients.map((c) => c.name).join(", ") : s.guestName || "Bozza senza allievo";
             const type = typeById[s.classTypeId];
             return (
               <div key={s.id} className="flex items-center gap-3 p-3.5 rounded-xl flex-wrap" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>

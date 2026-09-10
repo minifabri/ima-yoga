@@ -190,6 +190,7 @@ export function PoseBulkImportModal({
         categoryId: r.categoryName ? categoryIdByKey.get(`${r.macro}:${r.categoryName.toLowerCase()}`) ?? null : null,
         tags: r.tags,
         imageUrl: r.imageUrl || null,
+        parentPoseId: null,
       }));
 
       const inserted = await bulkInsertPoses(supabase, toInsert);

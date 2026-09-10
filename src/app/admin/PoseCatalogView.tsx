@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, Plus, Search, Tag, Trash2, Upload } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronRight, Plus, Search, Tag, Trash2, Upload } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { Field, IconButton, inputStyle } from "./ui";
 import { fetchPoseCatalog, savePose, deletePose, fetchPoseCategories, savePoseCategory, deletePoseCategory } from "./data";
@@ -11,7 +11,7 @@ import { PoseThumbnailGenerator } from "./PoseThumbnailGenerator";
 import type { PoseCatalogItem, PoseCategory, PoseMacro } from "./types";
 
 function emptyDraft(macro: PoseMacro): Omit<PoseCatalogItem, "id"> {
-  return { macro, name: "", nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null };
+  return { macro, name: "", nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null, parentPoseId: null };
 }
 
 function slugify(value: string): string {
@@ -51,6 +51,8 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   const categoriesForMacro = useMemo(() => categories.filter((c) => c.macro === macro), [categories, macro]);
   const categoryById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
 
+  const hasQuery = query.trim().length > 0;
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return poses
@@ -67,6 +69,34 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [poses, macro, categoryFilter, query]);
 
+  // Fuori dalla ricerca, le varianti si annidano sotto la loro posizione base
+  // invece di comparire come righe indipendenti (indipendentemente dal filtro
+  // categoria, che si applica solo alla posizione base mostrata).
+  const topLevelFiltered = useMemo(() => (hasQuery ? filtered : filtered.filter((p) => !p.parentPoseId)), [filtered, hasQuery]);
+
+  const variantsByParent = useMemo(() => {
+    const map = new Map<string, PoseCatalogItem[]>();
+    poses
+      .filter((p) => p.macro === macro && p.parentPoseId)
+      .forEach((p) => {
+        const arr = map.get(p.parentPoseId as string) ?? [];
+        arr.push(p);
+        map.set(p.parentPoseId as string, arr);
+      });
+    map.forEach((arr) => arr.sort((a, b) => a.name.localeCompare(b.name)));
+    return map;
+  }, [poses, macro]);
+
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  function toggleExpanded(id: string) {
+    setExpandedIds((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   const editFormRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -79,12 +109,26 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
     setEditingId("new");
   }
   function startEdit(p: PoseCatalogItem) {
-    setDraft({ macro: p.macro, name: p.name, nameIt: p.nameIt, nameEn: p.nameEn, description: p.description, categoryId: p.categoryId, tags: p.tags, imageUrl: p.imageUrl });
+    setDraft({
+      macro: p.macro,
+      name: p.name,
+      nameIt: p.nameIt,
+      nameEn: p.nameEn,
+      description: p.description,
+      categoryId: p.categoryId,
+      tags: p.tags,
+      imageUrl: p.imageUrl,
+      parentPoseId: p.parentPoseId,
+    });
     setTagsInput(p.tags.join(", "));
     setEditingId(p.id);
   }
 
   function renderEditForm() {
+    const hasChildren = editingId !== "new" && editingId !== null && poses.some((p) => p.parentPoseId === editingId);
+    const parentCandidates = poses
+      .filter((p) => p.macro === draft.macro && !p.parentPoseId && p.id !== editingId)
+      .sort((a, b) => a.name.localeCompare(b.name));
     return (
       <div ref={editFormRef} className="mt-1.5 mb-1.5 p-3.5 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
         <div className="grid sm:grid-cols-2 gap-3 mb-3">
@@ -109,6 +153,28 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
           <Field label="Nome inglese (facoltativo, per la ricerca)">
             <input value={draft.nameEn} onChange={(e) => setDraft((d) => ({ ...d, nameEn: e.target.value }))} placeholder="Es. Downward Facing Dog" style={inputStyle} />
           </Field>
+        </div>
+        <div className="mb-3">
+          <Field label="Variante di (facoltativo)">
+            <select
+              value={draft.parentPoseId ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, parentPoseId: e.target.value || null }))}
+              disabled={hasChildren}
+              style={inputStyle}
+            >
+              <option value="">Nessuna, è una posizione base</option>
+              {parentCandidates.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {hasChildren && (
+            <div style={{ fontSize: 11, color: COLORS.inkSoft }} className="mt-1">
+              Questa posizione ha già delle varianti collegate: non può a sua volta essere una variante.
+            </div>
+          )}
         </div>
         <div className="grid sm:grid-cols-2 gap-3 mb-3">
           <Field label="Tag (separati da virgola)">
@@ -288,41 +354,74 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
 
       {loading ? (
         <div style={{ fontSize: 13, color: COLORS.inkSoft }}>Caricamento…</div>
-      ) : filtered.length === 0 ? (
+      ) : topLevelFiltered.length === 0 ? (
         <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="py-8 text-center">
           Nessuna posizione trovata.
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
-          {filtered.map((p) => (
-            <div key={p.id}>
-              <div className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-                {p.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.imageUrl} alt={p.name} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
-                ) : (
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
+          {topLevelFiltered.map((p) => {
+            const variants = hasQuery ? [] : variantsByParent.get(p.id) ?? [];
+            const expanded = expandedIds.has(p.id);
+            return (
+              <div key={p.id}>
+                {renderPoseRow(
+                  p,
+                  variants.length > 0
+                    ? { variantCount: variants.length, expanded, onToggleExpand: () => toggleExpanded(p.id) }
+                    : undefined
                 )}
-                <button onClick={() => (editingId === p.id ? setEditingId(null) : startEdit(p))} className="flex-1 text-left min-w-0">
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</div>
-                  <div className="flex items-center gap-1.5 flex-wrap" style={{ fontSize: 11, color: COLORS.inkSoft }}>
-                    {p.categoryId && <span>{categoryById[p.categoryId]?.name}</span>}
-                    {p.tags.length > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Tag size={10} /> {p.tags.join(", ")}
-                      </span>
-                    )}
-                  </div>
-                </button>
-                <button onClick={() => handleDeletePose(p.id)} title="Elimina posizione" style={{ color: COLORS.inkSoft }}>
-                  <Trash2 size={14} />
-                </button>
+                {editingId === p.id && renderEditForm()}
+                {expanded &&
+                  variants.map((v) => (
+                    <div key={v.id} className="ml-5 mt-1.5">
+                      {renderPoseRow(v)}
+                      {editingId === v.id && renderEditForm()}
+                    </div>
+                  ))}
               </div>
-              {editingId === p.id && renderEditForm()}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
+
+  function renderPoseRow(p: PoseCatalogItem, variantInfo?: { variantCount: number; expanded: boolean; onToggleExpand: () => void }) {
+    const parentName = p.parentPoseId ? poses.find((x) => x.id === p.parentPoseId)?.name : null;
+    return (
+      <div className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+        {p.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={p.imageUrl} alt={p.name} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+        ) : (
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
+        )}
+        <button onClick={() => (editingId === p.id ? setEditingId(null) : startEdit(p))} className="flex-1 text-left min-w-0">
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</div>
+          <div className="flex items-center gap-1.5 flex-wrap" style={{ fontSize: 11, color: COLORS.inkSoft }}>
+            {hasQuery && parentName && <span>Variante di {parentName}</span>}
+            {p.categoryId && <span>{categoryById[p.categoryId]?.name}</span>}
+            {p.tags.length > 0 && (
+              <span className="flex items-center gap-1">
+                <Tag size={10} /> {p.tags.join(", ")}
+              </span>
+            )}
+          </div>
+        </button>
+        {variantInfo && (
+          <button
+            onClick={variantInfo.onToggleExpand}
+            title={`${variantInfo.variantCount} ${variantInfo.variantCount === 1 ? "variante" : "varianti"}`}
+            style={{ color: COLORS.inkSoft }}
+          >
+            {variantInfo.expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+        )}
+        <button onClick={() => handleDeletePose(p.id)} title="Elimina posizione" style={{ color: COLORS.inkSoft }}>
+          <Trash2 size={14} />
+        </button>
+      </div>
+    );
+  }
 }

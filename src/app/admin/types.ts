@@ -216,6 +216,7 @@ export type PoseCatalogItem = {
   categoryId: string | null;
   tags: string[];
   imageUrl: string | null;
+  parentPoseId: string | null;
 };
 
 export type SectionKind =
@@ -282,7 +283,7 @@ export type SequenceSection = {
 export type Sequence = {
   id: string;
   classTypeId: string;
-  clientId: string | null;
+  clientIds: string[];
   guestName: string;
   name: string;
   sections: SequenceSection[];

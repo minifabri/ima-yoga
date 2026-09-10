@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AlertCircle, Check, ChevronDown, ChevronUp, GripVertical, Plus, Printer, Repeat, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
@@ -150,8 +150,11 @@ export function SequenceEditor({
 }) {
   const [classTypeId, setClassTypeId] = useState<string>(sequence?.classTypeId ?? classTypes[0]?.id ?? "");
   const [name, setName] = useState(sequence?.name ?? "");
-  const [clientId, setClientId] = useState<string | null>(sequence?.clientId ?? null);
+  const [clientIds, setClientIds] = useState<string[]>(sequence?.clientIds ?? []);
   const [guestName, setGuestName] = useState(sequence?.guestName ?? "");
+  const [clientQuery, setClientQuery] = useState("");
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
+  const clientPickerRef = useRef<HTMLDivElement>(null);
   const [sections, setSections] = useState<EditSection[]>(sequence ? sectionsFromSequence(sequence) : []);
   const [loadingTemplate, setLoadingTemplate] = useState(!sequence);
   const [saving, setSaving] = useState(false);
@@ -198,6 +201,15 @@ export function SequenceEditor({
   }, []);
 
   useEffect(() => {
+    if (!clientPickerOpen) return;
+    function onDocClick(e: MouseEvent) {
+      if (clientPickerRef.current && !clientPickerRef.current.contains(e.target as Node)) setClientPickerOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [clientPickerOpen]);
+
+  useEffect(() => {
     if (sequence) return; // sequenza esistente: sezioni già caricate dal suo stato salvato
     if (!classTypeId) return;
     let cancelled = false;
@@ -217,8 +229,18 @@ export function SequenceEditor({
     };
   }, [classTypeId, sequence, supabase]);
 
-  const activeClient = clientId ? clients.find((c) => c.id === clientId) : null;
-  const personLabel = activeClient?.name || guestName.trim();
+  const selectedClients = clientIds.map((id) => clients.find((c) => c.id === id)).filter((c): c is ClientItem => !!c);
+  const personLabel = selectedClients.length > 0 ? selectedClients.map((c) => c.name).join(", ") : guestName.trim();
+  const clientSuggestions = clientQuery.trim()
+    ? clients.filter((c) => c.name.toLowerCase().includes(clientQuery.trim().toLowerCase()) && !clientIds.includes(c.id)).slice(0, 8)
+    : clients.filter((c) => !clientIds.includes(c.id)).slice(0, 8);
+
+  function toggleClient(id: string) {
+    setClientIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  }
+  function removeClient(id: string) {
+    setClientIds((cur) => cur.filter((x) => x !== id));
+  }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -420,8 +442,8 @@ export function SequenceEditor({
       const saved = await saveSequence(supabase, {
         id: sequence?.id,
         classTypeId,
-        clientId,
-        guestName: clientId ? "" : guestName.trim(),
+        clientIds,
+        guestName: clientIds.length > 0 ? "" : guestName.trim(),
         name: name.trim() || "Sequenza senza nome",
         sections: sections.map((s, sIdx) => {
           const blocks: { tempId: string; reps: number | null; position: number }[] = [];
@@ -525,17 +547,67 @@ export function SequenceEditor({
       </div>
 
       <div className="grid sm:grid-cols-2 gap-3 mb-4">
-        <Field label="Allievo collegato">
-          <select value={clientId ?? ""} onChange={(e) => setClientId(e.target.value || null)} style={inputStyle}>
-            <option value="">Nessuno — nome libero o bozza</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+        <Field label="Allievi collegati">
+          <div ref={clientPickerRef} className="relative">
+            <div
+              className="flex items-center gap-1.5 flex-wrap"
+              style={{ ...inputStyle, minHeight: 38, cursor: "text" }}
+              onClick={() => setClientPickerOpen(true)}
+            >
+              {selectedClients.map((c) => (
+                <span
+                  key={c.id}
+                  className="inline-flex items-center gap-1 rounded-full"
+                  style={{ background: withAlpha(COLORS.primary, 12), color: COLORS.primaryDark, fontSize: 12, padding: "2px 6px 2px 9px" }}
+                >
+                  {c.name}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeClient(c.id);
+                    }}
+                    style={{ color: COLORS.primaryDark }}
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              ))}
+              <input
+                value={clientQuery}
+                onChange={(e) => {
+                  setClientQuery(e.target.value);
+                  setClientPickerOpen(true);
+                }}
+                onFocus={() => setClientPickerOpen(true)}
+                placeholder={selectedClients.length === 0 ? "Cerca uno o più allievi…" : "Aggiungi un altro allievo…"}
+                style={{ border: "none", outline: "none", fontSize: 13, flex: 1, minWidth: 90, background: "transparent" }}
+              />
+            </div>
+            {clientPickerOpen && clientSuggestions.length > 0 && (
+              <div
+                className="absolute left-0 right-0 mt-1 overflow-y-auto"
+                style={{ maxHeight: 220, background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, boxShadow: "0 8px 24px rgba(74,58,115,0.14)", zIndex: 10 }}
+              >
+                {clientSuggestions.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      toggleClient(c.id);
+                      setClientQuery("");
+                    }}
+                    className="w-full text-left px-3 py-2"
+                    style={{ fontSize: 13 }}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </Field>
-        {!clientId && (
+        {clientIds.length === 0 && (
           <Field label="Nome allievo (facoltativo)">
             <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="nome allievo, o lascia vuoto per una bozza" style={inputStyle} />
           </Field>
@@ -1578,22 +1650,28 @@ function PosePickerSheet({
 
         <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
           <div className="flex flex-col gap-1.5">
-            {filtered.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => onPick(p)}
-                className="flex items-center gap-2.5 p-2 rounded-xl text-left"
-                style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}` }}
-              >
-                {p.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.imageUrl} alt="" width={34} height={34} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
-                ) : (
-                  <div style={{ width: 34, height: 34, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
-                )}
-                <span style={{ fontSize: 13.5, color: COLORS.ink }}>{p.name}</span>
-              </button>
-            ))}
+            {filtered.map((p) => {
+              const parentName = p.parentPoseId ? poseCatalog.find((x) => x.id === p.parentPoseId)?.name : null;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => onPick(p)}
+                  className="flex items-center gap-2.5 p-2 rounded-xl text-left"
+                  style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}` }}
+                >
+                  {p.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.imageUrl} alt="" width={34} height={34} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
+                  )}
+                  <div className="min-w-0">
+                    <div style={{ fontSize: 13.5, color: COLORS.ink }}>{p.name}</div>
+                    {parentName && <div style={{ fontSize: 11, color: COLORS.inkSoft }}>Variante di {parentName}</div>}
+                  </div>
+                </button>
+              );
+            })}
             {filtered.length === 0 && (
               <div style={{ fontSize: 12, color: COLORS.inkSoft }} className="text-center py-6">
                 Nessuna posizione trovata.
@@ -1624,7 +1702,7 @@ function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalog
       <div className="overflow-y-auto overflow-x-hidden lg:flex-1" style={{ minHeight: 0, maxHeight: "min(60vh, 420px)" }}>
         <div className="flex flex-col gap-1 pr-0.5">
           {filtered.map((p) => (
-            <PaletteThumb key={p.id} pose={p} />
+            <PaletteThumb key={p.id} pose={p} parentName={p.parentPoseId ? poseCatalog.find((x) => x.id === p.parentPoseId)?.name : undefined} />
           ))}
         </div>
         {filtered.length === 0 && (
@@ -1637,14 +1715,14 @@ function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalog
   );
 }
 
-function PaletteThumb({ pose }: { pose: PoseCatalogItem }) {
+function PaletteThumb({ pose, parentName }: { pose: PoseCatalogItem; parentName?: string }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `palette:${pose.id}`, data: { type: "palette", pose } });
   return (
     <button
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      title={pose.name}
+      title={parentName ? `${pose.name} — variante di ${parentName}` : pose.name}
       className="flex items-center gap-2.5 p-1.5 rounded-xl cursor-grab text-left transition min-w-0"
       style={{
         background: isDragging ? withAlpha(COLORS.primary, 10) : COLORS.bg,
@@ -1665,7 +1743,10 @@ function PaletteThumb({ pose }: { pose: PoseCatalogItem }) {
       ) : (
         <div style={{ width: 32, height: 32, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
       )}
-      <span style={{ fontSize: 12, lineHeight: 1.3, color: COLORS.ink, overflowWrap: "anywhere", minWidth: 0 }}>{pose.name}</span>
+      <div className="min-w-0">
+        <div style={{ fontSize: 12, lineHeight: 1.3, color: COLORS.ink, overflowWrap: "anywhere" }}>{pose.name}</div>
+        {parentName && <div style={{ fontSize: 10, lineHeight: 1.3, color: COLORS.inkSoft }}>Variante di {parentName}</div>}
+      </div>
     </button>
   );
 }

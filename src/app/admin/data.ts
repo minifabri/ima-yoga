@@ -970,6 +970,7 @@ function mapPoseCatalogItem(row: {
   category_id: string | null;
   tags: string[] | null;
   image_url: string | null;
+  parent_pose_id: string | null;
 }): PoseCatalogItem {
   return {
     id: row.id,
@@ -981,6 +982,7 @@ function mapPoseCatalogItem(row: {
     categoryId: row.category_id,
     tags: row.tags || [],
     imageUrl: row.image_url,
+    parentPoseId: row.parent_pose_id,
   };
 }
 
@@ -1003,6 +1005,7 @@ export async function savePose(
     category_id: pose.categoryId,
     tags: pose.tags,
     image_url: pose.imageUrl,
+    parent_pose_id: pose.parentPoseId,
   };
   const query = pose.id
     ? supabase.from("poses").update(payload).eq("id", pose.id).select().single()
@@ -1031,6 +1034,7 @@ export async function bulkInsertPoses(
     category_id: p.categoryId,
     tags: p.tags,
     image_url: p.imageUrl,
+    parent_pose_id: p.parentPoseId,
   }));
   const { data, error } = await supabase.from("poses").insert(payload).select();
   if (error) throw error;
@@ -1086,11 +1090,11 @@ export async function saveSequenceTemplateSections(
 type SequenceRow = {
   id: string;
   class_type_id: string;
-  client_id: string | null;
   guest_name: string | null;
   name: string;
   created_at: string;
   updated_at: string;
+  sequence_clients: { client_id: string }[];
   sequence_sections: {
     id: string;
     sequence_id: string;
@@ -1123,7 +1127,7 @@ function mapSequence(row: SequenceRow): Sequence {
   return {
     id: row.id,
     classTypeId: row.class_type_id,
-    clientId: row.client_id,
+    clientIds: (row.sequence_clients || []).map((sc) => sc.client_id),
     guestName: row.guest_name || "",
     name: row.name,
     createdAt: row.created_at,
@@ -1161,7 +1165,7 @@ function mapSequence(row: SequenceRow): Sequence {
   };
 }
 
-const SEQUENCE_SELECT = "*, sequence_sections(*, sequence_items(*), sequence_item_blocks(*))";
+const SEQUENCE_SELECT = "*, sequence_clients(client_id), sequence_sections(*, sequence_items(*), sequence_item_blocks(*))";
 
 export async function fetchSequences(supabase: DB): Promise<Sequence[]> {
   const { data, error } = await supabase.from("sequences").select(SEQUENCE_SELECT).order("updated_at", { ascending: false });
@@ -1183,7 +1187,7 @@ export async function saveSequence(
   sequence: {
     id?: string;
     classTypeId: string;
-    clientId: string | null;
+    clientIds: string[];
     guestName: string;
     name: string;
     sections: {
@@ -1207,10 +1211,26 @@ export async function saveSequence(
 ): Promise<Sequence> {
   const payload = {
     class_type_id: sequence.classTypeId,
-    client_id: sequence.clientId,
     guest_name: sequence.guestName || null,
     name: sequence.name,
   };
+
+  // Le relazioni con gli allievi vanno sincronizzate prima della query di
+  // insert/update sulla riga `sequences`: il trigger di audit che logga la
+  // modifica legge sequence_clients per il nome, quindi deve già riflettere
+  // lo stato nuovo quando quel trigger scatta.
+  if (sequence.id) {
+    const { error: delSectionsError } = await supabase.from("sequence_sections").delete().eq("sequence_id", sequence.id);
+    if (delSectionsError) throw delSectionsError;
+    const { error: delClientsError } = await supabase.from("sequence_clients").delete().eq("sequence_id", sequence.id);
+    if (delClientsError) throw delClientsError;
+    if (sequence.clientIds.length > 0) {
+      const { error: clientsError } = await supabase
+        .from("sequence_clients")
+        .insert(sequence.clientIds.map((clientId) => ({ sequence_id: sequence.id, client_id: clientId })));
+      if (clientsError) throw clientsError;
+    }
+  }
 
   const query = sequence.id
     ? supabase.from("sequences").update(payload).eq("id", sequence.id).select().single()
@@ -1218,9 +1238,11 @@ export async function saveSequence(
   const { data: seqRow, error: seqError } = await query;
   if (seqError) throw seqError;
 
-  if (sequence.id) {
-    const { error: delError } = await supabase.from("sequence_sections").delete().eq("sequence_id", seqRow.id);
-    if (delError) throw delError;
+  if (!sequence.id && sequence.clientIds.length > 0) {
+    const { error: clientsError } = await supabase
+      .from("sequence_clients")
+      .insert(sequence.clientIds.map((clientId) => ({ sequence_id: seqRow.id, client_id: clientId })));
+    if (clientsError) throw clientsError;
   }
 
   for (const section of sequence.sections) {
