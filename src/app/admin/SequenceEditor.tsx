@@ -21,7 +21,22 @@ import { CSS } from "@dnd-kit/utilities";
 import { COLORS, withAlpha } from "./colors";
 import { Field, Modal, Switch, inputStyle } from "./ui";
 import { saveSequence, deleteSequence, fetchSequenceTemplate } from "./data";
+import { poseDisplayName, poseDisplayNameIt, poseDisplayImage } from "./poseDisplay";
+
+function parentOfPose(poseById: Record<string, PoseCatalogItem>, pose: PoseCatalogItem | undefined): PoseCatalogItem | undefined {
+  return pose?.parentPoseId ? poseById[pose.parentPoseId] : undefined;
+}
 import type { ClassType, ClientItem, HoldUnit, PoseCatalogItem, PoseCategory, PoseMacro, Sequence, SectionKind } from "./types";
+
+// Filigrana ripetuta e discreta sulla scheda stampata/PDF: le foto delle
+// posizioni sono materiale proprietario dello studio, quindi la scheda che
+// esce verso gli allievi porta un richiamo al marchio invece di restare
+// "pulita" e facilmente ricondivisibile senza contesto.
+const PRINT_WATERMARK_URL = `data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260">
+    <text x="0" y="150" font-family="IBM Plex Sans, sans-serif" font-size="22" fill="#9C4FA0" fill-opacity="0.14" transform="rotate(-28 130 130)">ima yoga</text>
+  </svg>`
+)}`;
 
 type EditItem = {
   uid: string;
@@ -94,11 +109,13 @@ type SheetItem = { text: string; meta: string; note: string; imageUrl: string | 
 type SheetRow = { kind: "item"; item: SheetItem } | { kind: "block"; reps: number | null; items: SheetItem[] };
 
 function toSheetItem(it: EditItem, poseById: Record<string, PoseCatalogItem>): SheetItem {
+  const pose = it.poseId ? poseById[it.poseId] : undefined;
+  const parent = pose?.parentPoseId ? poseById[pose.parentPoseId] : undefined;
   return {
-    text: it.poseId ? (poseById[it.poseId]?.name ?? "?") : it.customLabel,
+    text: pose ? poseDisplayName(pose, parent) : it.customLabel,
     note: it.note,
     meta: formatItemMeta(it.reps, it.holdValue, it.holdUnit),
-    imageUrl: it.poseId ? (poseById[it.poseId]?.imageUrl ?? null) : null,
+    imageUrl: pose ? poseDisplayImage(pose, parent) : null,
   };
 }
 
@@ -699,15 +716,20 @@ export function SequenceEditor({
           </div>
 
           <DragOverlay>
-            {activeDragPose && (
-              <div className="flex items-center gap-2 p-1.5 rounded-lg" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: "0 8px 20px rgba(0,0,0,0.18)" }}>
-                {activeDragPose.imageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={activeDragPose.imageUrl} alt="" width={30} height={30} style={{ borderRadius: 6, objectFit: "cover" }} />
-                )}
-                <span style={{ fontSize: 12, fontWeight: 600 }}>{activeDragPose.name}</span>
-              </div>
-            )}
+            {activeDragPose &&
+              (() => {
+                const dragParent = activeDragPose.parentPoseId ? poseById[activeDragPose.parentPoseId] : undefined;
+                const dragImage = poseDisplayImage(activeDragPose, dragParent);
+                return (
+                  <div className="flex items-center gap-2 p-1.5 rounded-lg" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: "0 8px 20px rgba(0,0,0,0.18)" }}>
+                    {dragImage && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={dragImage} alt="" width={30} height={30} style={{ borderRadius: 6, objectFit: "cover" }} />
+                    )}
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>{poseDisplayName(activeDragPose, dragParent)}</span>
+                  </div>
+                );
+              })()}
           </DragOverlay>
         </DndContext>
       )}
@@ -822,7 +844,9 @@ export function SequenceEditor({
                   @media screen { #sequence-print-sheet { display: none; } }
                   @media print {
                     body > *:not(#sequence-print-sheet) { display: none !important; }
-                    #sequence-print-sheet { display: block !important; padding: 24px; max-width: 680px; margin: 0 auto; font-family: 'IBM Plex Sans', sans-serif; color: #2A2440; }
+                    #sequence-print-sheet { display: block !important; position: relative; padding: 24px; max-width: 680px; margin: 0 auto; font-family: 'IBM Plex Sans', sans-serif; color: #2A2440; }
+                    #sequence-print-sheet .p-watermark { display: block; position: fixed; inset: 0; z-index: 0; pointer-events: none; background-repeat: repeat; }
+                    #sequence-print-sheet > *:not(.p-watermark) { position: relative; z-index: 1; }
                     #sequence-print-sheet h1 { font-family: 'Fraunces', serif; font-size: 1.4rem; margin: 0 0 4px; }
                     #sequence-print-sheet .p-sub { color: #5C5470; font-size: 0.85rem; margin: 0 0 18px; }
                     #sequence-print-sheet .p-section-title { font-size: 0.78rem; font-weight: 600; color: #9C4FA0; margin: 20px 0 6px; text-transform: uppercase; }
@@ -835,6 +859,9 @@ export function SequenceEditor({
                     #sequence-print-sheet .p-note { color: #5C5470; font-size: 0.85rem; text-align: right; }
                   }
                 `}</style>
+                {/* Contenuto proprietario (foto delle posizioni) che esce dallo studio: un
+                    filigrana ripetuta e discreta lo scoraggia dal girare fuori contesto. */}
+                <div className="p-watermark" style={{ backgroundImage: `url("${PRINT_WATERMARK_URL}")` }} />
                 <h1>{personLabel ? `Sequenza per ${personLabel}` : "Sequenza"}</h1>
                 <p className="p-sub">{new Date().toLocaleDateString("it-IT")}</p>
                 {sheetSections.map((s, idx) => {
@@ -1058,6 +1085,7 @@ function SectionEditor({
                       key={row.uid}
                       item={row.item}
                       pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
+                      parentPose={parentOfPose(poseById, row.item.poseId ? poseById[row.item.poseId] : undefined)}
                       onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
                       onRemove={() => onRemoveItem(null, row.item.uid)}
                     />
@@ -1121,9 +1149,22 @@ function SectionEditor({
   );
 }
 
-function ItemRow({ item, pose, onUpdate, onRemove }: { item: EditItem; pose?: PoseCatalogItem; onUpdate: (patch: Partial<EditItem>) => void; onRemove: () => void }) {
+function ItemRow({
+  item,
+  pose,
+  parentPose,
+  onUpdate,
+  onRemove,
+}: {
+  item: EditItem;
+  pose?: PoseCatalogItem;
+  parentPose?: PoseCatalogItem;
+  onUpdate: (patch: Partial<EditItem>) => void;
+  onRemove: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.uid });
-  const label = pose?.name || item.customLabel || "Voce senza nome";
+  const label = pose ? poseDisplayName(pose, parentPose) : item.customLabel || "Voce senza nome";
+  const image = pose ? poseDisplayImage(pose, parentPose) : null;
   return (
     <div
       ref={setNodeRef}
@@ -1134,9 +1175,9 @@ function ItemRow({ item, pose, onUpdate, onRemove }: { item: EditItem; pose?: Po
         <button {...attributes} {...listeners} className="cursor-grab flex items-center" style={{ color: COLORS.inkSoft, touchAction: "none" }} title="Trascina per riordinare">
           <GripVertical size={14} />
         </button>
-        {pose?.imageUrl && (
+        {image && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={pose.imageUrl} alt={label} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+          <img src={image} alt={label} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
         )}
         <div className="flex-1 min-w-0">
           <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
@@ -1157,6 +1198,7 @@ function ItemRow({ item, pose, onUpdate, onRemove }: { item: EditItem; pose?: Po
 function ArrowItemRow({
   item,
   pose,
+  parentPose,
   isFirst,
   isLast,
   onUpdate,
@@ -1166,6 +1208,7 @@ function ArrowItemRow({
 }: {
   item: EditItem;
   pose?: PoseCatalogItem;
+  parentPose?: PoseCatalogItem;
   isFirst: boolean;
   isLast: boolean;
   onUpdate: (patch: Partial<EditItem>) => void;
@@ -1173,7 +1216,8 @@ function ArrowItemRow({
   onMoveUp: () => void;
   onMoveDown: () => void;
 }) {
-  const label = pose?.name || item.customLabel || "Voce senza nome";
+  const label = pose ? poseDisplayName(pose, parentPose) : item.customLabel || "Voce senza nome";
+  const image = pose ? poseDisplayImage(pose, parentPose) : null;
   return (
     <div className="p-2 rounded-xl" style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}` }}>
       <div className="flex items-center gap-2">
@@ -1185,9 +1229,9 @@ function ArrowItemRow({
             <ChevronDown size={12} />
           </button>
         </div>
-        {pose?.imageUrl && (
+        {image && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={pose.imageUrl} alt={label} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+          <img src={image} alt={label} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
         )}
         <div className="flex-1 min-w-0">
           <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
@@ -1266,6 +1310,7 @@ function BlockBody({
             key={item.uid}
             item={item}
             pose={item.poseId ? poseById[item.poseId] : undefined}
+            parentPose={parentOfPose(poseById, item.poseId ? poseById[item.poseId] : undefined)}
             isFirst={idx === 0}
             isLast={idx === block.items.length - 1}
             onUpdate={(patch) => onUpdateItem(item.uid, patch)}
@@ -1453,6 +1498,7 @@ function MobileSectionCard({
                   key={row.uid}
                   item={row.item}
                   pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
+                  parentPose={parentOfPose(poseById, row.item.poseId ? poseById[row.item.poseId] : undefined)}
                   isFirst={idx === 0}
                   isLast={idx === section.rows.length - 1}
                   onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
@@ -1539,22 +1585,25 @@ function usePoseFilter(poseCatalog: PoseCatalogItem[], poseCategories: PoseCateg
   const [query, setQuery] = useState("");
 
   const categoriesForMacro = useMemo(() => poseCategories.filter((c) => c.macro === macro), [poseCategories, macro]);
+  const poseById = useMemo(() => Object.fromEntries(poseCatalog.map((p) => [p.id, p])), [poseCatalog]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return poseCatalog
       .filter((p) => p.macro === macro)
       .filter((p) => categoryFilter === "all" || p.categoryId === categoryFilter)
-      .filter(
-        (p) =>
-          !q ||
-          p.name.toLowerCase().includes(q) ||
-          p.nameIt.toLowerCase().includes(q) ||
+      .filter((p) => {
+        if (!q) return true;
+        const parent = parentOfPose(poseById, p);
+        return (
+          poseDisplayName(p, parent).toLowerCase().includes(q) ||
+          poseDisplayNameIt(p, parent).toLowerCase().includes(q) ||
           p.nameEn.toLowerCase().includes(q) ||
           p.tags.some((t) => t.toLowerCase().includes(q))
-      )
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [poseCatalog, macro, categoryFilter, query]);
+        );
+      })
+      .sort((a, b) => poseDisplayName(a, undefined).localeCompare(poseDisplayName(b, undefined)));
+  }, [poseCatalog, macro, categoryFilter, query, poseById]);
 
   return { macro, setMacro, categoryFilter, setCategoryFilter, query, setQuery, categoriesForMacro, filtered };
 }
@@ -1651,7 +1700,9 @@ function PosePickerSheet({
         <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
           <div className="flex flex-col gap-1.5">
             {filtered.map((p) => {
-              const parentName = p.parentPoseId ? poseCatalog.find((x) => x.id === p.parentPoseId)?.name : null;
+              const parent = p.parentPoseId ? poseCatalog.find((x) => x.id === p.parentPoseId) : undefined;
+              const displayName = poseDisplayName(p, parent);
+              const displayImage = poseDisplayImage(p, parent);
               return (
                 <button
                   key={p.id}
@@ -1659,15 +1710,15 @@ function PosePickerSheet({
                   className="flex items-center gap-2.5 p-2 rounded-xl text-left"
                   style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}` }}
                 >
-                  {p.imageUrl ? (
+                  {displayImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.imageUrl} alt="" width={34} height={34} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+                    <img src={displayImage} alt="" width={34} height={34} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
                   ) : (
                     <div style={{ width: 34, height: 34, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
                   )}
                   <div className="min-w-0">
-                    <div style={{ fontSize: 13.5, color: COLORS.ink }}>{p.name}</div>
-                    {parentName && <div style={{ fontSize: 11, color: COLORS.inkSoft }}>Variante di {parentName}</div>}
+                    <div style={{ fontSize: 13.5, color: COLORS.ink }}>{displayName}</div>
+                    {parent && <div style={{ fontSize: 11, color: COLORS.inkSoft }}>Variante di {parent.name}</div>}
                   </div>
                 </button>
               );
@@ -1702,7 +1753,7 @@ function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalog
       <div className="overflow-y-auto overflow-x-hidden lg:flex-1" style={{ minHeight: 0, maxHeight: "min(60vh, 420px)" }}>
         <div className="flex flex-col gap-1 pr-0.5">
           {filtered.map((p) => (
-            <PaletteThumb key={p.id} pose={p} parentName={p.parentPoseId ? poseCatalog.find((x) => x.id === p.parentPoseId)?.name : undefined} />
+            <PaletteThumb key={p.id} pose={p} parentPose={p.parentPoseId ? poseCatalog.find((x) => x.id === p.parentPoseId) : undefined} />
           ))}
         </div>
         {filtered.length === 0 && (
@@ -1715,14 +1766,16 @@ function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalog
   );
 }
 
-function PaletteThumb({ pose, parentName }: { pose: PoseCatalogItem; parentName?: string }) {
+function PaletteThumb({ pose, parentPose }: { pose: PoseCatalogItem; parentPose?: PoseCatalogItem }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `palette:${pose.id}`, data: { type: "palette", pose } });
+  const displayName = poseDisplayName(pose, parentPose);
+  const displayImage = poseDisplayImage(pose, parentPose);
   return (
     <button
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      title={parentName ? `${pose.name} — variante di ${parentName}` : pose.name}
+      title={parentPose ? `${displayName} — variante di ${parentPose.name}` : displayName}
       className="flex items-center gap-2.5 p-1.5 rounded-xl cursor-grab text-left transition min-w-0"
       style={{
         background: isDragging ? withAlpha(COLORS.primary, 10) : COLORS.bg,
@@ -1737,15 +1790,15 @@ function PaletteThumb({ pose, parentName }: { pose: PoseCatalogItem; parentName?
         if (!isDragging) e.currentTarget.style.background = COLORS.bg;
       }}
     >
-      {pose.imageUrl ? (
+      {displayImage ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={pose.imageUrl} alt="" width={32} height={32} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+        <img src={displayImage} alt="" width={32} height={32} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
       ) : (
         <div style={{ width: 32, height: 32, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
       )}
       <div className="min-w-0">
-        <div style={{ fontSize: 12, lineHeight: 1.3, color: COLORS.ink, overflowWrap: "anywhere" }}>{pose.name}</div>
-        {parentName && <div style={{ fontSize: 10, lineHeight: 1.3, color: COLORS.inkSoft }}>Variante di {parentName}</div>}
+        <div style={{ fontSize: 12, lineHeight: 1.3, color: COLORS.ink, overflowWrap: "anywhere" }}>{displayName}</div>
+        {parentPose && <div style={{ fontSize: 10, lineHeight: 1.3, color: COLORS.inkSoft }}>Variante di {parentPose.name}</div>}
       </div>
     </button>
   );

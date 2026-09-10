@@ -2,16 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, ChevronDown, ChevronRight, Plus, Search, Tag, Trash2, Upload } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronRight, LayoutGrid, List, Plus, Search, Tag, Trash2, Upload } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { Field, IconButton, inputStyle } from "./ui";
-import { fetchPoseCatalog, savePose, deletePose, fetchPoseCategories, savePoseCategory, deletePoseCategory } from "./data";
+import { fetchPoseCatalog, savePose, deletePose, deletePoseThumbnail, fetchPoseCategories, savePoseCategory, deletePoseCategory } from "./data";
 import { PoseBulkImportModal } from "./PoseBulkImport";
 import { PoseThumbnailGenerator } from "./PoseThumbnailGenerator";
+import { poseDisplayName, poseDisplayNameIt, poseDisplayImage } from "./poseDisplay";
 import type { PoseCatalogItem, PoseCategory, PoseMacro } from "./types";
 
 function emptyDraft(macro: PoseMacro): Omit<PoseCatalogItem, "id"> {
-  return { macro, name: "", nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null, parentPoseId: null };
+  return { macro, name: "", nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null, parentPoseId: null, variantLabel: "" };
 }
 
 function slugify(value: string): string {
@@ -31,12 +32,24 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   const [macro, setMacro] = useState<PoseMacro>("asana");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
   const [draft, setDraft] = useState<Omit<PoseCatalogItem, "id">>(emptyDraft("asana"));
   const [tagsInput, setTagsInput] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [error, setError] = useState("");
   const [showImport, setShowImport] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [showManualImageUrl, setShowManualImageUrl] = useState(false);
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     Promise.all([fetchPoseCatalog(supabase), fetchPoseCategories(supabase)])
@@ -50,6 +63,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
 
   const categoriesForMacro = useMemo(() => categories.filter((c) => c.macro === macro), [categories, macro]);
   const categoryById = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories]);
+  const poseById = useMemo(() => Object.fromEntries(poses.map((p) => [p.id, p])), [poses]);
 
   const hasQuery = query.trim().length > 0;
 
@@ -58,16 +72,20 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
     return poses
       .filter((p) => p.macro === macro)
       .filter((p) => categoryFilter === "all" || p.categoryId === categoryFilter)
-      .filter(
-        (p) =>
-          !q ||
-          p.name.toLowerCase().includes(q) ||
-          p.nameIt.toLowerCase().includes(q) ||
+      .filter((p) => {
+        if (!q) return true;
+        const parent = p.parentPoseId ? poseById[p.parentPoseId] : undefined;
+        const displayName = poseDisplayName(p, parent);
+        const displayNameIt = poseDisplayNameIt(p, parent);
+        return (
+          displayName.toLowerCase().includes(q) ||
+          displayNameIt.toLowerCase().includes(q) ||
           p.nameEn.toLowerCase().includes(q) ||
           p.tags.some((t) => t.toLowerCase().includes(q))
-      )
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [poses, macro, categoryFilter, query]);
+        );
+      })
+      .sort((a, b) => poseDisplayName(a, undefined).localeCompare(poseDisplayName(b, undefined)));
+  }, [poses, macro, categoryFilter, query, poseById]);
 
   // Fuori dalla ricerca, le varianti si annidano sotto la loro posizione base
   // invece di comparire come righe indipendenti (indipendentemente dal filtro
@@ -83,19 +101,9 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         arr.push(p);
         map.set(p.parentPoseId as string, arr);
       });
-    map.forEach((arr) => arr.sort((a, b) => a.name.localeCompare(b.name)));
+    map.forEach((arr) => arr.sort((a, b) => poseDisplayName(a, poseById[a.parentPoseId as string]).localeCompare(poseDisplayName(b, poseById[b.parentPoseId as string]))));
     return map;
-  }, [poses, macro]);
-
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  function toggleExpanded(id: string) {
-    setExpandedIds((cur) => {
-      const next = new Set(cur);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
+  }, [poses, macro, poseById]);
 
   const editFormRef = useRef<HTMLDivElement>(null);
 
@@ -103,9 +111,10 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
     if (editingId) editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [editingId]);
 
-  function startNew() {
-    setDraft(emptyDraft(macro));
+  function startNew(parentPoseId: string | null = null) {
+    setDraft({ ...emptyDraft(macro), parentPoseId });
     setTagsInput("");
+    setShowManualImageUrl(false);
     setEditingId("new");
   }
   function startEdit(p: PoseCatalogItem) {
@@ -119,41 +128,23 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
       tags: p.tags,
       imageUrl: p.imageUrl,
       parentPoseId: p.parentPoseId,
+      variantLabel: p.variantLabel,
     });
     setTagsInput(p.tags.join(", "));
+    setShowManualImageUrl(false);
     setEditingId(p.id);
   }
 
   function renderEditForm() {
+    const isVariant = Boolean(draft.parentPoseId);
+    const parentPose = draft.parentPoseId ? poseById[draft.parentPoseId] : undefined;
     const hasChildren = editingId !== "new" && editingId !== null && poses.some((p) => p.parentPoseId === editingId);
     const parentCandidates = poses
       .filter((p) => p.macro === draft.macro && !p.parentPoseId && p.id !== editingId)
       .sort((a, b) => a.name.localeCompare(b.name));
+    const previewName = isVariant ? draft.name || [parentPose?.name, draft.variantLabel].filter(Boolean).join(" ") || "—" : null;
     return (
       <div ref={editFormRef} className="mt-1.5 mb-1.5 p-3.5 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-        <div className="grid sm:grid-cols-2 gap-3 mb-3">
-          <Field label="Nome (sanscrito)">
-            <input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Es. Adho Mukha Svanasana" style={inputStyle} />
-          </Field>
-          <Field label="Categoria">
-            <select value={draft.categoryId ?? ""} onChange={(e) => setDraft((d) => ({ ...d, categoryId: e.target.value || null }))} style={inputStyle}>
-              <option value="">Nessuna categoria</option>
-              {categoriesForMacro.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-        <div className="grid sm:grid-cols-2 gap-3 mb-3">
-          <Field label="Nome italiano (facoltativo, per la ricerca)">
-            <input value={draft.nameIt} onChange={(e) => setDraft((d) => ({ ...d, nameIt: e.target.value }))} placeholder="Es. Cane a testa in giù" style={inputStyle} />
-          </Field>
-          <Field label="Nome inglese (facoltativo, per la ricerca)">
-            <input value={draft.nameEn} onChange={(e) => setDraft((d) => ({ ...d, nameEn: e.target.value }))} placeholder="Es. Downward Facing Dog" style={inputStyle} />
-          </Field>
-        </div>
         <div className="mb-3">
           <Field label="Variante di (facoltativo)">
             <select
@@ -176,21 +167,96 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
             </div>
           )}
         </div>
+
+        {isVariant && (
+          <>
+            <Field label="Suffisso (es. «preparazione», «gamba su»)">
+              <input value={draft.variantLabel} onChange={(e) => setDraft((d) => ({ ...d, variantLabel: e.target.value }))} placeholder="preparazione" style={inputStyle} />
+            </Field>
+            <div className="mb-3" style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
+              Nome mostrato: <strong style={{ color: COLORS.ink }}>{previewName}</strong> — ereditato dal padre, salvo che tu non lo sovrascriva qui sotto.
+            </div>
+          </>
+        )}
+
         <div className="grid sm:grid-cols-2 gap-3 mb-3">
-          <Field label="Tag (separati da virgola)">
-            <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="es. principianti, spalle, apertura anche" style={inputStyle} />
+          <Field label={isVariant ? "Nome sanscrito (sovrascrive quello ereditato)" : "Nome (sanscrito)"}>
+            <input
+              value={draft.name}
+              onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+              placeholder={isVariant ? "lascia vuoto per ereditare" : "Es. Adho Mukha Svanasana"}
+              style={inputStyle}
+            />
           </Field>
-          <Field label="Immagine (percorso o URL, facoltativo)">
-            <input value={draft.imageUrl ?? ""} onChange={(e) => setDraft((d) => ({ ...d, imageUrl: e.target.value || null }))} placeholder="/asanas/mia-posa.png" style={inputStyle} />
+          <Field label="Categoria">
+            <select value={draft.categoryId ?? ""} onChange={(e) => setDraft((d) => ({ ...d, categoryId: e.target.value || null }))} style={inputStyle}>
+              <option value="">Nessuna categoria</option>
+              {categoriesForMacro.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3 mb-3">
+          <Field label={isVariant ? "Nome italiano (sovrascrive quello ereditato)" : "Nome italiano (facoltativo, per la ricerca)"}>
+            <input
+              value={draft.nameIt}
+              onChange={(e) => setDraft((d) => ({ ...d, nameIt: e.target.value }))}
+              placeholder={isVariant ? "lascia vuoto per ereditare" : "Es. Cane a testa in giù"}
+              style={inputStyle}
+            />
+          </Field>
+          <Field label={isVariant ? "Nome inglese (sovrascrive quello ereditato)" : "Nome inglese (facoltativo, per la ricerca)"}>
+            <input
+              value={draft.nameEn}
+              onChange={(e) => setDraft((d) => ({ ...d, nameEn: e.target.value }))}
+              placeholder={isVariant ? "lascia vuoto per ereditare" : "Es. Downward Facing Dog"}
+              style={inputStyle}
+            />
           </Field>
         </div>
         <div className="mb-3">
+          <Field label="Tag (separati da virgola)">
+            <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="es. principianti, spalle, apertura anche" style={inputStyle} />
+          </Field>
+        </div>
+
+        {draft.imageUrl ? (
+          <div className="flex items-center gap-2 mb-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={draft.imageUrl} alt="" width={40} height={40} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+            <button onClick={handleRemoveOwnImage} className="text-xs font-medium" style={{ color: COLORS.danger }}>
+              Rimuovi immagine
+            </button>
+          </div>
+        ) : (
+          isVariant &&
+          parentPose?.imageUrl && (
+            <div className="mb-3" style={{ fontSize: 11, color: COLORS.inkSoft }}>
+              Senza immagine propria, eredita quella della posizione principale.
+            </div>
+          )
+        )}
+        <div className="mb-3">
           <PoseThumbnailGenerator
             supabase={supabase}
-            poseSlug={slugify(draft.name || "posa")}
+            poseSlug={slugify(draft.name || previewName || "posa")}
             onGenerated={(url) => setDraft((d) => ({ ...d, imageUrl: url }))}
           />
         </div>
+
+        <button type="button" onClick={() => setShowManualImageUrl((v) => !v)} className="mb-3" style={{ fontSize: 11, color: COLORS.inkSoft }}>
+          {showManualImageUrl ? "Nascondi" : "Opzioni avanzate: inserisci un URL immagine a mano"}
+        </button>
+        {showManualImageUrl && (
+          <div className="mb-3">
+            <Field label="Immagine (percorso o URL)">
+              <input value={draft.imageUrl ?? ""} onChange={(e) => setDraft((d) => ({ ...d, imageUrl: e.target.value || null }))} placeholder="/asanas/mia-posa.png" style={inputStyle} />
+            </Field>
+          </div>
+        )}
         <div className="grid sm:grid-cols-2 gap-3 mb-3">
           <Field label="Descrizione (facoltativa)">
             <input value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} style={inputStyle} />
@@ -208,11 +274,31 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
     );
   }
 
+  // Rimuove SOLO l'immagine propria della posizione in modifica: se sta
+  // mostrando un'immagine ereditata dal padre (draft.imageUrl è vuoto), non
+  // c'è niente da eliminare dallo storage — il file del padre resta intatto.
+  async function handleRemoveOwnImage() {
+    const url = draft.imageUrl;
+    if (!url) return;
+    setDraft((d) => ({ ...d, imageUrl: null }));
+    try {
+      await deletePoseThumbnail(supabase, url);
+    } catch {
+      // la rimozione dal form ha già avuto effetto; un file eventualmente
+      // non cancellato dallo storage non blocca il resto del lavoro.
+    }
+  }
+
   async function handleSaveDraft() {
     setError("");
+    const isVariant = Boolean(draft.parentPoseId);
     const name = draft.name.trim();
-    if (!name) {
+    if (!isVariant && !name) {
       setError("Il nome della posizione è obbligatorio.");
+      return;
+    }
+    if (isVariant && !name && !draft.variantLabel.trim() && !draft.nameIt.trim()) {
+      setError("Indica almeno un suffisso o un nome per la variante.");
       return;
     }
     const tags = tagsInput
@@ -224,6 +310,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         id: editingId === "new" ? undefined : (editingId ?? undefined),
         ...draft,
         name,
+        variantLabel: draft.variantLabel.trim(),
         tags,
       });
       setPoses((cur) => (cur.some((p) => p.id === saved.id) ? cur.map((p) => (p.id === saved.id ? saved : p)) : [...cur, saved]));
@@ -266,8 +353,24 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
 
   return (
     <div>
-      <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 600, color: COLORS.heading }} className="mb-4">
-        Catalogo posizioni
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 600, color: COLORS.heading }}>Catalogo posizioni</div>
+        <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
+          <button
+            onClick={() => setViewMode("list")}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium"
+            style={{ background: viewMode === "list" ? COLORS.primary : "transparent", color: viewMode === "list" ? "#fff" : COLORS.ink }}
+          >
+            <List size={13} /> Elenco
+          </button>
+          <button
+            onClick={() => setViewMode("grid")}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium"
+            style={{ background: viewMode === "grid" ? COLORS.primary : "transparent", color: viewMode === "grid" ? "#fff" : COLORS.ink }}
+          >
+            <LayoutGrid size={13} /> Griglia
+          </button>
+        </div>
       </div>
       <div className="mb-4" style={{ fontSize: 12.5, color: COLORS.inkSoft }}>
         Le posizioni (asana) e le tecniche (pranayama) usate nel costruttore di sequenze. Categorizzale e aggiungi tag per trovarle più facilmente durante la creazione di una sequenza.
@@ -331,7 +434,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         <button onClick={() => setShowImport(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
           <Upload size={15} /> Importa CSV
         </button>
-        <button onClick={startNew} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: COLORS.primary }}>
+        <button onClick={() => startNew()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: COLORS.primary }}>
           <Plus size={15} /> Nuova posizione
         </button>
       </div>
@@ -358,24 +461,24 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="py-8 text-center">
           Nessuna posizione trovata.
         </div>
-      ) : (
+      ) : viewMode === "list" ? (
         <div className="flex flex-col gap-1.5">
           {topLevelFiltered.map((p) => {
             const variants = hasQuery ? [] : variantsByParent.get(p.id) ?? [];
-            const expanded = expandedIds.has(p.id);
+            const expanded = hasQuery || expandedIds.has(p.id);
             return (
               <div key={p.id}>
                 {renderPoseRow(
                   p,
-                  variants.length > 0
-                    ? { variantCount: variants.length, expanded, onToggleExpand: () => toggleExpanded(p.id) }
-                    : undefined
+                  undefined,
+                  () => startNew(p.id),
+                  variants.length > 0 && !hasQuery ? { count: variants.length, expanded, onToggle: () => toggleExpanded(p.id) } : undefined
                 )}
                 {editingId === p.id && renderEditForm()}
                 {expanded &&
                   variants.map((v) => (
-                    <div key={v.id} className="ml-5 mt-1.5">
-                      {renderPoseRow(v)}
+                    <div key={v.id} className="ml-6 mt-1.5">
+                      {renderPoseRow(v, p)}
                       {editingId === v.id && renderEditForm()}
                     </div>
                   ))}
@@ -383,24 +486,40 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
             );
           })}
         </div>
+      ) : (
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))" }}>
+          {topLevelFiltered.map((p) => (
+            <div key={p.id}>
+              {renderPoseCard(p, hasQuery ? [] : variantsByParent.get(p.id) ?? [])}
+              {editingId === p.id && renderEditForm()}
+              {editingId && (variantsByParent.get(p.id) ?? []).some((v) => v.id === editingId) && renderEditForm()}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
 
-  function renderPoseRow(p: PoseCatalogItem, variantInfo?: { variantCount: number; expanded: boolean; onToggleExpand: () => void }) {
-    const parentName = p.parentPoseId ? poses.find((x) => x.id === p.parentPoseId)?.name : null;
+  function renderPoseRow(
+    p: PoseCatalogItem,
+    parent: PoseCatalogItem | undefined,
+    onAddVariant?: () => void,
+    variantInfo?: { count: number; expanded: boolean; onToggle: () => void }
+  ) {
+    const displayName = poseDisplayName(p, parent);
+    const displayImage = poseDisplayImage(p, parent);
     return (
       <div className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-        {p.imageUrl ? (
+        {displayImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={p.imageUrl} alt={p.name} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+          <img src={displayImage} alt={displayName} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
         ) : (
           <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
         )}
         <button onClick={() => (editingId === p.id ? setEditingId(null) : startEdit(p))} className="flex-1 text-left min-w-0">
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{displayName}</div>
           <div className="flex items-center gap-1.5 flex-wrap" style={{ fontSize: 11, color: COLORS.inkSoft }}>
-            {hasQuery && parentName && <span>Variante di {parentName}</span>}
+            {hasQuery && parent && <span>Variante di {parent.name}</span>}
             {p.categoryId && <span>{categoryById[p.categoryId]?.name}</span>}
             {p.tags.length > 0 && (
               <span className="flex items-center gap-1">
@@ -411,16 +530,82 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         </button>
         {variantInfo && (
           <button
-            onClick={variantInfo.onToggleExpand}
-            title={`${variantInfo.variantCount} ${variantInfo.variantCount === 1 ? "variante" : "varianti"}`}
-            style={{ color: COLORS.inkSoft }}
+            onClick={variantInfo.onToggle}
+            className="flex items-center gap-1 rounded-full flex-shrink-0"
+            style={{ fontSize: 11, fontWeight: 600, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 12), padding: "3px 8px" }}
           >
-            {variantInfo.expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            {variantInfo.count} {variantInfo.count === 1 ? "variante" : "varianti"}
+            {variantInfo.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          </button>
+        )}
+        {onAddVariant && (
+          <button onClick={onAddVariant} title="Aggiungi variante" style={{ fontSize: 11, fontWeight: 600, color: COLORS.primaryDark }}>
+            + Variante
           </button>
         )}
         <button onClick={() => handleDeletePose(p.id)} title="Elimina posizione" style={{ color: COLORS.inkSoft }}>
           <Trash2 size={14} />
         </button>
+      </div>
+    );
+  }
+
+  function renderPoseCard(p: PoseCatalogItem, variants: PoseCatalogItem[]) {
+    const displayName = poseDisplayName(p, undefined);
+    const displayImage = poseDisplayImage(p, undefined);
+    return (
+      <div className="rounded-xl overflow-hidden flex flex-col" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+        <div className="flex items-center justify-center" style={{ height: 110, background: COLORS.subtle }}>
+          {displayImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={displayImage} alt={displayName} style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain" }} />
+          ) : (
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.card }} />
+          )}
+        </div>
+        <div className="p-3 flex flex-col gap-1.5 flex-1">
+          <button onClick={() => (editingId === p.id ? setEditingId(null) : startEdit(p))} className="text-left">
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.ink }}>{displayName}</div>
+          </button>
+          {p.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {p.tags.map((t) => (
+                <span key={t} style={{ fontSize: 10.5, fontWeight: 600, color: COLORS.primary, background: withAlpha(COLORS.primary, 12), borderRadius: 999, padding: "1px 7px" }}>
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {variants.length > 0 && (
+            <div className="mt-1.5 pt-2 flex flex-col gap-2" style={{ borderTop: `1px dashed ${COLORS.border}` }}>
+              {variants.map((v) => {
+                const vName = poseDisplayName(v, p);
+                const vImage = poseDisplayImage(v, p);
+                return (
+                  <button key={v.id} onClick={() => startEdit(v)} className="flex items-center gap-2 text-left">
+                    <div className="flex items-center justify-center flex-shrink-0 rounded-md overflow-hidden" style={{ width: 28, height: 28, background: COLORS.subtle }}>
+                      {vImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={vImage} alt={vName} style={{ maxHeight: "100%", maxWidth: "100%", objectFit: "contain" }} />
+                      ) : (
+                        <div style={{ width: 14, height: 14, borderRadius: 4, background: COLORS.card }} />
+                      )}
+                    </div>
+                    <div className="flex-1" style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.ink }}>{vName}</div>
+                      {v.tags.length > 0 && <div style={{ fontSize: 10, color: COLORS.inkSoft }}>{v.tags.join(" · ")}</div>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <button onClick={() => startNew(p.id)} className="self-start mt-1.5" style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.primaryDark }}>
+            + Variante
+          </button>
+        </div>
       </div>
     );
   }

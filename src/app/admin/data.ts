@@ -866,6 +866,20 @@ export async function uploadPoseThumbnail(supabase: DB, poseSlug: string, blob: 
   return data.publicUrl;
 }
 
+// Rimuove un file dal bucket "pose-thumbnails" dato il suo URL pubblico
+// (chiamare SOLO quando l'immagine è quella caricata dalla posizione stessa,
+// mai per un'immagine ereditata da un padre — quel file resta suo). Se l'URL
+// non appartiene a questo bucket (es. percorso/URL esterno inserito a mano)
+// non fa nulla.
+export async function deletePoseThumbnail(supabase: DB, url: string): Promise<void> {
+  const marker = "/pose-thumbnails/";
+  const idx = url.indexOf(marker);
+  if (idx === -1) return;
+  const path = url.slice(idx + marker.length);
+  const { error } = await supabase.storage.from("pose-thumbnails").remove([path]);
+  if (error) throw error;
+}
+
 function mapEventBudget(row: {
   id: string;
   event_id: string | null;
@@ -963,7 +977,7 @@ export async function deletePoseCategory(supabase: DB, id: string) {
 function mapPoseCatalogItem(row: {
   id: string;
   macro: PoseMacro;
-  name: string;
+  name: string | null;
   name_it: string | null;
   name_en: string | null;
   description: string | null;
@@ -971,11 +985,12 @@ function mapPoseCatalogItem(row: {
   tags: string[] | null;
   image_url: string | null;
   parent_pose_id: string | null;
+  variant_label: string | null;
 }): PoseCatalogItem {
   return {
     id: row.id,
     macro: row.macro,
-    name: row.name,
+    name: row.name || "",
     nameIt: row.name_it || "",
     nameEn: row.name_en || "",
     description: row.description || "",
@@ -983,6 +998,7 @@ function mapPoseCatalogItem(row: {
     tags: row.tags || [],
     imageUrl: row.image_url,
     parentPoseId: row.parent_pose_id,
+    variantLabel: row.variant_label || "",
   };
 }
 
@@ -998,7 +1014,7 @@ export async function savePose(
 ): Promise<PoseCatalogItem> {
   const payload = {
     macro: pose.macro,
-    name: pose.name,
+    name: pose.name || null,
     name_it: pose.nameIt || null,
     name_en: pose.nameEn || null,
     description: pose.description || null,
@@ -1006,6 +1022,7 @@ export async function savePose(
     tags: pose.tags,
     image_url: pose.imageUrl,
     parent_pose_id: pose.parentPoseId,
+    variant_label: pose.variantLabel || "",
   };
   const query = pose.id
     ? supabase.from("poses").update(payload).eq("id", pose.id).select().single()
@@ -1027,7 +1044,7 @@ export async function bulkInsertPoses(
 ): Promise<PoseCatalogItem[]> {
   const payload = poses.map((p) => ({
     macro: p.macro,
-    name: p.name,
+    name: p.name || null,
     name_it: p.nameIt || null,
     name_en: p.nameEn || null,
     description: p.description || null,
@@ -1035,6 +1052,7 @@ export async function bulkInsertPoses(
     tags: p.tags,
     image_url: p.imageUrl,
     parent_pose_id: p.parentPoseId,
+    variant_label: p.variantLabel || "",
   }));
   const { data, error } = await supabase.from("poses").insert(payload).select();
   if (error) throw error;

@@ -191,6 +191,7 @@ export function PoseBulkImportModal({
         tags: r.tags,
         imageUrl: r.imageUrl || null,
         parentPoseId: null,
+        variantLabel: "",
       }));
 
       const inserted = await bulkInsertPoses(supabase, toInsert);

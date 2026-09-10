@@ -206,6 +206,11 @@ export type PoseCategory = {
   position: number;
 };
 
+// Una variante (parentPoseId non nullo) può lasciare name/nameIt/nameEn
+// vuoti: in quel caso il nome mostrato si ottiene concatenando il nome del
+// padre con variantLabel (vedi poseDisplay.ts). Se invece li compila,
+// sovrascrivono del tutto il calcolo automatico — utile quando la variante
+// ha un nome comune diverso da quello del padre.
 export type PoseCatalogItem = {
   id: string;
   macro: PoseMacro;
@@ -217,6 +222,7 @@ export type PoseCatalogItem = {
   tags: string[];
   imageUrl: string | null;
   parentPoseId: string | null;
+  variantLabel: string;
 };
 
 export type SectionKind =
