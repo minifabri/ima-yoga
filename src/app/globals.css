@@ -247,8 +247,8 @@ body {
 }
 
 /* Sondaggi — le opzioni compaiono come bolle (comparsa scalata all'apertura
-   della domanda) e alla selezione riusano lo stesso anello dorato pulsante
-   della prenotazione confermata (booking-gold-pulse), per coerenza visiva. */
+   della domanda) e alla selezione cambiano colore senza altre animazioni;
+   il bottone Avanti compare solo dopo la prima risposta valida. */
 
 @keyframes survey-option-pop-in {
   0% {
@@ -268,13 +268,24 @@ body {
   animation: survey-option-pop-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
   animation-delay: var(--pop-delay, 0s);
 }
-.survey-option-pulse {
-  animation: booking-gold-pulse 1.4s ease-out 2;
+
+@keyframes survey-next-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.survey-next-in {
+  animation: survey-next-in 0.3s ease backwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .survey-option-pop,
-  .survey-option-pulse {
+  .survey-next-in {
     animation: none !important;
   }
 }

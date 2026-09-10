@@ -304,6 +304,7 @@ export function SurveyPublicView({
               submitting={submitting}
               submitError={submitError}
               answerFor={answerFor}
+              canAdvanceCurrent={currentIndex >= survey.questions.length || canAdvance(survey.questions[currentIndex])}
               onToggleOption={toggleOption}
               onToggleOther={toggleOther}
               onSetOtherText={setOtherText}
@@ -326,6 +327,7 @@ function SurveyFlow({
   submitting,
   submitError,
   answerFor,
+  canAdvanceCurrent,
   onToggleOption,
   onToggleOther,
   onSetOtherText,
@@ -340,6 +342,7 @@ function SurveyFlow({
   submitting: boolean;
   submitError: string;
   answerFor: (qId: string) => AnswerState;
+  canAdvanceCurrent: boolean;
   onToggleOption: (qId: string, optionId: string) => void;
   onToggleOther: (qId: string) => void;
   onSetOtherText: (qId: string, text: string) => void;
@@ -378,11 +381,11 @@ function SurveyFlow({
         </div>
       )}
 
-      <div className="flex gap-2 mt-4">
+      <div className="flex gap-2 mt-4" style={{ minHeight: 42 }}>
         {currentIndex > 0 && (
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium"
             style={{ border: `1px solid ${COLORS.border}` }}
           >
             <ArrowLeft size={14} /> Indietro
@@ -392,19 +395,22 @@ function SurveyFlow({
           <button
             disabled={submitting}
             onClick={onSubmit}
-            className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
+            className="flex-1 py-2.5 rounded-full text-sm font-semibold text-white disabled:opacity-60"
             style={{ background: COLORS.primary }}
           >
             {submitting ? "Invio…" : "Invia risposte"}
           </button>
         ) : (
-          <button
-            onClick={onNext}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-semibold text-white"
-            style={{ background: COLORS.primary }}
-          >
-            Avanti <ArrowRight size={14} />
-          </button>
+          canAdvanceCurrent && (
+            <button
+              key={currentIndex}
+              onClick={onNext}
+              className="survey-next-in flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full text-sm font-semibold text-white"
+              style={{ background: COLORS.primary }}
+            >
+              Avanti <ArrowRight size={14} />
+            </button>
+          )
         )}
       </div>
     </div>
@@ -424,27 +430,10 @@ function QuestionStep({
   onToggleOther: (qId: string) => void;
   onSetOtherText: (qId: string, text: string) => void;
 }) {
-  const [pulsingId, setPulsingId] = useState<string | null>(null);
-
-  function firePulse(id: string) {
-    setPulsingId(id);
-    setTimeout(() => setPulsingId((cur) => (cur === id ? null : cur)), 1500);
-  }
-  function handleToggleOption(optionId: string) {
-    const willSelect = !answer.optionIds.includes(optionId);
-    onToggleOption(q.id, optionId);
-    if (willSelect) firePulse(optionId);
-  }
-  function handleToggleOther() {
-    const willSelect = !answer.otherSelected;
-    onToggleOther(q.id);
-    if (willSelect) firePulse("other");
-  }
-
   function badgeStyle(selected: boolean, delayMs: number): CSSProperties {
     return {
-      padding: "9px 17px",
-      fontSize: 13.5,
+      padding: "14px 22px",
+      fontSize: 15,
       fontWeight: 600,
       border: `1.5px solid ${selected ? COLORS.gold : COLORS.border}`,
       background: selected ? COLORS.gold : "transparent",
@@ -458,18 +447,15 @@ function QuestionStep({
       <div style={{ fontSize: 15.5, fontWeight: 600, color: COLORS.heading, lineHeight: 1.4 }} className="mb-1">
         {q.questionText}
       </div>
-      <div style={{ fontSize: 11, color: COLORS.inkSoft }} className="mb-3">
-        {q.required ? "Obbligatoria · scegli una o più opzioni" : "Facoltativa · scegli una o più opzioni"}
-      </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col items-start gap-2 mt-3">
         {q.options.map((o, i) => {
           const selected = answer.optionIds.includes(o.id);
           return (
             <button
               key={o.id}
               type="button"
-              onClick={() => handleToggleOption(o.id)}
-              className={`survey-option-pop rounded-full transition ${pulsingId === o.id ? "survey-option-pulse" : ""}`}
+              onClick={() => onToggleOption(q.id, o.id)}
+              className="survey-option-pop rounded-full transition"
               style={badgeStyle(selected, i * 70)}
             >
               {o.label}
@@ -479,8 +465,8 @@ function QuestionStep({
         {q.allowOther && (
           <button
             type="button"
-            onClick={handleToggleOther}
-            className={`survey-option-pop rounded-full transition ${pulsingId === "other" ? "survey-option-pulse" : ""}`}
+            onClick={() => onToggleOther(q.id)}
+            className="survey-option-pop rounded-full transition"
             style={badgeStyle(answer.otherSelected, q.options.length * 70)}
           >
             Altro
