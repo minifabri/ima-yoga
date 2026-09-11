@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Ticket, Calculator, Route, BookOpen } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Ticket, Calculator, Route, BookOpen, ClipboardList } from "lucide-react";
 import { COLORS } from "./colors";
 import { dateKey } from "./utils";
 import { MobileHub, type UpcomingClassPreview } from "./MobileHub";
@@ -26,6 +26,7 @@ const mobileHubSecondaryItems: MoreMenuItem[] = [
   { key: "tools", label: "Strumenti", icon: Calculator },
   { key: "sequences", label: "Sequenze", icon: Route },
   { key: "pose-catalog", label: "Catalogo", icon: BookOpen },
+  { key: "surveys", label: "Sondaggi", icon: ClipboardList },
   { key: "worklog", label: "Registro", icon: History },
   { key: "stats", label: "Statistiche", icon: BarChart3 },
 ];

@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, Route, BookOpen, ArrowLeft } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, Route, BookOpen, ArrowLeft, ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
@@ -35,6 +35,7 @@ import type {
 
 const moreMenuItems: MoreMenuItem[] = [
   { key: "events", label: "Eventi", icon: Ticket },
+  { key: "surveys", label: "Sondaggi", icon: ClipboardList },
   { key: "earnings", label: "Guadagni", icon: PiggyBank },
   { key: "tools", label: "Strumenti", icon: Calculator },
   { key: "sequences", label: "Sequenze", icon: Route },

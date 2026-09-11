@@ -8,6 +8,7 @@ export const ADMIN_ROUTE_BY_KEY: Record<string, string> = {
   clients: "/admin/clienti",
   payments: "/admin/pagamenti",
   events: "/admin/eventi",
+  surveys: "/admin/sondaggi",
   earnings: "/admin/guadagni",
   tools: "/admin/strumenti",
   sequences: "/admin/sequenze",

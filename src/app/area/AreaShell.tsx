@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useActionState, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useActionState, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,6 +9,7 @@ import {
   Bell,
   Bug,
   Check,
+  ClipboardList,
   Clock,
   Download,
   Gift,
@@ -451,13 +452,11 @@ export function AreaShell({ fullName, email, children }: { fullName: string; ema
                             Nessuna notifica.
                           </div>
                         ) : (
-                          myNotices.map((n) => (
-                            <div
-                              key={n.id}
-                              className="flex items-start gap-2 px-3 py-2.5"
-                              style={{ borderBottom: `1px solid ${COLORS.border}`, background: n.read ? "transparent" : withAlpha(COLORS.primary, 7) }}
-                            >
-                              {n.kind === "package_assigned" ? (
+                          myNotices.map((n) => {
+                            const icon =
+                              n.kind === "survey_published" ? (
+                                <ClipboardList size={14} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
+                              ) : n.kind === "package_assigned" ? (
                                 <PackagePlus size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                               ) : n.kind === "welcome" ? (
                                 <Sparkles size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
@@ -465,18 +464,48 @@ export function AreaShell({ fullName, email, children }: { fullName: string; ema
                                 <UserCheck size={14} color={COLORS.success} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                               ) : (
                                 <Bell size={14} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <div style={{ fontSize: 13, color: n.read ? COLORS.inkSoft : COLORS.ink, fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
-                                <div style={{ fontSize: 11, color: COLORS.inkSoft }} className="mt-0.5">
-                                  {formatNoticeDate(n.createdAt)}
+                              );
+                            const rowStyle: CSSProperties = {
+                              borderBottom: `1px solid ${COLORS.border}`,
+                              background: n.read ? "transparent" : withAlpha(COLORS.primary, 7),
+                            };
+                            const content = (
+                              <>
+                                {icon}
+                                <div className="flex-1 min-w-0">
+                                  <div style={{ fontSize: 13, color: n.read ? COLORS.inkSoft : COLORS.ink, fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
+                                  <div style={{ fontSize: 11, color: COLORS.inkSoft }} className="mt-0.5">
+                                    {formatNoticeDate(n.createdAt)}
+                                  </div>
                                 </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    deleteNotice(n.id);
+                                  }}
+                                  title="Elimina"
+                                  style={{ color: COLORS.inkSoft, flexShrink: 0 }}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </>
+                            );
+                            return n.linkPath ? (
+                              <Link
+                                key={n.id}
+                                href={n.linkPath}
+                                onClick={() => setNotificationsOpen(false)}
+                                className="flex items-start gap-2 px-3 py-2.5"
+                                style={rowStyle}
+                              >
+                                {content}
+                              </Link>
+                            ) : (
+                              <div key={n.id} className="flex items-start gap-2 px-3 py-2.5" style={rowStyle}>
+                                {content}
                               </div>
-                              <button onClick={() => deleteNotice(n.id)} title="Elimina" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
                       </div>
                     </div>

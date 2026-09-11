@@ -100,7 +100,8 @@ export type ClientNotice = {
   clientId: string;
   clientName: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted";
+  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published";
+  linkPath: string | null;
   read: boolean;
   createdAt: string;
 };
@@ -195,6 +196,57 @@ export type EventBudget = {
   items: BudgetLineItem[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type SurveyQuestionOption = {
+  id: string;
+  position: number;
+  label: string;
+};
+
+export type SurveyQuestion = {
+  id: string;
+  position: number;
+  questionText: string;
+  questionType: "choice" | "text";
+  required: boolean;
+  allowMultiple: boolean;
+  allowOther: boolean;
+  options: SurveyQuestionOption[];
+};
+
+export type SurveyItem = {
+  id: string;
+  slug: string;
+  title: string;
+  descriptionHtml: string;
+  coverImageLightUrl: string | null;
+  coverImageDarkUrl: string | null;
+  coverImageFit: "contain" | "cover";
+  published: boolean;
+  startsAt: string | null; // ISO
+  endsAt: string | null; // ISO
+  archived: boolean;
+  createdAt: string;
+  questions: SurveyQuestion[];
+  responseCount: number;
+};
+
+export type SurveyAnswerItem = {
+  questionId: string;
+  optionIds: string[];
+  otherText: string | null;
+};
+
+export type SurveyResponseItem = {
+  id: string;
+  surveyId: string;
+  clientId: string | null;
+  clientName: string | null;
+  guestName: string | null;
+  isAnonymous: boolean;
+  submittedAt: string;
+  answers: SurveyAnswerItem[];
 };
 
 export type PoseMacro = "asana" | "pranayama";
