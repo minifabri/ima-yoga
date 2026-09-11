@@ -250,10 +250,16 @@ export function SurveyPublicView({
         ) : isAdminProfile && phase === "done" ? (
           <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
             <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 14, fontWeight: 700, color: COLORS.success }}>
-              <Check size={15} /> Anteprima completata
+              <Check size={15} /> Grazie, hai già risposto a questo sondaggio
             </div>
             <div style={{ fontSize: 12.5, color: COLORS.inkSoft }} className="mb-3">
-              Hai visto l&apos;intero flusso di risposta. Le tue selezioni non sono state salvate — questo era solo un giro di prova.
+              La tua risposta è stata registrata.
+            </div>
+            <div
+              className="flex items-center gap-1.5 mb-3 rounded-lg px-2.5 py-2"
+              style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.gold, background: withAlpha(COLORS.gold, 10) }}
+            >
+              <EyeOff size={12} /> Anteprima admin — questa è la pagina che vedrà davvero chi risponde. Le tue selezioni non sono state salvate.
             </div>
             <button
               onClick={restartPreview}

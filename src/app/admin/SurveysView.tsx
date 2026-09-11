@@ -8,7 +8,7 @@ import { SurveyFormModal, type NotifyChoice, type SurveyQuestionPayload } from "
 import { SurveyResponsesPanel } from "./SurveyResponsesPanel";
 import { deleteSurvey, fetchSurveys, saveSurvey, saveSurveyQuestions, setSurveyArchived } from "./data";
 import { notifySurveyPublished } from "./actions";
-import type { SurveyItem } from "./types";
+import type { ClientItem, SurveyItem } from "./types";
 
 type ModalState = { mode: "new" } | { mode: "edit"; survey: SurveyItem } | null;
 
@@ -21,7 +21,7 @@ function surveyStatus(s: SurveyItem): { label: string; color: string } {
   return { label: "Pubblicato", color: COLORS.success };
 }
 
-export function SurveysView({ supabase }: { supabase: SupabaseClient }) {
+export function SurveysView({ supabase, clients }: { supabase: SupabaseClient; clients: ClientItem[] }) {
   const [surveys, setSurveys] = useState<SurveyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<ModalState>(null);
@@ -211,6 +211,7 @@ export function SurveysView({ supabase }: { supabase: SupabaseClient }) {
       {modal && (
         <SurveyFormModal
           data={modal}
+          clients={clients}
           onClose={() => setModal(null)}
           onSave={async (survey, questions, notify) => {
             await handleSave(survey, questions, notify);

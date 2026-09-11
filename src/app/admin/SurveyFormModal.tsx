@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { X, Trash2, Eye, EyeOff, ExternalLink, Mail, Bell } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { X, Trash2, Eye, EyeOff, ExternalLink, Mail, Bell, Search, UserCheck } from "lucide-react";
 import { Modal, Field, Switch, inputStyle, ImageUploadField } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { slugify } from "./utils";
@@ -9,7 +9,9 @@ import { RichTextEditor } from "./RichTextEditor";
 import { uploadSurveyImage } from "./data";
 import { createClient } from "@/lib/supabase/client";
 import { SurveyQuestionsEditor, newQuestionDraft, type QuestionDraft } from "./SurveyQuestionsEditor";
-import type { SurveyItem } from "./types";
+import { EmailPreviewModal } from "./EmailPreviewModal";
+import { surveyPublishedEmailHtml } from "@/lib/emailTemplates";
+import type { ClientItem, SurveyItem } from "./types";
 
 type ModalData = { mode: "new" } | { mode: "edit"; survey: SurveyItem };
 export type SurveyQuestionPayload = {
@@ -21,7 +23,7 @@ export type SurveyQuestionPayload = {
   position: number;
   options: { label: string; position: number }[];
 };
-export type NotifyChoice = { sendEmail: boolean; sendSiteNotice: boolean } | null;
+export type NotifyChoice = { sendEmail: boolean; sendSiteNotice: boolean; excludeClientIds: string[] } | null;
 
 function isoToLocalInput(iso: string | null): string {
   if (!iso) return "";
@@ -37,11 +39,13 @@ function localInputToIso(v: string): string | null {
 
 export function SurveyFormModal({
   data,
+  clients,
   onClose,
   onSave,
   onDelete,
 }: {
   data: ModalData;
+  clients: ClientItem[];
   onClose: () => void;
   onSave: (
     survey: Omit<SurveyItem, "id" | "questions" | "responseCount" | "createdAt"> & { id?: string },
@@ -67,6 +71,9 @@ export function SurveyFormModal({
   const [published, setPublished] = useState(base?.published ?? false);
   const [notifyEmail, setNotifyEmail] = useState(false);
   const [notifySiteNotice, setNotifySiteNotice] = useState(false);
+  const [excludedClientIds, setExcludedClientIds] = useState<string[]>([]);
+  const [recipientSearch, setRecipientSearch] = useState("");
+  const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [questions, setQuestions] = useState<QuestionDraft[]>(
     base?.questions.map((q) => ({
       tempId: q.id,
@@ -84,6 +91,20 @@ export function SurveyFormModal({
   const [error, setError] = useState("");
 
   const justPublished = published && !wasPublished;
+
+  // Solo chi ha un account riceve davvero email/avvisi (vedi notifySurveyPublished:
+  // legge l'indirizzo da auth_user_id, che chi non ha un account non ha).
+  const notifiableClients = useMemo(() => clients.filter((c) => c.hasAccount && !c.disabled), [clients]);
+  const filteredRecipients = useMemo(() => {
+    const q = recipientSearch.trim().toLowerCase();
+    if (!q) return notifiableClients;
+    return notifiableClients.filter((c) => c.name.toLowerCase().includes(q));
+  }, [notifiableClients, recipientSearch]);
+  const includedCount = notifiableClients.length - excludedClientIds.filter((id) => notifiableClients.some((c) => c.id === id)).length;
+
+  function toggleRecipient(id: string) {
+    setExcludedClientIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  }
 
   // Slug automatico dal titolo finché non lo si modifica a mano.
   function handleTitleChange(v: string) {
@@ -146,7 +167,7 @@ export function SurveyFormModal({
               ? []
               : q.options.filter((o) => o.label.trim()).map((o, oi) => ({ label: o.label.trim(), position: oi })),
         })),
-        justPublished ? { sendEmail: notifyEmail, sendSiteNotice: notifySiteNotice } : null
+        justPublished ? { sendEmail: notifyEmail, sendSiteNotice: notifySiteNotice, excludeClientIds: excludedClientIds } : null
       );
     } catch {
       setError("Il salvataggio non è riuscito.");
@@ -187,17 +208,92 @@ export function SurveyFormModal({
             <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.heading }} className="mb-2">
               Avvisa i clienti della pubblicazione?
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="flex items-center gap-2" style={{ fontSize: 12.5, color: COLORS.ink }}>
-                <input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
-                <Mail size={13} /> Notifica via email
-              </label>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex items-center gap-2" style={{ fontSize: 12.5, color: COLORS.ink }}>
+                  <input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
+                  <Mail size={13} /> Notifica via email
+                </label>
+                {notifyEmail && (
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailPreview(true)}
+                    className="flex items-center gap-1 text-xs font-semibold flex-shrink-0"
+                    style={{ color: COLORS.primaryDark }}
+                  >
+                    <Eye size={12} /> Anteprima email
+                  </button>
+                )}
+              </div>
               <label className="flex items-center gap-2" style={{ fontSize: 12.5, color: COLORS.ink }}>
                 <input type="checkbox" checked={notifySiteNotice} onChange={(e) => setNotifySiteNotice(e.target.checked)} />
                 <Bell size={13} /> Notifica via avviso sito
               </label>
+              {notifySiteNotice && (
+                <div
+                  className="rounded-lg px-2.5 py-2"
+                  style={{ fontSize: 11.5, color: COLORS.inkSoft, background: withAlpha(COLORS.gold, 10), border: `1px solid ${withAlpha(COLORS.gold, 25)}` }}
+                >
+                  Anteprima: «Nuovo sondaggio disponibile: {title.trim() || "…"}. Tocca qui per rispondere.»
+                </div>
+              )}
             </div>
+
+            {(notifyEmail || notifySiteNotice) && (
+              <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${withAlpha(COLORS.primary, 20)}` }}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5" style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft }}>
+                    <UserCheck size={13} /> Destinatari
+                  </div>
+                  <span style={{ fontSize: 11, color: COLORS.inkSoft }}>
+                    {includedCount} di {notifiableClients.length}
+                  </span>
+                </div>
+                <div className="relative mb-1.5">
+                  <Search size={12} color={COLORS.inkSoft} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)" }} />
+                  <input
+                    value={recipientSearch}
+                    onChange={(e) => setRecipientSearch(e.target.value)}
+                    placeholder="Cerca cliente da escludere…"
+                    style={{ ...inputStyle, paddingLeft: 27, fontSize: 12, padding: "6px 8px 6px 27px" }}
+                  />
+                </div>
+                <div className="flex flex-col rounded-lg" style={{ maxHeight: 140, overflowY: "auto", border: `1px solid ${COLORS.border}`, background: COLORS.card }}>
+                  {filteredRecipients.length === 0 ? (
+                    <div style={{ fontSize: 12, color: COLORS.inkSoft, padding: "8px 10px" }}>Nessun cliente trovato.</div>
+                  ) : (
+                    filteredRecipients.map((c) => {
+                      const included = !excludedClientIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => toggleRecipient(c.id)}
+                          className="flex items-center gap-2 text-left px-2.5 py-1.5"
+                          style={{ fontSize: 12.5, borderBottom: `1px solid ${COLORS.border}` }}
+                        >
+                          <input type="checkbox" checked={included} onChange={() => toggleRecipient(c.id)} onClick={(e) => e.stopPropagation()} />
+                          <span style={{ color: included ? COLORS.ink : COLORS.inkSoft, textDecoration: included ? "none" : "line-through" }}>{c.name}</span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
           </div>
+        )}
+
+        {showEmailPreview && (
+          <EmailPreviewModal
+            subject={`Nuovo sondaggio — ${title.trim() || "Titolo sondaggio"}`}
+            html={surveyPublishedEmailHtml({
+              fullName: "Nome Cognome",
+              surveyTitle: title.trim() || "Titolo sondaggio",
+              surveyUrl: `https://imayoga.app/sondaggi/${slug || "…"}`,
+            })}
+            onClose={() => setShowEmailPreview(false)}
+          />
         )}
 
         <Field label="Titolo sondaggio">
