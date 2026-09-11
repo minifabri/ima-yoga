@@ -140,18 +140,21 @@ export async function notifySurveyPublished(
   surveyId: string,
   surveySlug: string,
   surveyTitle: string,
-  opts: { sendEmail: boolean; sendSiteNotice: boolean }
+  opts: { sendEmail: boolean; sendSiteNotice: boolean; excludeClientIds?: string[] }
 ): Promise<{ ok: boolean; emailsSent?: number; noticesSent?: number; error?: string }> {
   const { ctx, error } = await requireAdminContext();
   if (!ctx) return { ok: false, error };
   if (!opts.sendEmail && !opts.sendSiteNotice) return { ok: true, emailsSent: 0, noticesSent: 0 };
 
-  const { data: clientProfiles, error: clientsErr } = await ctx.supabase
+  const { data: allClientProfiles, error: clientsErr } = await ctx.supabase
     .from("profiles")
     .select("id, auth_user_id, full_name")
     .eq("role", "client")
     .eq("disabled", false);
   if (clientsErr) return { ok: false, error: clientsErr.message };
+
+  const excluded = new Set(opts.excludeClientIds ?? []);
+  const clientProfiles = allClientProfiles?.filter((c) => !excluded.has(c.id));
 
   const origin = await getOrigin();
   const linkPath = `/sondaggi/${surveySlug}`;
@@ -185,7 +188,7 @@ export async function notifySurveyPublished(
     "notify_survey_published",
     "surveys",
     surveyId,
-    `Notifica pubblicazione sondaggio "${surveyTitle}" — email: ${emailsSent}, avvisi: ${noticesSent}.`
+    `Notifica pubblicazione sondaggio "${surveyTitle}" — email: ${emailsSent}, avvisi: ${noticesSent}${excluded.size > 0 ? `, esclusi: ${excluded.size}` : ""}.`
   );
 
   return { ok: true, emailsSent, noticesSent };
