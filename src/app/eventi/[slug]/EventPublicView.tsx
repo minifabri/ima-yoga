@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Calendar, Clock, MapPin, UserPlus, X, Users, EyeOff, Check, AlertCircle } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, UserPlus, X, Users, EyeOff, Check, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { sendEventBookingConfirmationEmail } from "@/lib/notifications";
 import { COLORS, withAlpha } from "@/app/admin/colors";
@@ -170,11 +170,19 @@ export function EventPublicView({
   }
 
   const nextParam = `?next=${encodeURIComponent(`/eventi/${event.slug}`)}`;
+  const backHref = isAdminProfile ? "/admin/eventi" : isClientProfile ? "/area" : null;
 
   return (
     <main className="flex-1 flex flex-col p-5" style={{ background: COLORS.bg, minHeight: "100vh" }}>
       <div className="w-full mx-auto" style={{ maxWidth: 620 }}>
-        <div className="flex items-center justify-end mb-4">
+        <div className="flex items-center justify-between mb-4">
+          {backHref ? (
+            <Link href={backHref} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: COLORS.inkSoft }}>
+              <ArrowLeft size={15} /> Indietro
+            </Link>
+          ) : (
+            <span />
+          )}
           <ThemeToggle size={34} />
         </div>
 
