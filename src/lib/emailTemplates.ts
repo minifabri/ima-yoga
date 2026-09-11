@@ -20,7 +20,7 @@ export function surveyPublishedEmailHtml(details: { fullName: string; surveyTitl
               Ciao ${firstName}!
             </p>
             <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 28px 0; text-align:left;">
-              È disponibile un nuovo sondaggio: <strong>${details.surveyTitle}</strong>. Ci vuole solo qualche minuto, la tua opinione conta!
+              È disponibile un nuovo sondaggio: <strong>${details.surveyTitle}</strong>. Sarà più breve di uno shavasana, promesso.
             </p>
 
             <a href="${details.surveyUrl}"
