@@ -48,7 +48,7 @@ export function CalendarioVisitatore() {
       <div className="w-full mx-auto" style={{ maxWidth: 860 }}>
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <Link href="/" className="inline-flex items-center gap-1 text-sm" style={{ color: COLORS.inkSoft }}>
-            <ArrowLeft size={15} /> Fai un passo indietro
+            <ArrowLeft size={15} /> Indietro
           </Link>
           <div
             className="inline-flex items-center gap-1.5 rounded-full"
