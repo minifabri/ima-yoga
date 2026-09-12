@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FlipHorizontal2, ImagePlus, Loader2, Upload } from "lucide-react";
+import { Eraser, FlipHorizontal2, ImagePlus, Loader2, RotateCcw, Upload } from "lucide-react";
 import { COLORS } from "./colors";
 import { uploadPoseThumbnail } from "./data";
 
@@ -11,6 +11,7 @@ const BG_COLOR: [number, number, number] = [227, 219, 243]; // #e3dbf3, sfondo i
 const FILL_COLOR: [number, number, number] = [107, 79, 160]; // #6b4fa0, viola icone attuali
 const DEFAULT_MARGIN = 0.08;
 const MAX_WORKING_DIM = 900; // limita il lavoro per-pixel su foto molto grandi
+const DEFAULT_BRUSH_SIZE = 24; // diametro in pixel del canvas (spazio OUTPUT_SIZE)
 
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -200,10 +201,17 @@ export function PoseThumbnailGenerator({
   const [flip, setFlip] = useState(false);
   const [margin, setMargin] = useState(DEFAULT_MARGIN);
   const [useOriginal, setUseOriginal] = useState(false);
+  const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const previewRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isErasingRef = useRef(false);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const brushSizeRef = useRef(brushSize);
+  useEffect(() => {
+    brushSizeRef.current = brushSize;
+  }, [brushSize]);
 
   function renderPreview(img: HTMLImageElement, opts: { th: number; inv: boolean; fl: boolean; mg: number; orig: boolean }) {
     const result = opts.orig ? renderOriginal(img, opts.fl, opts.mg) : renderSilhouette(img, opts.th, opts.inv, opts.fl, opts.mg);
@@ -221,6 +229,60 @@ export function PoseThumbnailGenerator({
 
   function currentOpts(patch: Partial<{ th: number; inv: boolean; fl: boolean; mg: number; orig: boolean }> = {}) {
     return { th: threshold, inv: invert, fl: flip, mg: margin, orig: useOriginal, ...patch };
+  }
+
+  // Converte le coordinate del puntatore (pixel dello schermo) in coordinate
+  // del canvas (spazio OUTPUT_SIZE), tenendo conto del ridimensionamento CSS.
+  function getCanvasPoint(e: React.PointerEvent<HTMLCanvasElement>): { x: number; y: number } {
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+  }
+
+  // Dipinge un cerchio del colore di sfondo: è la "gomma" per ripulire a mano
+  // elementi indesiderati (tappetino, pianta) rimasti nella silhouette.
+  function eraseAt(x: number, y: number) {
+    const ctx = previewRef.current?.getContext("2d");
+    if (!ctx) return;
+    ctx.fillStyle = `rgb(${BG_COLOR.join(",")})`;
+    ctx.beginPath();
+    ctx.arc(x, y, brushSizeRef.current / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Interpola tra due punti per non lasciare "buchi" nel tratto quando il
+  // puntatore si muove più veloce del campionamento degli eventi.
+  function eraseSegment(from: { x: number; y: number }, to: { x: number; y: number }) {
+    const dist = Math.hypot(to.x - from.x, to.y - from.y);
+    const steps = Math.max(1, Math.ceil(dist / (brushSizeRef.current / 3)));
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      eraseAt(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
+    }
+  }
+
+  function handleEraseStart(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!sourceImg || uploading) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isErasingRef.current = true;
+    const point = getCanvasPoint(e);
+    lastPointRef.current = point;
+    eraseAt(point.x, point.y);
+  }
+
+  function handleEraseMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!isErasingRef.current) return;
+    const point = getCanvasPoint(e);
+    if (lastPointRef.current) eraseSegment(lastPointRef.current, point);
+    else eraseAt(point.x, point.y);
+    lastPointRef.current = point;
+  }
+
+  function handleEraseEnd() {
+    isErasingRef.current = false;
+    lastPointRef.current = null;
   }
 
   async function handleFile(file: File) {
@@ -293,7 +355,17 @@ export function PoseThumbnailGenerator({
             <span style={{ fontSize: 10, color: COLORS.inkSoft }}>Foto originale</span>
           </div>
           <div className="flex flex-col items-center gap-1">
-            <canvas ref={previewRef} width={OUTPUT_SIZE} height={OUTPUT_SIZE} style={{ width: 120, height: 120, borderRadius: 8 }} />
+            <canvas
+              ref={previewRef}
+              width={OUTPUT_SIZE}
+              height={OUTPUT_SIZE}
+              style={{ width: 120, height: 120, borderRadius: 8, cursor: "crosshair", touchAction: "none" }}
+              onPointerDown={handleEraseStart}
+              onPointerMove={handleEraseMove}
+              onPointerUp={handleEraseEnd}
+              onPointerLeave={handleEraseEnd}
+              onPointerCancel={handleEraseEnd}
+            />
             <span style={{ fontSize: 10, color: COLORS.inkSoft }}>Anteprima thumbnail</span>
           </div>
           <div className="flex-1" style={{ minWidth: 170 }}>
@@ -328,6 +400,29 @@ export function PoseThumbnailGenerator({
               <input type="checkbox" checked={flip} onChange={(e) => update({ fl: e.target.checked })} />
               <FlipHorizontal2 size={13} /> Rifletti orizzontalmente
             </label>
+
+            <div className="mb-2 pt-2" style={{ borderTop: `1px solid ${COLORS.border}` }}>
+              <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.ink }}>
+                <Eraser size={13} /> Gomma
+              </div>
+              <div style={{ fontSize: 10.5, color: COLORS.inkSoft }} className="mb-1.5">
+                Trascina sull&apos;anteprima per cancellare a mano elementi indesiderati (tappetino, pianta…).
+              </div>
+              <label className="block mb-1.5">
+                <div style={{ fontSize: 11, color: COLORS.inkSoft }} className="mb-1">
+                  Dimensione gomma ({brushSize})
+                </div>
+                <input type="range" min={6} max={60} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} style={{ width: "100%" }} />
+              </label>
+              <button
+                onClick={() => sourceImg && renderPreview(sourceImg, currentOpts())}
+                type="button"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+                style={{ border: `1px solid ${COLORS.border}` }}
+              >
+                <RotateCcw size={12} /> Ripristina
+              </button>
+            </div>
 
             <button
               onClick={handleConfirm}
