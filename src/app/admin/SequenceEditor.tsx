@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AlertCircle, Check, ChevronDown, ChevronUp, GripVertical, Plus, Printer, Repeat, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
@@ -46,6 +46,8 @@ type EditItem = {
   reps: number | null;
   holdValue: number | null;
   holdUnit: HoldUnit | null;
+  onInhale: string | null;
+  onExhale: string | null;
 };
 type EditBlock = { uid: string; reps: number | null; items: EditItem[] };
 type EditRow = { uid: string; kind: "item"; item: EditItem } | { uid: string; kind: "block"; block: EditBlock };
@@ -62,8 +64,27 @@ const DEFAULT_PALETTE_WIDTH = 260;
 const MIN_PALETTE_WIDTH = 220;
 const MAX_PALETTE_WIDTH = 480;
 
-function editItemFrom(it: { poseId: string | null; customLabel: string; note: string; reps: number | null; holdValue: number | null; holdUnit: HoldUnit | null }): EditItem {
-  return { uid: uid(), poseId: it.poseId, customLabel: it.customLabel, note: it.note, reps: it.reps, holdValue: it.holdValue, holdUnit: it.holdUnit };
+function editItemFrom(it: {
+  poseId: string | null;
+  customLabel: string;
+  note: string;
+  reps: number | null;
+  holdValue: number | null;
+  holdUnit: HoldUnit | null;
+  onInhale: string | null;
+  onExhale: string | null;
+}): EditItem {
+  return {
+    uid: uid(),
+    poseId: it.poseId,
+    customLabel: it.customLabel,
+    note: it.note,
+    reps: it.reps,
+    holdValue: it.holdValue,
+    holdUnit: it.holdUnit,
+    onInhale: it.onInhale,
+    onExhale: it.onExhale,
+  };
 }
 
 function sectionsFromSequence(sequence: Sequence): EditSection[] {
@@ -105,7 +126,14 @@ function formatItemMeta(reps: number | null, holdValue: number | null, holdUnit:
   return parts.join(" · ");
 }
 
-type SheetItem = { text: string; meta: string; note: string; imageUrl: string | null };
+function formatBreathText(onInhale: string | null, onExhale: string | null): string {
+  const parts: string[] = [];
+  if (onInhale !== null) parts.push(onInhale ? `inspiro: ${onInhale}` : "inspiro");
+  if (onExhale !== null) parts.push(onExhale ? `espiro: ${onExhale}` : "espiro");
+  return parts.join(" · ");
+}
+
+type SheetItem = { text: string; meta: string; note: string; breath: string; imageUrl: string | null };
 type SheetRow = { kind: "item"; item: SheetItem } | { kind: "block"; reps: number | null; items: SheetItem[] };
 
 function toSheetItem(it: EditItem, poseById: Record<string, PoseCatalogItem>): SheetItem {
@@ -115,6 +143,7 @@ function toSheetItem(it: EditItem, poseById: Record<string, PoseCatalogItem>): S
     text: pose ? poseDisplayName(pose, parent) : it.customLabel,
     note: it.note,
     meta: formatItemMeta(it.reps, it.holdValue, it.holdUnit),
+    breath: formatBreathText(it.onInhale, it.onExhale),
     imageUrl: pose ? poseDisplayImage(pose, parent) : null,
   };
 }
@@ -129,14 +158,16 @@ function buildSheetText(sections: { label: string; rows: SheetRow[] }[], personL
     s.rows.forEach((r) => {
       if (r.kind === "item") {
         const meta = r.item.meta ? ` [${r.item.meta}]` : "";
+        const breath = r.item.breath ? `  {${r.item.breath}}` : "";
         const note = r.item.note ? `  (${r.item.note})` : "";
-        lines.push(`- ${r.item.text}${meta}${note}`);
+        lines.push(`- ${r.item.text}${meta}${breath}${note}`);
       } else if (r.items.length > 0) {
         lines.push(`  Ripeti ×${r.reps ?? "?"}:`);
         r.items.forEach((it) => {
           const meta = it.meta ? ` [${it.meta}]` : "";
+          const breath = it.breath ? `  {${it.breath}}` : "";
           const note = it.note ? `  (${it.note})` : "";
-          lines.push(`  - ${it.text}${meta}${note}`);
+          lines.push(`  - ${it.text}${meta}${breath}${note}`);
         });
       }
     });
@@ -369,7 +400,7 @@ export function SequenceEditor({
   }
 
   function addPoseItem(sectionUid: string, blockUid: string | null, pose: PoseCatalogItem) {
-    const newItem = editItemFrom({ poseId: pose.id, customLabel: "", note: "", reps: null, holdValue: null, holdUnit: null });
+    const newItem = editItemFrom({ poseId: pose.id, customLabel: "", note: "", reps: null, holdValue: null, holdUnit: null, onInhale: null, onExhale: null });
     setSections((cur) =>
       cur.map((s) => {
         if (s.uid !== sectionUid) return s;
@@ -380,7 +411,7 @@ export function SequenceEditor({
   }
   function addCustomItem(sectionUid: string, blockUid: string | null, label: string) {
     if (!label.trim()) return;
-    const newItem = editItemFrom({ poseId: null, customLabel: label.trim(), note: "", reps: null, holdValue: null, holdUnit: null });
+    const newItem = editItemFrom({ poseId: null, customLabel: label.trim(), note: "", reps: null, holdValue: null, holdUnit: null, onInhale: null, onExhale: null });
     setSections((cur) =>
       cur.map((s) => {
         if (s.uid !== sectionUid) return s;
@@ -473,6 +504,8 @@ export function SequenceEditor({
             reps: number | null;
             holdValue: number | null;
             holdUnit: HoldUnit | null;
+            onInhale: string | null;
+            onExhale: string | null;
           }[] = [];
           s.rows.forEach((row, rowIdx) => {
             if (row.kind === "item") {
@@ -485,6 +518,8 @@ export function SequenceEditor({
                 reps: row.item.reps,
                 holdValue: row.item.holdValue,
                 holdUnit: row.item.holdUnit,
+                onInhale: row.item.onInhale,
+                onExhale: row.item.onExhale,
               });
             } else {
               blocks.push({ tempId: row.block.uid, reps: row.block.reps, position: rowIdx });
@@ -498,6 +533,8 @@ export function SequenceEditor({
                   reps: it.reps,
                   holdValue: it.holdValue,
                   holdUnit: it.holdUnit,
+                  onInhale: it.onInhale,
+                  onExhale: it.onExhale,
                 });
               });
             }
@@ -857,6 +894,7 @@ export function SequenceEditor({
                     #sequence-print-sheet .p-text { display: flex; justify-content: space-between; gap: 14px; flex: 1; }
                     #sequence-print-sheet .p-meta { color: #9C4FA0; font-weight: 600; font-size: 0.78rem; }
                     #sequence-print-sheet .p-note { color: #5C5470; font-size: 0.85rem; text-align: right; }
+                    #sequence-print-sheet .p-breath { color: #9C4FA0; font-size: 0.78rem; margin-top: 2px; }
                   }
                 `}</style>
                 {/* Contenuto proprietario (foto delle posizioni) che esce dallo studio: un
@@ -901,12 +939,15 @@ function SheetItemRow({ item }: { item: SheetItem }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={item.imageUrl} alt="" width={32} height={32} style={{ borderRadius: 6, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
       )}
-      <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
-        <span style={{ fontFamily: "var(--font-display)" }}>
-          {item.text}
-          {item.meta && <span style={{ fontFamily: "inherit", fontWeight: 600, color: COLORS.primaryDark, fontSize: 11.5 }}> · {item.meta}</span>}
-        </span>
-        {item.note && <span style={{ color: COLORS.inkSoft, fontSize: 12, textAlign: "right" }}>{item.note}</span>}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span style={{ fontFamily: "var(--font-display)" }}>
+            {item.text}
+            {item.meta && <span style={{ fontFamily: "inherit", fontWeight: 600, color: COLORS.primaryDark, fontSize: 11.5 }}> · {item.meta}</span>}
+          </span>
+          {item.note && <span style={{ color: COLORS.inkSoft, fontSize: 12, textAlign: "right" }}>{item.note}</span>}
+        </div>
+        {item.breath && <div style={{ color: COLORS.primaryDark, fontSize: 11.5, marginTop: 2 }}>{item.breath}</div>}
       </div>
     </div>
   );
@@ -919,11 +960,14 @@ function SheetItemPrintRow({ item }: { item: SheetItem }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img className="p-thumb" src={item.imageUrl} alt="" />
       )}
-      <div className="p-text">
-        <span>
-          {item.text} {item.meta && <span className="p-meta">· {item.meta}</span>}
-        </span>
-        {item.note && <span className="p-note">{item.note}</span>}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="p-text">
+          <span>
+            {item.text} {item.meta && <span className="p-meta">· {item.meta}</span>}
+          </span>
+          {item.note && <span className="p-note">{item.note}</span>}
+        </div>
+        {item.breath && <div className="p-breath">{item.breath}</div>}
       </div>
     </div>
   );
@@ -987,6 +1031,61 @@ function ItemMetaSection({ item, onUpdate }: { item: EditItem; onUpdate: (patch:
         <button onClick={() => setShow(true)} className="flex items-center gap-1 text-xs font-medium" style={{ color: COLORS.primaryDark }}>
           <Plus size={11} /> ripetizioni o durata
         </button>
+      )}
+    </div>
+  );
+}
+
+// Due pillole sempre visibili ma discrete: un tap tagga la posizione su
+// quel respiro senza dover scrivere nulla. Il campo di testo (facoltativo)
+// compare solo per un respiro già taggato, per i casi in cui serve
+// descrivere l'azione specifica (es. bicicletta: inspiro = gamba distesa,
+// espiro = ginocchio alla fronte). null = non taggato, "" = taggato senza
+// dettaglio, stringa piena = taggato con dettaglio.
+function BreathToggle({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className="px-2.5 py-1 rounded-full font-semibold transition"
+      style={{ fontSize: 11, background: active ? COLORS.primaryDark : COLORS.subtle, color: active ? "#fff" : COLORS.inkSoft }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ItemBreathSection({ item, onUpdate }: { item: EditItem; onUpdate: (patch: Partial<EditItem>) => void }) {
+  const inhaleOn = item.onInhale !== null;
+  const exhaleOn = item.onExhale !== null;
+  return (
+    <div className="mt-1.5" style={{ paddingLeft: 22 }}>
+      <div className="flex items-center gap-1.5">
+        <BreathToggle active={inhaleOn} onClick={() => onUpdate({ onInhale: inhaleOn ? null : "" })}>
+          IN
+        </BreathToggle>
+        <BreathToggle active={exhaleOn} onClick={() => onUpdate({ onExhale: exhaleOn ? null : "" })}>
+          EX
+        </BreathToggle>
+      </div>
+      {(inhaleOn || exhaleOn) && (
+        <div className="flex flex-col gap-1 mt-1">
+          {inhaleOn && (
+            <input
+              value={item.onInhale ?? ""}
+              onChange={(e) => onUpdate({ onInhale: e.target.value })}
+              placeholder="cosa fai durante l'inspiro (facoltativo)"
+              style={{ ...inputStyle, padding: "3px 6px", fontSize: 11.5 }}
+            />
+          )}
+          {exhaleOn && (
+            <input
+              value={item.onExhale ?? ""}
+              onChange={(e) => onUpdate({ onExhale: e.target.value })}
+              placeholder="cosa fai durante l'espiro (facoltativo)"
+              style={{ ...inputStyle, padding: "3px 6px", fontSize: 11.5 }}
+            />
+          )}
+        </div>
       )}
     </div>
   );
@@ -1188,6 +1287,7 @@ function ItemRow({
         </button>
       </div>
       <ItemMetaSection item={item} onUpdate={onUpdate} />
+      <ItemBreathSection item={item} onUpdate={onUpdate} />
     </div>
   );
 }
@@ -1242,6 +1342,7 @@ function ArrowItemRow({
         </button>
       </div>
       <ItemMetaSection item={item} onUpdate={onUpdate} />
+      <ItemBreathSection item={item} onUpdate={onUpdate} />
     </div>
   );
 }

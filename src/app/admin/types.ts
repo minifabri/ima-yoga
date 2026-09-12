@@ -314,6 +314,13 @@ export type SequenceItem = {
   reps: number | null;
   holdValue: number | null;
   holdUnit: HoldUnit | null;
+  // Tag opzionale legato al respiro: null = non impostato. Una stringa
+  // vuota significa "posizione taggata su questo respiro, nessun dettaglio";
+  // una stringa valorizzata descrive l'azione specifica (utile per le
+  // transizioni, es. bicicletta: espiro = ginocchio alla fronte,
+  // inspiro = gamba distesa).
+  onInhale: string | null;
+  onExhale: string | null;
 };
 
 // Un blocco raggruppa alcune posizioni consecutive di una sezione per
