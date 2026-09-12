@@ -390,7 +390,7 @@ export const PoseThumbnailGenerator = forwardRef<
             <img
               src={sourceImg.src}
               alt={editingExisting ? "Thumbnail attuale" : "Foto originale"}
-              style={{ width: 120, height: 120, objectFit: "contain", background: COLORS.subtle, borderRadius: 8 }}
+              style={{ width: 200, height: 200, objectFit: "contain", background: COLORS.subtle, borderRadius: 8 }}
             />
             <span style={{ fontSize: 10, color: COLORS.inkSoft }}>{editingExisting ? "Thumbnail attuale" : "Foto originale"}</span>
           </div>
@@ -399,7 +399,7 @@ export const PoseThumbnailGenerator = forwardRef<
               ref={previewRef}
               width={OUTPUT_SIZE}
               height={OUTPUT_SIZE}
-              style={{ width: 120, height: 120, borderRadius: 8, cursor: "crosshair", touchAction: "none" }}
+              style={{ width: 200, height: 200, borderRadius: 8, cursor: "crosshair", touchAction: "none" }}
               onPointerDown={handleEraseStart}
               onPointerMove={handleEraseMove}
               onPointerUp={handleEraseEnd}
