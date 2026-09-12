@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Eraser, FlipHorizontal2, ImagePlus, Loader2, RotateCcw, Upload } from "lucide-react";
 import { COLORS } from "./colors";
@@ -186,16 +186,23 @@ function renderOriginal(source: HTMLImageElement, flip: boolean, margin: number)
   });
 }
 
-export function PoseThumbnailGenerator({
-  supabase,
-  poseSlug,
-  onGenerated,
-}: {
-  supabase: SupabaseClient;
-  poseSlug: string;
-  onGenerated: (url: string) => void;
-}) {
+export type PoseThumbnailGeneratorHandle = {
+  // Ricarica la thumbnail già salvata come sorgente, per ripassarci la gomma
+  // o stringere il ritaglio, senza dover ripartire da una nuova foto.
+  loadExisting: () => void;
+};
+
+export const PoseThumbnailGenerator = forwardRef<
+  PoseThumbnailGeneratorHandle,
+  {
+    supabase: SupabaseClient;
+    poseSlug: string;
+    existingImageUrl?: string | null;
+    onGenerated: (url: string) => void;
+  }
+>(function PoseThumbnailGenerator({ supabase, poseSlug, existingImageUrl, onGenerated }, ref) {
   const [sourceImg, setSourceImg] = useState<HTMLImageElement | null>(null);
+  const [editingExisting, setEditingExisting] = useState(false);
   const [threshold, setThreshold] = useState(45);
   const [invert, setInvert] = useState(false);
   const [flip, setFlip] = useState(false);
@@ -289,12 +296,41 @@ export function PoseThumbnailGenerator({
     setError("");
     try {
       const img = await loadImage(file);
+      setEditingExisting(false);
       setSourceImg(img);
       requestAnimationFrame(() => renderPreview(img, currentOpts()));
     } catch {
       setError("Impossibile leggere il file immagine.");
     }
   }
+
+  // Ricarica la thumbnail già salvata come sorgente: parte "così com'è" (è già
+  // un'immagine composta, non una foto grezza) e margine zero per mostrarla
+  // fedele all'originale — da lì si può usare la gomma o stringere il
+  // ritaglio deselezionando l'opzione per ingrandire il soggetto.
+  function loadExistingImage(url: string) {
+    setError("");
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      setEditingExisting(true);
+      setSourceImg(img);
+      setThreshold(45);
+      setInvert(false);
+      setFlip(false);
+      setMargin(0);
+      setUseOriginal(true);
+      requestAnimationFrame(() => renderPreview(img, { th: 45, inv: false, fl: false, mg: 0, orig: true }));
+    };
+    img.onerror = () => setError("Impossibile caricare la thumbnail attuale per la modifica.");
+    img.src = url;
+  }
+
+  useImperativeHandle(ref, () => ({
+    loadExisting: () => {
+      if (existingImageUrl) loadExistingImage(existingImageUrl);
+    },
+  }));
 
   function update(patch: Partial<{ th: number; inv: boolean; fl: boolean; mg: number; orig: boolean }>) {
     if (patch.th !== undefined) setThreshold(patch.th);
@@ -325,7 +361,7 @@ export function PoseThumbnailGenerator({
   return (
     <div className="p-3 rounded-lg" style={{ border: `1px dashed ${COLORS.border}` }}>
       <div className="flex items-center justify-between mb-2">
-        <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft }}>Genera thumbnail da foto</div>
+        <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft }}>{editingExisting ? "Modifica thumbnail" : "Genera thumbnail da foto"}</div>
         <button
           onClick={() => fileInputRef.current?.click()}
           type="button"
@@ -351,15 +387,19 @@ export function PoseThumbnailGenerator({
         <div className="flex items-start gap-3 flex-wrap">
           <div className="flex flex-col items-center gap-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={sourceImg.src} alt="Foto originale" style={{ width: 120, height: 120, objectFit: "contain", background: COLORS.subtle, borderRadius: 8 }} />
-            <span style={{ fontSize: 10, color: COLORS.inkSoft }}>Foto originale</span>
+            <img
+              src={sourceImg.src}
+              alt={editingExisting ? "Thumbnail attuale" : "Foto originale"}
+              style={{ width: 200, height: 200, objectFit: "contain", background: COLORS.subtle, borderRadius: 8 }}
+            />
+            <span style={{ fontSize: 10, color: COLORS.inkSoft }}>{editingExisting ? "Thumbnail attuale" : "Foto originale"}</span>
           </div>
           <div className="flex flex-col items-center gap-1">
             <canvas
               ref={previewRef}
               width={OUTPUT_SIZE}
               height={OUTPUT_SIZE}
-              style={{ width: 120, height: 120, borderRadius: 8, cursor: "crosshair", touchAction: "none" }}
+              style={{ width: 200, height: 200, borderRadius: 8, cursor: "crosshair", touchAction: "none" }}
               onPointerDown={handleEraseStart}
               onPointerMove={handleEraseMove}
               onPointerUp={handleEraseEnd}
@@ -373,6 +413,11 @@ export function PoseThumbnailGenerator({
               <input type="checkbox" checked={useOriginal} onChange={(e) => update({ orig: e.target.checked })} />
               Usa la foto così com'è (niente elaborazione automatica)
             </label>
+            {editingExisting && useOriginal && (
+              <div style={{ fontSize: 10.5, color: COLORS.inkSoft }} className="mb-2">
+                Deseleziona per ritagliare automaticamente intorno al soggetto e ingrandirlo.
+              </div>
+            )}
 
             {!useOriginal && (
               <>
@@ -445,4 +490,4 @@ export function PoseThumbnailGenerator({
       )}
     </div>
   );
-}
+});
