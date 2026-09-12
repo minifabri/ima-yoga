@@ -7,7 +7,7 @@ import { COLORS, withAlpha } from "./colors";
 import { Field, IconButton, Modal, inputStyle } from "./ui";
 import { fetchPoseCatalog, savePose, deletePose, deletePoseThumbnail, fetchPoseCategories, savePoseCategory, deletePoseCategory } from "./data";
 import { PoseBulkImportModal } from "./PoseBulkImport";
-import { PoseThumbnailGenerator } from "./PoseThumbnailGenerator";
+import { PoseThumbnailGenerator, type PoseThumbnailGeneratorHandle } from "./PoseThumbnailGenerator";
 import { poseDisplayName, poseDisplayNameIt, poseDisplayImage } from "./poseDisplay";
 import type { PoseCatalogItem, PoseCategory, PoseMacro } from "./types";
 
@@ -124,6 +124,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   }, [poses, macro, poseById]);
 
   const editFormRef = useRef<HTMLDivElement>(null);
+  const thumbnailGeneratorRef = useRef<PoseThumbnailGeneratorHandle>(null);
 
   useEffect(() => {
     if (editingId) editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -249,6 +250,9 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
           <div className="flex items-center gap-2 mb-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={draft.imageUrl} alt="" width={40} height={40} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+            <button onClick={() => thumbnailGeneratorRef.current?.loadExisting()} className="text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+              Modifica
+            </button>
             <button onClick={handleRemoveOwnImage} className="text-xs font-medium" style={{ color: COLORS.danger }}>
               Rimuovi immagine
             </button>
@@ -263,8 +267,10 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         )}
         <div className="mb-3">
           <PoseThumbnailGenerator
+            ref={thumbnailGeneratorRef}
             supabase={supabase}
             poseSlug={slugify(draft.name || previewName || "posa")}
+            existingImageUrl={draft.imageUrl}
             onGenerated={(url) => setDraft((d) => ({ ...d, imageUrl: url }))}
           />
         </div>
