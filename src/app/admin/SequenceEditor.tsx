@@ -70,7 +70,7 @@ type EditItem = {
   onInhale: string | null;
   onExhale: string | null;
   needsReview: boolean;
-  drishtiOverride: Drishti | null;
+  drishtiOverride: Drishti | "none" | null;
   repeatOtherSide: boolean;
 };
 type EditBlock = { uid: string; reps: number | null; items: EditItem[]; repeatOtherSide: boolean };
@@ -99,7 +99,7 @@ function editItemFrom(it: {
   onInhale: string | null;
   onExhale: string | null;
   needsReview?: boolean;
-  drishtiOverride?: Drishti | null;
+  drishtiOverride?: Drishti | "none" | null;
   repeatOtherSide?: boolean;
 }): EditItem {
   return {
@@ -799,7 +799,7 @@ export function SequenceEditor({
             onInhale: string | null;
             onExhale: string | null;
             needsReview: boolean;
-            drishtiOverride: Drishti | null;
+            drishtiOverride: Drishti | "none" | null;
             repeatOtherSide: boolean;
           }[] = [];
           s.rows.forEach((row, rowIdx) => {
@@ -1482,13 +1482,16 @@ function ItemDrishtiSection({
   onUpdate: (patch: Partial<EditItem>) => void;
 }) {
   const catalogDrishti = pose ? poseDisplayDrishti(pose, parentPose) : null;
+  const explicitNone = item.drishtiOverride === "none";
   return (
     <div className="mt-1.5" style={{ paddingLeft: 22 }}>
       <DrishtiPicker
-        value={item.drishtiOverride}
+        value={item.drishtiOverride === "none" ? null : item.drishtiOverride}
         inherited={catalogDrishti}
         overrideLabel="solo qui"
         onChange={(v) => onUpdate({ drishtiOverride: v })}
+        explicitNone={explicitNone}
+        onSelectNone={() => onUpdate({ drishtiOverride: "none" })}
         size="sm"
       />
     </div>

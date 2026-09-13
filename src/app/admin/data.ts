@@ -1377,7 +1377,7 @@ type SequenceRow = {
       on_inhale: string | null;
       on_exhale: string | null;
       needs_review: boolean;
-      drishti_override: Drishti | null;
+      drishti_override: Drishti | "none" | null;
       repeat_other_side: boolean;
     }[];
     sequence_item_blocks: {
@@ -1494,7 +1494,7 @@ export async function saveSequence(
         onInhale: string | null;
         onExhale: string | null;
         needsReview: boolean;
-        drishtiOverride: Drishti | null;
+        drishtiOverride: Drishti | "none" | null;
         repeatOtherSide: boolean;
       }[];
     }[];
