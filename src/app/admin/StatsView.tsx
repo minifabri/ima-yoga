@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Eye, Users, ArrowRightLeft, UserPlus, RefreshCw } from "lucide-react";
+import { Eye, Users, ArrowRightLeft, UserPlus, RefreshCw, DoorOpen } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { fetchVisitorStats } from "./data";
 import type { VisitorStats } from "./types";
@@ -128,9 +128,10 @@ export function StatsView({ supabase }: { supabase: SupabaseClient }) {
         <div style={{ fontSize: 13, color: COLORS.danger }}>Errore nel caricamento delle statistiche.</div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-6">
             <StatCard icon={Eye} label="Visualizzazioni totali" value={String(totalPageviews)} color={COLORS.primary} />
             <StatCard icon={Users} label="Visitatori unici" value={String(stats?.uniqueVisitors ?? 0)} color={COLORS.primary} />
+            <StatCard icon={DoorOpen} label="Modalità visitatore (calendario)" value={String(stats?.calendarViewers ?? 0)} color={COLORS.primaryDark} />
             <StatCard icon={ArrowRightLeft} label="Conversione calendario → iscrizione" value={`${conversionRate}%`} color={COLORS.gold} />
             <StatCard icon={UserPlus} label="Nuove registrazioni" value={String(totalSignups)} color={COLORS.success} />
           </div>
