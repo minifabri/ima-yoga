@@ -55,6 +55,29 @@ export function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// Scambia i riferimenti di lato (dx/sx, destra/sinistra...) in un testo, per
+// la "duplica specchiando" delle sezioni sequenza. Un solo passaggio di regex
+// con mappa nel callback: evita il bug classico del doppio scambio (dx->sx
+// seguito da un secondo replace che risostituisce sx->dx).
+const SIDE_SWAP_MAP: Record<string, string> = {
+  dx: "sx",
+  sx: "dx",
+  destra: "sinistra",
+  sinistra: "destra",
+  destro: "sinistro",
+  sinistro: "destro",
+};
+
+export function swapSides(text: string): string {
+  return text.replace(/\b(dx|sx|destra|sinistra|destro|sinistro)\b/gi, (match) => {
+    const replaced = SIDE_SWAP_MAP[match.toLowerCase()];
+    if (!replaced) return match;
+    if (match === match.toUpperCase()) return replaced.toUpperCase();
+    if (match[0] === match[0].toUpperCase()) return replaced[0].toUpperCase() + replaced.slice(1);
+    return replaced;
+  });
+}
+
 export function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }

@@ -69,6 +69,7 @@ export function SequencesView({ supabase, clients, classTypes }: { supabase: Sup
           clients={clients}
           poseCatalog={poseCatalog}
           poseCategories={poseCategories}
+          onPoseCatalogUpdated={(saved) => setPoseCatalog((cur) => cur.map((p) => (p.id === saved.id ? saved : p)))}
           onSaved={handleSaved}
           onDeleted={handleDeleted}
           onClose={() => setEditing(null)}

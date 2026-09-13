@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, Check, ChevronDown, ChevronUp, GripVertical, Plus, Printer, Repeat, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, ChevronUp, Copy, Flag, GripVertical, Pencil, Plus, Printer, Repeat, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -20,7 +20,9 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from "@dnd-kit/utilities";
 import { COLORS, withAlpha } from "./colors";
 import { Field, Modal, Switch, inputStyle } from "./ui";
+import { swapSides } from "./utils";
 import { saveSequence, deleteSequence, fetchSequenceTemplate } from "./data";
+import { PoseEditModal } from "./PoseEditModal";
 import { poseDisplayName, poseDisplayNameIt, poseDisplayImage } from "./poseDisplay";
 
 function parentOfPose(poseById: Record<string, PoseCatalogItem>, pose: PoseCatalogItem | undefined): PoseCatalogItem | undefined {
@@ -48,6 +50,7 @@ type EditItem = {
   holdUnit: HoldUnit | null;
   onInhale: string | null;
   onExhale: string | null;
+  needsReview: boolean;
 };
 type EditBlock = { uid: string; reps: number | null; items: EditItem[] };
 type EditRow = { uid: string; kind: "item"; item: EditItem } | { uid: string; kind: "block"; block: EditBlock };
@@ -73,6 +76,7 @@ function editItemFrom(it: {
   holdUnit: HoldUnit | null;
   onInhale: string | null;
   onExhale: string | null;
+  needsReview?: boolean;
 }): EditItem {
   return {
     uid: uid(),
@@ -84,6 +88,46 @@ function editItemFrom(it: {
     holdUnit: it.holdUnit,
     onInhale: it.onInhale,
     onExhale: it.onExhale,
+    needsReview: it.needsReview ?? false,
+  };
+}
+
+// Clona un item assegnandogli un nuovo uid; se `transform` è passato (caso
+// "duplica specchiando dx/sx"), lo applica alle etichette/note testuali —
+// mai al poseId, dato che le posizioni del catalogo non sono "lateralizzate".
+function cloneEditItem(item: EditItem, transform?: (text: string) => string): EditItem {
+  const t = transform ?? ((s: string) => s);
+  return {
+    ...item,
+    uid: uid(),
+    customLabel: t(item.customLabel),
+    note: t(item.note),
+    onInhale: item.onInhale != null ? t(item.onInhale) : item.onInhale,
+    onExhale: item.onExhale != null ? t(item.onExhale) : item.onExhale,
+  };
+}
+
+// Duplica un'intera sezione (tutte le righe, item nei blocchi inclusi) con id
+// nuovi. Usata sia per "Duplica" semplice (tappe progressive: si parte da una
+// copia della tappa precedente e si aggiunge il delta) sia per "Duplica
+// specchiando dx/sx" (mirror = true): resta una copia indipendente, non un
+// collegamento vivo alla sorgente — vedi il piano per il perché.
+function cloneSection(section: EditSection, opts: { mirror: boolean }): EditSection {
+  const transform = opts.mirror ? swapSides : undefined;
+  const label = (transform ? transform(section.label) : section.label) + (opts.mirror ? " (specchio)" : " (copia)");
+  return {
+    uid: uid(),
+    kind: section.kind,
+    label,
+    enabled: section.enabled,
+    rows: section.rows.map((row): EditRow => {
+      if (row.kind === "item") {
+        const clone = cloneEditItem(row.item, transform);
+        return { uid: clone.uid, kind: "item", item: clone };
+      }
+      const blockUid = uid();
+      return { uid: blockUid, kind: "block", block: { uid: blockUid, reps: row.block.reps, items: row.block.items.map((it) => cloneEditItem(it, transform)) } };
+    }),
   };
 }
 
@@ -182,6 +226,7 @@ export function SequenceEditor({
   clients,
   poseCatalog,
   poseCategories,
+  onPoseCatalogUpdated,
   onSaved,
   onDeleted,
   onClose,
@@ -192,6 +237,7 @@ export function SequenceEditor({
   clients: ClientItem[];
   poseCatalog: PoseCatalogItem[];
   poseCategories: PoseCategory[];
+  onPoseCatalogUpdated: (pose: PoseCatalogItem) => void;
   onSaved: (s: Sequence) => void;
   onDeleted?: (id: string) => void;
   onClose?: () => void;
@@ -213,6 +259,7 @@ export function SequenceEditor({
   const [activeDragPose, setActiveDragPose] = useState<PoseCatalogItem | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<{ sectionUid: string; blockUid: string | null } | null>(null);
+  const [editingPose, setEditingPose] = useState<PoseCatalogItem | null>(null);
   const [paletteWidth, setPaletteWidth] = useState<number>(DEFAULT_PALETTE_WIDTH);
 
   const poseById = useMemo(() => Object.fromEntries(poseCatalog.map((p) => [p.id, p])), [poseCatalog]);
@@ -392,6 +439,16 @@ export function SequenceEditor({
   function addCustomSection() {
     setSections((cur) => [...cur, { uid: uid(), kind: "custom", label: "Nuova sezione", enabled: true, rows: [] }]);
   }
+  function duplicateSection(sectionUid: string, mirror: boolean) {
+    setSections((cur) => {
+      const idx = cur.findIndex((s) => s.uid === sectionUid);
+      if (idx < 0) return cur;
+      const clone = cloneSection(cur[idx], { mirror });
+      const next = [...cur];
+      next.splice(idx + 1, 0, clone);
+      return next;
+    });
+  }
   function moveSectionByIndex(idx: number, delta: number) {
     setSections((cur) => {
       const to = idx + delta;
@@ -466,6 +523,13 @@ export function SequenceEditor({
     if (!s.enabled) return sum;
     return sum + s.rows.reduce((rSum, r) => rSum + (r.kind === "item" ? 1 : r.block.items.length), 0);
   }, 0);
+  const totalNeedsReview = sections.reduce((sum, s) => {
+    if (!s.enabled) return sum;
+    return (
+      sum +
+      s.rows.reduce((rSum, r) => rSum + (r.kind === "item" ? (r.item.needsReview ? 1 : 0) : r.block.items.filter((it) => it.needsReview).length), 0)
+    );
+  }, 0);
 
   const sheetSections = useMemo(
     () =>
@@ -506,6 +570,7 @@ export function SequenceEditor({
             holdUnit: HoldUnit | null;
             onInhale: string | null;
             onExhale: string | null;
+            needsReview: boolean;
           }[] = [];
           s.rows.forEach((row, rowIdx) => {
             if (row.kind === "item") {
@@ -520,6 +585,7 @@ export function SequenceEditor({
                 holdUnit: row.item.holdUnit,
                 onInhale: row.item.onInhale,
                 onExhale: row.item.onExhale,
+                needsReview: row.item.needsReview,
               });
             } else {
               blocks.push({ tempId: row.block.uid, reps: row.block.reps, position: rowIdx });
@@ -535,6 +601,7 @@ export function SequenceEditor({
                   holdUnit: it.holdUnit,
                   onInhale: it.onInhale,
                   onExhale: it.onExhale,
+                  needsReview: it.needsReview,
                 });
               });
             }
@@ -686,6 +753,9 @@ export function SequenceEditor({
               onToggle={(v) => toggleSection(section.uid, v)}
               onRename={(v) => renameSection(section.uid, v)}
               onRemove={() => removeSection(section.uid)}
+              onDuplicate={() => duplicateSection(section.uid, false)}
+              onDuplicateMirror={() => duplicateSection(section.uid, true)}
+              onEditPose={setEditingPose}
               onAddCustomItem={(blockUid, label) => addCustomItem(section.uid, blockUid, label)}
               onUpdateItem={(blockUid, itemUid, patch) => updateItem(section.uid, blockUid, itemUid, patch)}
               onRemoveItem={(blockUid, itemUid) => removeItem(section.uid, blockUid, itemUid)}
@@ -718,6 +788,9 @@ export function SequenceEditor({
                       onToggle={(v) => toggleSection(section.uid, v)}
                       onRename={(v) => renameSection(section.uid, v)}
                       onRemove={() => removeSection(section.uid)}
+                      onDuplicate={() => duplicateSection(section.uid, false)}
+                      onDuplicateMirror={() => duplicateSection(section.uid, true)}
+                      onEditPose={setEditingPose}
                       onAddCustomItem={(blockUid, label) => addCustomItem(section.uid, blockUid, label)}
                       onUpdateItem={(blockUid, itemUid, patch) => updateItem(section.uid, blockUid, itemUid, patch)}
                       onRemoveItem={(blockUid, itemUid) => removeItem(section.uid, blockUid, itemUid)}
@@ -783,6 +856,20 @@ export function SequenceEditor({
         />
       )}
 
+      {editingPose && (
+        <PoseEditModal
+          supabase={supabase}
+          pose={editingPose}
+          poseCatalog={poseCatalog}
+          categories={poseCategories}
+          onSaved={(saved) => {
+            onPoseCatalogUpdated(saved);
+            setEditingPose(null);
+          }}
+          onClose={() => setEditingPose(null)}
+        />
+      )}
+
       {error && (
         <div className="mb-3 flex items-center gap-1.5" style={{ fontSize: 12, color: COLORS.danger }}>
           <AlertCircle size={13} /> {error}
@@ -798,6 +885,7 @@ export function SequenceEditor({
           )}
           <span style={{ fontSize: 12, color: COLORS.inkSoft }}>
             {totalActive} posizioni attive{selectedType ? ` · ${selectedType.name}` : ""}
+            {totalNeedsReview > 0 && <span style={{ color: COLORS.gold, fontWeight: 600 }}> · {totalNeedsReview} da verificare</span>}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -1097,6 +1185,9 @@ function SectionEditor({
   onToggle,
   onRename,
   onRemove,
+  onDuplicate,
+  onDuplicateMirror,
+  onEditPose,
   onAddCustomItem,
   onUpdateItem,
   onRemoveItem,
@@ -1112,6 +1203,9 @@ function SectionEditor({
   onToggle: (v: boolean) => void;
   onRename: (v: string) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
+  onDuplicateMirror: () => void;
+  onEditPose: (pose: PoseCatalogItem) => void;
   onAddCustomItem: (blockUid: string | null, label: string) => void;
   onUpdateItem: (blockUid: string | null, itemUid: string, patch: Partial<EditItem>) => void;
   onRemoveItem: (blockUid: string | null, itemUid: string) => void;
@@ -1168,6 +1262,9 @@ function SectionEditor({
           <span style={{ fontSize: 11, color: COLORS.inkSoft }}>{itemCount} posizioni</span>
         </button>
         <Switch checked={section.enabled} onChange={onToggle} label="" onText="Attiva" offText="Off" />
+        <button onClick={onDuplicate} title="Duplica sezione" style={{ color: COLORS.inkSoft }}>
+          <Copy size={14} />
+        </button>
         <button onClick={onRemove} title="Rimuovi sezione" style={{ color: COLORS.danger }}>
           <Trash2 size={14} />
         </button>
@@ -1187,6 +1284,7 @@ function SectionEditor({
                       parentPose={parentOfPose(poseById, row.item.poseId ? poseById[row.item.poseId] : undefined)}
                       onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
                       onRemove={() => onRemoveItem(null, row.item.uid)}
+                      onEditPose={onEditPose}
                     />
                   ) : (
                     <BlockCard
@@ -1202,6 +1300,7 @@ function SectionEditor({
                       onMoveItemDown={(idx) => onMoveItemInBlock(row.block.uid, idx, 1)}
                       onOpenPicker={() => onOpenPicker(row.block.uid)}
                       onAddCustom={(label) => onAddCustomItem(row.block.uid, label)}
+                      onEditPose={onEditPose}
                     />
                   )
                 )}
@@ -1241,6 +1340,9 @@ function SectionEditor({
             <button onClick={onAddBlock} className="flex items-center gap-1 text-xs font-medium" style={{ color: COLORS.primaryDark }}>
               <Repeat size={12} /> Blocco ripetuto
             </button>
+            <button onClick={onDuplicateMirror} className="flex items-center gap-1 text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+              <Copy size={12} /> Duplica specchiando dx/sx
+            </button>
           </div>
         </div>
       )}
@@ -1254,21 +1356,29 @@ function ItemRow({
   parentPose,
   onUpdate,
   onRemove,
+  onEditPose,
 }: {
   item: EditItem;
   pose?: PoseCatalogItem;
   parentPose?: PoseCatalogItem;
   onUpdate: (patch: Partial<EditItem>) => void;
   onRemove: () => void;
+  onEditPose: (pose: PoseCatalogItem) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.uid });
-  const label = pose ? poseDisplayName(pose, parentPose) : item.customLabel || "Voce senza nome";
+  const label = pose ? poseDisplayName(pose, parentPose) : item.customLabel;
   const image = pose ? poseDisplayImage(pose, parentPose) : null;
   return (
     <div
       ref={setNodeRef}
       className="p-2 rounded-xl"
-      style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, opacity: isDragging ? 0.6 : 1, transform: CSS.Transform.toString(transform), transition }}
+      style={{
+        background: item.needsReview ? withAlpha(COLORS.gold, 8) : COLORS.bg,
+        border: `1px solid ${item.needsReview ? withAlpha(COLORS.gold, 45) : COLORS.border}`,
+        opacity: isDragging ? 0.6 : 1,
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
     >
       <div className="flex items-center gap-2.5">
         <button {...attributes} {...listeners} className="cursor-grab flex items-center" style={{ color: COLORS.inkSoft, touchAction: "none" }} title="Trascina per riordinare">
@@ -1276,12 +1386,53 @@ function ItemRow({
         </button>
         {image && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt={label} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+          <img
+            src={image}
+            alt={label}
+            width={36}
+            height={36}
+            onDoubleClick={() => pose && onEditPose(pose)}
+            style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0, cursor: pose ? "pointer" : undefined }}
+            title={pose ? "Doppio click per modificare nel catalogo" : undefined}
+          />
         )}
         <div className="flex-1 min-w-0">
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
+          {pose ? (
+            <div
+              onDoubleClick={() => onEditPose(pose)}
+              className="flex items-center gap-1"
+              style={{ fontSize: 13, fontWeight: 600, cursor: "pointer", width: "fit-content" }}
+              title="Doppio click per modificare nel catalogo"
+            >
+              {label}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditPose(pose);
+                }}
+                title="Modifica nel catalogo"
+                style={{ color: COLORS.inkSoft, flexShrink: 0 }}
+              >
+                <Pencil size={11} />
+              </button>
+            </div>
+          ) : (
+            <input
+              value={item.customLabel}
+              onChange={(e) => onUpdate({ customLabel: e.target.value })}
+              placeholder="Voce senza nome"
+              style={{ ...inputStyle, border: "none", background: "transparent", padding: 0, fontSize: 13, fontWeight: 600, color: COLORS.ink }}
+            />
+          )}
           <input value={item.note} onChange={(e) => onUpdate({ note: e.target.value })} placeholder="nota (facoltativa)" style={{ ...inputStyle, padding: "4px 8px", fontSize: 12, marginTop: 2 }} />
         </div>
+        <button
+          onClick={() => onUpdate({ needsReview: !item.needsReview })}
+          title={item.needsReview ? "Segnato da verificare" : "Segna da verificare"}
+          style={{ color: item.needsReview ? COLORS.gold : COLORS.inkSoft }}
+        >
+          <Flag size={14} fill={item.needsReview ? COLORS.gold : "none"} />
+        </button>
         <button onClick={onRemove} title="Rimuovi" style={{ color: COLORS.inkSoft }}>
           <X size={14} />
         </button>
@@ -1305,6 +1456,7 @@ function ArrowItemRow({
   onRemove,
   onMoveUp,
   onMoveDown,
+  onEditPose,
 }: {
   item: EditItem;
   pose?: PoseCatalogItem;
@@ -1315,11 +1467,15 @@ function ArrowItemRow({
   onRemove: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onEditPose: (pose: PoseCatalogItem) => void;
 }) {
-  const label = pose ? poseDisplayName(pose, parentPose) : item.customLabel || "Voce senza nome";
+  const label = pose ? poseDisplayName(pose, parentPose) : item.customLabel;
   const image = pose ? poseDisplayImage(pose, parentPose) : null;
   return (
-    <div className="p-2 rounded-xl" style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}` }}>
+    <div
+      className="p-2 rounded-xl"
+      style={{ background: item.needsReview ? withAlpha(COLORS.gold, 8) : COLORS.bg, border: `1px solid ${item.needsReview ? withAlpha(COLORS.gold, 45) : COLORS.border}` }}
+    >
       <div className="flex items-center gap-2">
         <div className="flex flex-col">
           <button onClick={onMoveUp} disabled={isFirst} style={{ color: isFirst ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta su">
@@ -1331,12 +1487,53 @@ function ArrowItemRow({
         </div>
         {image && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt={label} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+          <img
+            src={image}
+            alt={label}
+            width={36}
+            height={36}
+            onDoubleClick={() => pose && onEditPose(pose)}
+            style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0, cursor: pose ? "pointer" : undefined }}
+            title={pose ? "Doppio click per modificare nel catalogo" : undefined}
+          />
         )}
         <div className="flex-1 min-w-0">
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
+          {pose ? (
+            <div
+              onDoubleClick={() => onEditPose(pose)}
+              className="flex items-center gap-1"
+              style={{ fontSize: 13, fontWeight: 600, cursor: "pointer", width: "fit-content" }}
+              title="Doppio click per modificare nel catalogo"
+            >
+              {label}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditPose(pose);
+                }}
+                title="Modifica nel catalogo"
+                style={{ color: COLORS.inkSoft, flexShrink: 0 }}
+              >
+                <Pencil size={11} />
+              </button>
+            </div>
+          ) : (
+            <input
+              value={item.customLabel}
+              onChange={(e) => onUpdate({ customLabel: e.target.value })}
+              placeholder="Voce senza nome"
+              style={{ ...inputStyle, border: "none", background: "transparent", padding: 0, fontSize: 13, fontWeight: 600, color: COLORS.ink }}
+            />
+          )}
           <input value={item.note} onChange={(e) => onUpdate({ note: e.target.value })} placeholder="nota (facoltativa)" style={{ ...inputStyle, padding: "4px 8px", fontSize: 12, marginTop: 2 }} />
         </div>
+        <button
+          onClick={() => onUpdate({ needsReview: !item.needsReview })}
+          title={item.needsReview ? "Segnato da verificare" : "Segna da verificare"}
+          style={{ color: item.needsReview ? COLORS.gold : COLORS.inkSoft }}
+        >
+          <Flag size={14} fill={item.needsReview ? COLORS.gold : "none"} />
+        </button>
         <button onClick={onRemove} title="Rimuovi" style={{ color: COLORS.inkSoft }}>
           <X size={14} />
         </button>
@@ -1361,6 +1558,7 @@ function BlockBody({
   onMoveItemDown,
   onOpenPicker,
   onAddCustom,
+  onEditPose,
   dropRef,
   isOver,
 }: {
@@ -1374,6 +1572,7 @@ function BlockBody({
   onMoveItemDown: (idx: number) => void;
   onOpenPicker: () => void;
   onAddCustom: (label: string) => void;
+  onEditPose: (pose: PoseCatalogItem) => void;
   dropRef?: (node: HTMLElement | null) => void;
   isOver?: boolean;
 }) {
@@ -1418,6 +1617,7 @@ function BlockBody({
             onRemove={() => onRemoveItem(item.uid)}
             onMoveUp={() => onMoveItemUp(idx)}
             onMoveDown={() => onMoveItemDown(idx)}
+            onEditPose={onEditPose}
           />
         ))}
       </div>
@@ -1471,6 +1671,7 @@ function BlockCard({
   onMoveItemDown,
   onOpenPicker,
   onAddCustom,
+  onEditPose,
 }: {
   sectionUid: string;
   block: EditBlock;
@@ -1483,6 +1684,7 @@ function BlockCard({
   onMoveItemDown: (idx: number) => void;
   onOpenPicker: () => void;
   onAddCustom: (label: string) => void;
+  onEditPose: (pose: PoseCatalogItem) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.uid });
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `block-drop:${sectionUid}:${block.uid}` });
@@ -1504,6 +1706,7 @@ function BlockCard({
           onMoveItemDown={onMoveItemDown}
           onOpenPicker={onOpenPicker}
           onAddCustom={onAddCustom}
+          onEditPose={onEditPose}
           dropRef={setDropRef}
           isOver={isOver}
         />
@@ -1522,6 +1725,9 @@ function MobileSectionCard({
   onToggle,
   onRename,
   onRemove,
+  onDuplicate,
+  onDuplicateMirror,
+  onEditPose,
   onAddCustomItem,
   onUpdateItem,
   onRemoveItem,
@@ -1541,6 +1747,9 @@ function MobileSectionCard({
   onToggle: (v: boolean) => void;
   onRename: (v: string) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
+  onDuplicateMirror: () => void;
+  onEditPose: (pose: PoseCatalogItem) => void;
   onAddCustomItem: (blockUid: string | null, label: string) => void;
   onUpdateItem: (blockUid: string | null, itemUid: string, patch: Partial<EditItem>) => void;
   onRemoveItem: (blockUid: string | null, itemUid: string) => void;
@@ -1585,6 +1794,9 @@ function MobileSectionCard({
           <span style={{ fontSize: 11, color: COLORS.inkSoft, flexShrink: 0 }}>{itemCount}</span>
         </button>
         <Switch checked={section.enabled} onChange={onToggle} label="" onText="On" offText="Off" />
+        <button onClick={onDuplicate} title="Duplica sezione" style={{ color: COLORS.inkSoft }}>
+          <Copy size={14} />
+        </button>
         <button onClick={onRemove} title="Rimuovi sezione" style={{ color: COLORS.danger }}>
           <Trash2 size={14} />
         </button>
@@ -1606,6 +1818,7 @@ function MobileSectionCard({
                   onRemove={() => onRemoveItem(null, row.item.uid)}
                   onMoveUp={() => onMoveRow(idx, -1)}
                   onMoveDown={() => onMoveRow(idx, 1)}
+                  onEditPose={onEditPose}
                 />
               ) : (
                 <div key={row.uid} className="flex items-start gap-1.5">
@@ -1634,6 +1847,7 @@ function MobileSectionCard({
                       onMoveItemDown={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, 1)}
                       onOpenPicker={() => onOpenPicker(row.block.uid)}
                       onAddCustom={(label) => onAddCustomItem(row.block.uid, label)}
+                      onEditPose={onEditPose}
                     />
                   </div>
                 </div>
@@ -1653,6 +1867,9 @@ function MobileSectionCard({
             </button>
             <button onClick={onAddBlock} className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ border: `1px solid ${COLORS.border}`, color: COLORS.primaryDark }}>
               <Repeat size={13} /> Blocco ripetuto
+            </button>
+            <button onClick={onDuplicateMirror} className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ border: `1px solid ${COLORS.border}`, color: COLORS.primaryDark }}>
+              <Copy size={13} /> Duplica specchiando dx/sx
             </button>
             {addingCustom ? (
               <div className="flex items-center gap-1.5 flex-1" style={{ minWidth: 160 }}>

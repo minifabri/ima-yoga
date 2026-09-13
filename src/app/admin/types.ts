@@ -321,6 +321,7 @@ export type SequenceItem = {
   // inspiro = gamba distesa).
   onInhale: string | null;
   onExhale: string | null;
+  needsReview: boolean;
 };
 
 // Un blocco raggruppa alcune posizioni consecutive di una sezione per
