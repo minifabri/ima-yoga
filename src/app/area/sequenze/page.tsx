@@ -78,7 +78,7 @@ export default function AreaSequenzePage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap mb-1">
                     <span style={{ fontSize: 14, fontWeight: 600 }}>{s.name || "Sequenza senza nome"}</span>
-                    {type && <Badge color={type.color}>{type.name}</Badge>}
+                    <Badge color={type?.color ?? COLORS.inkSoft}>{type?.name ?? "Altro"}</Badge>
                     {tab === "mine" && (assigned ? <Badge color={COLORS.gold}>Assegnata</Badge> : <Badge color={COLORS.primary}>Salvata</Badge>)}
                   </div>
                   <div style={{ fontSize: 12, color: COLORS.inkSoft }}>

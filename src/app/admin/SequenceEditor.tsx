@@ -204,6 +204,7 @@ export function SequenceEditor({
 }) {
   const [classTypeId, setClassTypeId] = useState<string>(sequence?.classTypeId ?? classTypes[0]?.id ?? "");
   const [name, setName] = useState(sequence?.name ?? "");
+  const [description, setDescription] = useState(sequence?.description ?? "");
   const [clientIds, setClientIds] = useState<string[]>(sequence?.clientIds ?? []);
   const [guestName, setGuestName] = useState(sequence?.guestName ?? "");
   const [isPublic, setIsPublic] = useState(sequence?.isPublic ?? false);
@@ -585,6 +586,7 @@ export function SequenceEditor({
         clientIds,
         guestName: clientIds.length > 0 ? "" : guestName.trim(),
         name: name.trim() || "Sequenza senza nome",
+        description: description.trim(),
         isPublic,
         sections: sections.map((s, sIdx) => {
           const blocks: { tempId: string; reps: number | null; position: number }[] = [];
@@ -701,13 +703,25 @@ export function SequenceEditor({
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Es. Sequenza base, Post-infortunio ginocchio" style={inputStyle} />
         </Field>
         <Field label="Tipo di sequenza">
-          <select value={classTypeId} onChange={(e) => setClassTypeId(e.target.value)} disabled={!!sequence} style={inputStyle}>
+          <select value={classTypeId} onChange={(e) => setClassTypeId(e.target.value)} style={inputStyle}>
             {classTypes.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
             ))}
           </select>
+        </Field>
+      </div>
+
+      <div className="mb-4">
+        <Field label="Descrizione (facoltativa)">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Note sull'obiettivo o il contesto di questa sequenza, visibili anche all'allievo…"
+            rows={2}
+            style={{ ...inputStyle, resize: "vertical" }}
+          />
         </Field>
       </div>
 
