@@ -12,6 +12,8 @@ const FILL_COLOR: [number, number, number] = [107, 79, 160]; // #6b4fa0, viola i
 const DEFAULT_MARGIN = 0.08;
 const MAX_WORKING_DIM = 900; // limita il lavoro per-pixel su foto molto grandi
 const DEFAULT_BRUSH_SIZE = 24; // diametro in pixel del canvas (spazio OUTPUT_SIZE)
+const LOUPE_SIZE = 160; // lente d'ingrandimento per la gomma: dimensione in pixel (CSS e canvas coincidono)
+const LOUPE_ZOOM = 4; // fattore di ingrandimento della lente rispetto al canvas di lavoro
 
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -81,11 +83,41 @@ function compose(draw: (ctx: CanvasRenderingContext2D, size: number) => void): H
   return out;
 }
 
+// Disegna `source` (o una sua porzione centrale se zoom > 1, per ingrandire
+// il soggetto oltre quanto già fa il ritaglio) proporzionata dentro il
+// riquadro `size`, col margine e il ribaltamento indicati.
+function drawZoomedFit(
+  octx: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  sourceW: number,
+  sourceH: number,
+  size: number,
+  margin: number,
+  zoom: number,
+  flip: boolean
+) {
+  const z = Math.max(1, zoom);
+  const srcW = sourceW / z;
+  const srcH = sourceH / z;
+  const srcX = (sourceW - srcW) / 2;
+  const srcY = (sourceH - srcH) / 2;
+  const drawScale = (size * (1 - margin * 2)) / Math.max(srcW, srcH);
+  const outW = srcW * drawScale;
+  const outH = srcH * drawScale;
+  octx.save();
+  if (flip) {
+    octx.translate(size, 0);
+    octx.scale(-1, 1);
+  }
+  octx.drawImage(source, srcX, srcY, srcW, srcH, (size - outW) / 2, (size - outH) / 2, outW, outH);
+  octx.restore();
+}
+
 // Isola il soggetto per contrasto di luminosità rispetto allo sfondo (campionato
 // dai quattro angoli), scarta il rumore isolato, lo ricolora in tinta unita e
 // lo ricompone centrato su un canvas quadrato con gli stessi colori del set
 // di icone esistente.
-function renderSilhouette(source: HTMLImageElement, threshold: number, invert: boolean, flip: boolean, margin: number): HTMLCanvasElement | null {
+function renderSilhouette(source: HTMLImageElement, threshold: number, invert: boolean, flip: boolean, margin: number, zoom: number): HTMLCanvasElement | null {
   const scale = Math.min(1, MAX_WORKING_DIM / Math.max(source.width, source.height));
   const w = Math.round(source.width * scale);
   const h = Math.round(source.height * scale);
@@ -155,35 +187,13 @@ function renderSilhouette(source: HTMLImageElement, threshold: number, invert: b
   }
   cctx.putImageData(cdata, 0, 0);
 
-  return compose((octx, size) => {
-    const drawScale = (size * (1 - margin * 2)) / Math.max(bw, bh);
-    const outW = bw * drawScale;
-    const outH = bh * drawScale;
-    octx.save();
-    if (flip) {
-      octx.translate(size, 0);
-      octx.scale(-1, 1);
-    }
-    octx.drawImage(cropped, 0, 0, bw, bh, (size - outW) / 2, (size - outH) / 2, outW, outH);
-    octx.restore();
-  });
+  return compose((octx, size) => drawZoomedFit(octx, cropped, bw, bh, size, margin, zoom, flip));
 }
 
 // Nessuna elaborazione: la foto originale contenuta nel quadrato, per quando
 // lo sfondo è troppo complesso perché l'estrazione automatica funzioni bene.
-function renderOriginal(source: HTMLImageElement, flip: boolean, margin: number): HTMLCanvasElement {
-  return compose((octx, size) => {
-    const drawScale = (size * (1 - margin * 2)) / Math.max(source.width, source.height);
-    const outW = source.width * drawScale;
-    const outH = source.height * drawScale;
-    octx.save();
-    if (flip) {
-      octx.translate(size, 0);
-      octx.scale(-1, 1);
-    }
-    octx.drawImage(source, 0, 0, source.width, source.height, (size - outW) / 2, (size - outH) / 2, outW, outH);
-    octx.restore();
-  });
+function renderOriginal(source: HTMLImageElement, flip: boolean, margin: number, zoom: number): HTMLCanvasElement {
+  return compose((octx, size) => drawZoomedFit(octx, source, source.width, source.height, size, margin, zoom, flip));
 }
 
 export type PoseThumbnailGeneratorHandle = {
@@ -207,11 +217,14 @@ export const PoseThumbnailGenerator = forwardRef<
   const [invert, setInvert] = useState(false);
   const [flip, setFlip] = useState(false);
   const [margin, setMargin] = useState(DEFAULT_MARGIN);
+  const [zoom, setZoom] = useState(1);
   const [useOriginal, setUseOriginal] = useState(false);
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [showLoupe, setShowLoupe] = useState(false);
   const previewRef = useRef<HTMLCanvasElement>(null);
+  const loupeRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isErasingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -220,8 +233,8 @@ export const PoseThumbnailGenerator = forwardRef<
     brushSizeRef.current = brushSize;
   }, [brushSize]);
 
-  function renderPreview(img: HTMLImageElement, opts: { th: number; inv: boolean; fl: boolean; mg: number; orig: boolean }) {
-    const result = opts.orig ? renderOriginal(img, opts.fl, opts.mg) : renderSilhouette(img, opts.th, opts.inv, opts.fl, opts.mg);
+  function renderPreview(img: HTMLImageElement, opts: { th: number; inv: boolean; fl: boolean; mg: number; zm: number; orig: boolean }) {
+    const result = opts.orig ? renderOriginal(img, opts.fl, opts.mg, opts.zm) : renderSilhouette(img, opts.th, opts.inv, opts.fl, opts.mg, opts.zm);
     const canvas = previewRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
@@ -234,8 +247,8 @@ export const PoseThumbnailGenerator = forwardRef<
     ctx.drawImage(result, 0, 0);
   }
 
-  function currentOpts(patch: Partial<{ th: number; inv: boolean; fl: boolean; mg: number; orig: boolean }> = {}) {
-    return { th: threshold, inv: invert, fl: flip, mg: margin, orig: useOriginal, ...patch };
+  function currentOpts(patch: Partial<{ th: number; inv: boolean; fl: boolean; mg: number; zm: number; orig: boolean }> = {}) {
+    return { th: threshold, inv: invert, fl: flip, mg: margin, zm: zoom, orig: useOriginal, ...patch };
   }
 
   // Converte le coordinate del puntatore (pixel dello schermo) in coordinate
@@ -270,6 +283,27 @@ export const PoseThumbnailGenerator = forwardRef<
     }
   }
 
+  // Mostra, nella lente, un ritaglio ingrandito del canvas di lavoro centrato
+  // sul puntatore (agganciato ai bordi se il punto è vicino al margine), con
+  // un cerchio che indica l'esatta area che la gomma cancellerebbe.
+  function updateLoupe(x: number, y: number) {
+    const main = previewRef.current;
+    const loupe = loupeRef.current;
+    const lctx = loupe?.getContext("2d");
+    if (!main || !lctx) return;
+    const sampleSize = LOUPE_SIZE / LOUPE_ZOOM;
+    const sx = Math.min(Math.max(x - sampleSize / 2, 0), OUTPUT_SIZE - sampleSize);
+    const sy = Math.min(Math.max(y - sampleSize / 2, 0), OUTPUT_SIZE - sampleSize);
+    lctx.imageSmoothingEnabled = false;
+    lctx.clearRect(0, 0, LOUPE_SIZE, LOUPE_SIZE);
+    lctx.drawImage(main, sx, sy, sampleSize, sampleSize, 0, 0, LOUPE_SIZE, LOUPE_SIZE);
+    lctx.strokeStyle = "rgba(0,0,0,0.55)";
+    lctx.lineWidth = 1;
+    lctx.beginPath();
+    lctx.arc((x - sx) * LOUPE_ZOOM, (y - sy) * LOUPE_ZOOM, (brushSizeRef.current / 2) * LOUPE_ZOOM, 0, Math.PI * 2);
+    lctx.stroke();
+  }
+
   function handleEraseStart(e: React.PointerEvent<HTMLCanvasElement>) {
     if (!sourceImg || uploading) return;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -277,14 +311,20 @@ export const PoseThumbnailGenerator = forwardRef<
     const point = getCanvasPoint(e);
     lastPointRef.current = point;
     eraseAt(point.x, point.y);
+    updateLoupe(point.x, point.y);
+    setShowLoupe(true);
   }
 
   function handleEraseMove(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (!isErasingRef.current) return;
+    if (!sourceImg) return;
     const point = getCanvasPoint(e);
-    if (lastPointRef.current) eraseSegment(lastPointRef.current, point);
-    else eraseAt(point.x, point.y);
-    lastPointRef.current = point;
+    if (isErasingRef.current) {
+      if (lastPointRef.current) eraseSegment(lastPointRef.current, point);
+      else eraseAt(point.x, point.y);
+      lastPointRef.current = point;
+    }
+    updateLoupe(point.x, point.y);
+    setShowLoupe(true);
   }
 
   function handleEraseEnd() {
@@ -292,13 +332,19 @@ export const PoseThumbnailGenerator = forwardRef<
     lastPointRef.current = null;
   }
 
+  function handlePointerLeaveCanvas() {
+    handleEraseEnd();
+    setShowLoupe(false);
+  }
+
   async function handleFile(file: File) {
     setError("");
     try {
       const img = await loadImage(file);
       setEditingExisting(false);
+      setZoom(1);
       setSourceImg(img);
-      requestAnimationFrame(() => renderPreview(img, currentOpts()));
+      requestAnimationFrame(() => renderPreview(img, currentOpts({ zm: 1 })));
     } catch {
       setError("Impossibile leggere il file immagine.");
     }
@@ -306,8 +352,8 @@ export const PoseThumbnailGenerator = forwardRef<
 
   // Ricarica la thumbnail già salvata come sorgente: parte "così com'è" (è già
   // un'immagine composta, non una foto grezza) e margine zero per mostrarla
-  // fedele all'originale — da lì si può usare la gomma o stringere il
-  // ritaglio deselezionando l'opzione per ingrandire il soggetto.
+  // fedele all'originale — da lì si può usare la gomma, stringere il ritaglio
+  // deselezionando l'opzione, o ingrandire col controllo dedicato.
   function loadExistingImage(url: string) {
     setError("");
     const img = new Image();
@@ -319,8 +365,9 @@ export const PoseThumbnailGenerator = forwardRef<
       setInvert(false);
       setFlip(false);
       setMargin(0);
+      setZoom(1);
       setUseOriginal(true);
-      requestAnimationFrame(() => renderPreview(img, { th: 45, inv: false, fl: false, mg: 0, orig: true }));
+      requestAnimationFrame(() => renderPreview(img, { th: 45, inv: false, fl: false, mg: 0, zm: 1, orig: true }));
     };
     img.onerror = () => setError("Impossibile caricare la thumbnail attuale per la modifica.");
     img.src = url;
@@ -332,11 +379,12 @@ export const PoseThumbnailGenerator = forwardRef<
     },
   }));
 
-  function update(patch: Partial<{ th: number; inv: boolean; fl: boolean; mg: number; orig: boolean }>) {
+  function update(patch: Partial<{ th: number; inv: boolean; fl: boolean; mg: number; zm: number; orig: boolean }>) {
     if (patch.th !== undefined) setThreshold(patch.th);
     if (patch.inv !== undefined) setInvert(patch.inv);
     if (patch.fl !== undefined) setFlip(patch.fl);
     if (patch.mg !== undefined) setMargin(patch.mg);
+    if (patch.zm !== undefined) setZoom(patch.zm);
     if (patch.orig !== undefined) setUseOriginal(patch.orig);
     if (sourceImg) renderPreview(sourceImg, currentOpts(patch));
   }
@@ -403,10 +451,19 @@ export const PoseThumbnailGenerator = forwardRef<
               onPointerDown={handleEraseStart}
               onPointerMove={handleEraseMove}
               onPointerUp={handleEraseEnd}
-              onPointerLeave={handleEraseEnd}
-              onPointerCancel={handleEraseEnd}
+              onPointerLeave={handlePointerLeaveCanvas}
+              onPointerCancel={handlePointerLeaveCanvas}
             />
             <span style={{ fontSize: 10, color: COLORS.inkSoft }}>Anteprima thumbnail</span>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <canvas
+              ref={loupeRef}
+              width={LOUPE_SIZE}
+              height={LOUPE_SIZE}
+              style={{ width: LOUPE_SIZE, height: LOUPE_SIZE, borderRadius: 8, background: COLORS.subtle, opacity: showLoupe ? 1 : 0.25, transition: "opacity 0.1s" }}
+            />
+            <span style={{ fontSize: 10, color: COLORS.inkSoft }}>Lente (passa il mouse per usare la gomma con precisione)</span>
           </div>
           <div className="flex-1" style={{ minWidth: 170 }}>
             <label className="flex items-center gap-1.5 mb-2" style={{ fontSize: 11.5, color: COLORS.ink }}>
@@ -415,7 +472,7 @@ export const PoseThumbnailGenerator = forwardRef<
             </label>
             {editingExisting && useOriginal && (
               <div style={{ fontSize: 10.5, color: COLORS.inkSoft }} className="mb-2">
-                Deseleziona per ritagliare automaticamente intorno al soggetto e ingrandirlo.
+                Deseleziona per ritagliare automaticamente intorno al soggetto (alternativa allo slider &ldquo;Ingrandimento&rdquo; qui sotto).
               </div>
             )}
 
@@ -439,6 +496,13 @@ export const PoseThumbnailGenerator = forwardRef<
                 Margine ({Math.round(margin * 100)}%)
               </div>
               <input type="range" min={0} max={25} value={Math.round(margin * 100)} onChange={(e) => update({ mg: Number(e.target.value) / 100 })} style={{ width: "100%" }} />
+            </label>
+
+            <label className="block mb-2">
+              <div style={{ fontSize: 11, color: COLORS.inkSoft }} className="mb-1">
+                Ingrandimento ({Math.round(zoom * 100)}%)
+              </div>
+              <input type="range" min={100} max={250} step={5} value={Math.round(zoom * 100)} onChange={(e) => update({ zm: Number(e.target.value) / 100 })} style={{ width: "100%" }} />
             </label>
 
             <label className="flex items-center gap-1.5 mb-2" style={{ fontSize: 11.5, color: COLORS.ink }}>
