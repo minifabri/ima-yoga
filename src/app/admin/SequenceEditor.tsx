@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, Check, ChevronDown, ChevronUp, Copy, Flag, GripVertical, Pencil, Plus, Printer, Repeat, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
+import { AlertCircle, BookOpen, Check, ChevronDown, ChevronUp, Copy, Flag, GripVertical, Plus, Printer, Repeat, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -1405,16 +1405,7 @@ function ItemRow({
               title="Doppio click per modificare nel catalogo"
             >
               {label}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditPose(pose);
-                }}
-                title="Modifica nel catalogo"
-                style={{ color: COLORS.inkSoft, flexShrink: 0 }}
-              >
-                <Pencil size={11} />
-              </button>
+              <BookOpen size={10} style={{ color: COLORS.inkSoft, flexShrink: 0 }} />
             </div>
           ) : (
             <input
@@ -1506,16 +1497,7 @@ function ArrowItemRow({
               title="Doppio click per modificare nel catalogo"
             >
               {label}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditPose(pose);
-                }}
-                title="Modifica nel catalogo"
-                style={{ color: COLORS.inkSoft, flexShrink: 0 }}
-              >
-                <Pencil size={11} />
-              </button>
+              <BookOpen size={10} style={{ color: COLORS.inkSoft, flexShrink: 0 }} />
             </div>
           ) : (
             <input
