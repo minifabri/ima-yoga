@@ -81,11 +81,41 @@ function compose(draw: (ctx: CanvasRenderingContext2D, size: number) => void): H
   return out;
 }
 
+// Disegna `source` (o una sua porzione centrale se zoom > 1, per ingrandire
+// il soggetto oltre quanto già fa il ritaglio) proporzionata dentro il
+// riquadro `size`, col margine e il ribaltamento indicati.
+function drawZoomedFit(
+  octx: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  sourceW: number,
+  sourceH: number,
+  size: number,
+  margin: number,
+  zoom: number,
+  flip: boolean
+) {
+  const z = Math.max(1, zoom);
+  const srcW = sourceW / z;
+  const srcH = sourceH / z;
+  const srcX = (sourceW - srcW) / 2;
+  const srcY = (sourceH - srcH) / 2;
+  const drawScale = (size * (1 - margin * 2)) / Math.max(srcW, srcH);
+  const outW = srcW * drawScale;
+  const outH = srcH * drawScale;
+  octx.save();
+  if (flip) {
+    octx.translate(size, 0);
+    octx.scale(-1, 1);
+  }
+  octx.drawImage(source, srcX, srcY, srcW, srcH, (size - outW) / 2, (size - outH) / 2, outW, outH);
+  octx.restore();
+}
+
 // Isola il soggetto per contrasto di luminosità rispetto allo sfondo (campionato
 // dai quattro angoli), scarta il rumore isolato, lo ricolora in tinta unita e
 // lo ricompone centrato su un canvas quadrato con gli stessi colori del set
 // di icone esistente.
-function renderSilhouette(source: HTMLImageElement, threshold: number, invert: boolean, flip: boolean, margin: number): HTMLCanvasElement | null {
+function renderSilhouette(source: HTMLImageElement, threshold: number, invert: boolean, flip: boolean, margin: number, zoom: number): HTMLCanvasElement | null {
   const scale = Math.min(1, MAX_WORKING_DIM / Math.max(source.width, source.height));
   const w = Math.round(source.width * scale);
   const h = Math.round(source.height * scale);
@@ -155,35 +185,13 @@ function renderSilhouette(source: HTMLImageElement, threshold: number, invert: b
   }
   cctx.putImageData(cdata, 0, 0);
 
-  return compose((octx, size) => {
-    const drawScale = (size * (1 - margin * 2)) / Math.max(bw, bh);
-    const outW = bw * drawScale;
-    const outH = bh * drawScale;
-    octx.save();
-    if (flip) {
-      octx.translate(size, 0);
-      octx.scale(-1, 1);
-    }
-    octx.drawImage(cropped, 0, 0, bw, bh, (size - outW) / 2, (size - outH) / 2, outW, outH);
-    octx.restore();
-  });
+  return compose((octx, size) => drawZoomedFit(octx, cropped, bw, bh, size, margin, zoom, flip));
 }
 
 // Nessuna elaborazione: la foto originale contenuta nel quadrato, per quando
 // lo sfondo è troppo complesso perché l'estrazione automatica funzioni bene.
-function renderOriginal(source: HTMLImageElement, flip: boolean, margin: number): HTMLCanvasElement {
-  return compose((octx, size) => {
-    const drawScale = (size * (1 - margin * 2)) / Math.max(source.width, source.height);
-    const outW = source.width * drawScale;
-    const outH = source.height * drawScale;
-    octx.save();
-    if (flip) {
-      octx.translate(size, 0);
-      octx.scale(-1, 1);
-    }
-    octx.drawImage(source, 0, 0, source.width, source.height, (size - outW) / 2, (size - outH) / 2, outW, outH);
-    octx.restore();
-  });
+function renderOriginal(source: HTMLImageElement, flip: boolean, margin: number, zoom: number): HTMLCanvasElement {
+  return compose((octx, size) => drawZoomedFit(octx, source, source.width, source.height, size, margin, zoom, flip));
 }
 
 export type PoseThumbnailGeneratorHandle = {
@@ -207,6 +215,7 @@ export const PoseThumbnailGenerator = forwardRef<
   const [invert, setInvert] = useState(false);
   const [flip, setFlip] = useState(false);
   const [margin, setMargin] = useState(DEFAULT_MARGIN);
+  const [zoom, setZoom] = useState(1);
   const [useOriginal, setUseOriginal] = useState(false);
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
   const [error, setError] = useState("");
@@ -220,8 +229,8 @@ export const PoseThumbnailGenerator = forwardRef<
     brushSizeRef.current = brushSize;
   }, [brushSize]);
 
-  function renderPreview(img: HTMLImageElement, opts: { th: number; inv: boolean; fl: boolean; mg: number; orig: boolean }) {
-    const result = opts.orig ? renderOriginal(img, opts.fl, opts.mg) : renderSilhouette(img, opts.th, opts.inv, opts.fl, opts.mg);
+  function renderPreview(img: HTMLImageElement, opts: { th: number; inv: boolean; fl: boolean; mg: number; zm: number; orig: boolean }) {
+    const result = opts.orig ? renderOriginal(img, opts.fl, opts.mg, opts.zm) : renderSilhouette(img, opts.th, opts.inv, opts.fl, opts.mg, opts.zm);
     const canvas = previewRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
@@ -234,8 +243,8 @@ export const PoseThumbnailGenerator = forwardRef<
     ctx.drawImage(result, 0, 0);
   }
 
-  function currentOpts(patch: Partial<{ th: number; inv: boolean; fl: boolean; mg: number; orig: boolean }> = {}) {
-    return { th: threshold, inv: invert, fl: flip, mg: margin, orig: useOriginal, ...patch };
+  function currentOpts(patch: Partial<{ th: number; inv: boolean; fl: boolean; mg: number; zm: number; orig: boolean }> = {}) {
+    return { th: threshold, inv: invert, fl: flip, mg: margin, zm: zoom, orig: useOriginal, ...patch };
   }
 
   // Converte le coordinate del puntatore (pixel dello schermo) in coordinate
@@ -297,8 +306,9 @@ export const PoseThumbnailGenerator = forwardRef<
     try {
       const img = await loadImage(file);
       setEditingExisting(false);
+      setZoom(1);
       setSourceImg(img);
-      requestAnimationFrame(() => renderPreview(img, currentOpts()));
+      requestAnimationFrame(() => renderPreview(img, currentOpts({ zm: 1 })));
     } catch {
       setError("Impossibile leggere il file immagine.");
     }
@@ -306,8 +316,8 @@ export const PoseThumbnailGenerator = forwardRef<
 
   // Ricarica la thumbnail già salvata come sorgente: parte "così com'è" (è già
   // un'immagine composta, non una foto grezza) e margine zero per mostrarla
-  // fedele all'originale — da lì si può usare la gomma o stringere il
-  // ritaglio deselezionando l'opzione per ingrandire il soggetto.
+  // fedele all'originale — da lì si può usare la gomma, stringere il ritaglio
+  // deselezionando l'opzione, o ingrandire col controllo dedicato.
   function loadExistingImage(url: string) {
     setError("");
     const img = new Image();
@@ -319,8 +329,9 @@ export const PoseThumbnailGenerator = forwardRef<
       setInvert(false);
       setFlip(false);
       setMargin(0);
+      setZoom(1);
       setUseOriginal(true);
-      requestAnimationFrame(() => renderPreview(img, { th: 45, inv: false, fl: false, mg: 0, orig: true }));
+      requestAnimationFrame(() => renderPreview(img, { th: 45, inv: false, fl: false, mg: 0, zm: 1, orig: true }));
     };
     img.onerror = () => setError("Impossibile caricare la thumbnail attuale per la modifica.");
     img.src = url;
@@ -332,11 +343,12 @@ export const PoseThumbnailGenerator = forwardRef<
     },
   }));
 
-  function update(patch: Partial<{ th: number; inv: boolean; fl: boolean; mg: number; orig: boolean }>) {
+  function update(patch: Partial<{ th: number; inv: boolean; fl: boolean; mg: number; zm: number; orig: boolean }>) {
     if (patch.th !== undefined) setThreshold(patch.th);
     if (patch.inv !== undefined) setInvert(patch.inv);
     if (patch.fl !== undefined) setFlip(patch.fl);
     if (patch.mg !== undefined) setMargin(patch.mg);
+    if (patch.zm !== undefined) setZoom(patch.zm);
     if (patch.orig !== undefined) setUseOriginal(patch.orig);
     if (sourceImg) renderPreview(sourceImg, currentOpts(patch));
   }
@@ -415,7 +427,7 @@ export const PoseThumbnailGenerator = forwardRef<
             </label>
             {editingExisting && useOriginal && (
               <div style={{ fontSize: 10.5, color: COLORS.inkSoft }} className="mb-2">
-                Deseleziona per ritagliare automaticamente intorno al soggetto e ingrandirlo.
+                Deseleziona per ritagliare automaticamente intorno al soggetto (alternativa allo slider &ldquo;Ingrandimento&rdquo; qui sotto).
               </div>
             )}
 
@@ -439,6 +451,13 @@ export const PoseThumbnailGenerator = forwardRef<
                 Margine ({Math.round(margin * 100)}%)
               </div>
               <input type="range" min={0} max={25} value={Math.round(margin * 100)} onChange={(e) => update({ mg: Number(e.target.value) / 100 })} style={{ width: "100%" }} />
+            </label>
+
+            <label className="block mb-2">
+              <div style={{ fontSize: 11, color: COLORS.inkSoft }} className="mb-1">
+                Ingrandimento ({Math.round(zoom * 100)}%)
+              </div>
+              <input type="range" min={100} max={250} step={5} value={Math.round(zoom * 100)} onChange={(e) => update({ zm: Number(e.target.value) / 100 })} style={{ width: "100%" }} />
             </label>
 
             <label className="flex items-center gap-1.5 mb-2" style={{ fontSize: 11.5, color: COLORS.ink }}>
