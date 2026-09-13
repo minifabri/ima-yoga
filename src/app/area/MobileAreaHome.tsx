@@ -19,6 +19,8 @@ export function MobileAreaHome({
   onGoToCalendar,
   onGoToMine,
   onGoToSequences,
+  hasNewCalendar,
+  hasNewSequences,
 }: {
   classes: PublicClass[];
   typeById: Record<string, ClassType>;
@@ -28,6 +30,8 @@ export function MobileAreaHome({
   onGoToCalendar: () => void;
   onGoToMine: () => void;
   onGoToSequences: () => void;
+  hasNewCalendar: boolean;
+  hasNewSequences: boolean;
 }) {
   const todayKey = dateKey(new Date());
   const upcoming = classes
@@ -115,10 +119,16 @@ export function MobileAreaHome({
           style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, padding: "22px 12px", minHeight: 108 }}
         >
           <span
-            className="flex items-center justify-center rounded-full"
+            className="relative flex items-center justify-center rounded-full"
             style={{ width: 44, height: 44, background: withAlpha(COLORS.primary, 12), color: COLORS.primary }}
           >
             <CalendarDays size={22} />
+            {hasNewCalendar && (
+              <span
+                className="absolute rounded-full"
+                style={{ top: 1, right: 1, width: 10, height: 10, background: COLORS.gold, border: `2px solid ${COLORS.card}` }}
+              />
+            )}
           </span>
           <span style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.ink }}>Calendario</span>
         </button>
@@ -145,10 +155,16 @@ export function MobileAreaHome({
         style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, padding: "14px 16px" }}
       >
         <span
-          className="flex items-center justify-center rounded-full flex-shrink-0"
+          className="relative flex items-center justify-center rounded-full flex-shrink-0"
           style={{ width: 40, height: 40, background: withAlpha(COLORS.primary, 12), color: COLORS.primary }}
         >
           <Route size={19} />
+          {hasNewSequences && (
+            <span
+              className="absolute rounded-full"
+              style={{ top: 0, right: 0, width: 10, height: 10, background: COLORS.gold, border: `2px solid ${COLORS.card}` }}
+            />
+          )}
         </span>
         <span style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.ink }}>Sequenze</span>
       </button>

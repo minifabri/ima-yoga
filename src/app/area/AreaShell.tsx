@@ -40,6 +40,24 @@ import type { PoseCatalogItem, Sequence } from "@/app/admin/types";
 
 const DISMISSED_ANNOUNCEMENTS_KEY = "ima-yoga-dismissed-announcements";
 
+function readSeenAt(key: string): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? Number(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSeenAt(key: string, value: number) {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    // localStorage non disponibile (es. modalità privata): il pallino ricomparirà ogni volta, non è grave
+  }
+}
+
 type AreaContextValue = {
   clientId: string;
   classTypes: ClassType[];
@@ -66,6 +84,8 @@ type AreaContextValue = {
   handleBook: (c: PublicClass) => Promise<void>;
   handleCancel: (classId: string) => Promise<void>;
   handleCancelEvent: (eventId: string) => Promise<void>;
+  hasNewSequences: boolean;
+  hasNewCalendar: boolean;
 };
 
 const AreaContext = createContext<AreaContextValue | null>(null);
@@ -82,6 +102,13 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
   const isHome = pathname === "/area";
   const isMine = pathname === "/area/prenotazioni";
   const isSequenze = pathname.startsWith("/area/sequenze");
+  const isCalendario = pathname === "/area/calendario";
+
+  const sequencesSeenKey = `ima-yoga-sequences-seen-${clientId}`;
+  const calendarSeenKey = `ima-yoga-calendar-seen-${clientId}`;
+  const [sequencesSeenAt, setSequencesSeenAt] = useState<number | null>(() => readSeenAt(sequencesSeenKey));
+  const [calendarSeenAt, setCalendarSeenAt] = useState<number | null>(() => readSeenAt(calendarSeenKey));
+  const [latestUpcomingClassCreatedAt, setLatestUpcomingClassCreatedAt] = useState<string | null>(null);
 
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>([]);
@@ -239,6 +266,44 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
     const to = dateKey(future);
     db.fetchPublicEvents(supabase, from, to).then(setEvents).catch(() => {});
   }, [supabase]);
+
+  useEffect(() => {
+    db.fetchLatestUpcomingClassCreatedAt(supabase, dateKey(new Date()))
+      .then(setLatestUpcomingClassCreatedAt)
+      .catch(() => {});
+  }, [supabase]);
+
+  const hasNewSequences = sequences.some((s) => sequencesSeenAt === null || new Date(s.createdAt).getTime() > sequencesSeenAt);
+  const hasNewCalendar =
+    latestUpcomingClassCreatedAt !== null &&
+    (calendarSeenAt === null || new Date(latestUpcomingClassCreatedAt).getTime() > calendarSeenAt);
+
+  function markSequencesSeen() {
+    const now = Date.now();
+    setSequencesSeenAt(now);
+    writeSeenAt(sequencesSeenKey, now);
+  }
+
+  function markCalendarSeen() {
+    const now = Date.now();
+    setCalendarSeenAt(now);
+    writeSeenAt(calendarSeenKey, now);
+  }
+
+  useEffect(() => {
+    // Marca la sezione come "vista" appena il cliente apre la pagina.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (isSequenze) markSequencesSeen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSequenze]);
+
+  useEffect(() => {
+    // Su desktop la home (/area) mostra già il calendario, quindi conta come vista.
+    const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (isCalendario || (isHome && isDesktop)) markCalendarSeen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCalendario, isHome]);
 
   useEffect(() => {
     Promise.all([fetchVisibleSequences(supabase), fetchPoseCatalog(supabase), db.fetchMyFavoriteSequenceIds(supabase)])
@@ -407,6 +472,8 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
     handleBook,
     handleCancel,
     handleCancelEvent,
+    hasNewSequences,
+    hasNewCalendar,
   };
 
   return (
@@ -431,10 +498,13 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
               <div className="hidden md:flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
                 <Link
                   href="/area/calendario"
-                  className="px-3 py-2 text-sm font-medium"
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
                   style={{ background: !isMine && !isSequenze ? COLORS.primary : "transparent", color: !isMine && !isSequenze ? "#fff" : COLORS.ink }}
                 >
                   Calendario
+                  {hasNewCalendar && (
+                    <span className="rounded-full flex-shrink-0" style={{ width: 6, height: 6, background: COLORS.gold }} />
+                  )}
                 </Link>
                 <Link
                   href="/area/prenotazioni"
@@ -445,10 +515,13 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                 </Link>
                 <Link
                   href="/area/sequenze"
-                  className="px-3 py-2 text-sm font-medium"
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
                   style={{ background: isSequenze ? COLORS.primary : "transparent", color: isSequenze ? "#fff" : COLORS.ink }}
                 >
                   Sequenze
+                  {hasNewSequences && (
+                    <span className="rounded-full flex-shrink-0" style={{ width: 6, height: 6, background: COLORS.gold }} />
+                  )}
                 </Link>
               </div>
               <div className="hidden md:block">
