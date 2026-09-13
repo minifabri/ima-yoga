@@ -98,20 +98,10 @@ export function DrishtiPicker({
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="inline-flex items-center gap-1.5 rounded-full"
-          style={{
-            padding: isSmall ? "3px 9px" : "5px 11px",
-            fontSize: isSmall ? 11 : 12.5,
-            fontWeight: 600,
-            border: `1px dashed ${COLORS.border}`,
-            color: COLORS.inkSoft,
-          }}
+          className="inline-flex items-center gap-1"
+          style={{ fontSize: isSmall ? 11 : 12.5, fontWeight: 500, color: COLORS.inkSoft, opacity: 0.75 }}
         >
-          <DrishtiEyeIcon size={isSmall ? 11 : 13} />
-          <span>
-            Nessuna drishti
-            {overrideLabel && <span style={{ fontWeight: 700, color: COLORS.gold, fontSize: isSmall ? 9.5 : 10.5 }}> ({overrideLabel})</span>}
-          </span>
+          <DrishtiEyeIcon size={isSmall ? 11 : 13} /> nessuna drishti
           <ChevronDown size={isSmall ? 10 : 11} style={{ opacity: 0.6, transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
         </button>
       ) : (

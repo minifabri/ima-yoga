@@ -58,3 +58,14 @@ export function poseDisplayImage(pose: PoseCatalogItem, parent: PoseCatalogItem 
 export function poseDisplayDrishti(pose: PoseCatalogItem, parent: PoseCatalogItem | undefined): Drishti | null {
   return pose.drishti || parent?.drishti || null;
 }
+
+// La drishti (punto di sguardo) ha senso come pratica solo in Ashtanga: le
+// tipologie di classe sono testo libero configurabile dall'utente (nessun
+// campo/codice fisso in class_types), quindi il confronto è per nome,
+// case-insensitive. Usato per decidere se una voce di sequenza deve
+// ereditare automaticamente la drishti della posa collegata — una scelta
+// esplicita sulla singola voce resta sempre valida indipendentemente da
+// questo, vedi drishtiOverride in types.ts.
+export function isAshtangaClassType(className: string | null | undefined): boolean {
+  return (className ?? "").trim().toLowerCase() === "ashtanga";
+}
