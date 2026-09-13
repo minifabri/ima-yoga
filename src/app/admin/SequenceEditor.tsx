@@ -45,15 +45,16 @@ import { swapSides } from "./utils";
 import { saveSequence, deleteSequence, fetchSequenceTemplate } from "./data";
 import { notifySequenceAssigned } from "./actions";
 import { PoseEditModal } from "./PoseEditModal";
+import { DrishtiPicker } from "./DrishtiPicker";
 import { EmailPreviewModal } from "./EmailPreviewModal";
 import { sequenceAssignedEmailHtml } from "@/lib/emailTemplates";
-import { poseDisplayName, poseDisplayNameIt, poseDisplayImage } from "./poseDisplay";
+import { poseDisplayName, poseDisplayNameIt, poseDisplayImage, poseDisplayDrishti } from "./poseDisplay";
 import { PrintSheet, SheetItemRow, buildSheetText, toSheetItem, type SheetRow } from "./sequenceSheet";
 
 function parentOfPose(poseById: Record<string, PoseCatalogItem>, pose: PoseCatalogItem | undefined): PoseCatalogItem | undefined {
   return pose?.parentPoseId ? poseById[pose.parentPoseId] : undefined;
 }
-import type { ClassType, ClientItem, HoldUnit, PoseCatalogItem, PoseCategory, PoseMacro, Sequence, SectionKind } from "./types";
+import type { ClassType, ClientItem, Drishti, HoldUnit, PoseCatalogItem, PoseCategory, PoseMacro, Sequence, SectionKind } from "./types";
 
 type EditItem = {
   uid: string;
@@ -66,6 +67,7 @@ type EditItem = {
   onInhale: string | null;
   onExhale: string | null;
   needsReview: boolean;
+  drishtiOverride: Drishti | null;
 };
 type EditBlock = { uid: string; reps: number | null; items: EditItem[] };
 type EditRow = { uid: string; kind: "item"; item: EditItem } | { uid: string; kind: "block"; block: EditBlock };
@@ -92,6 +94,7 @@ function editItemFrom(it: {
   onInhale: string | null;
   onExhale: string | null;
   needsReview?: boolean;
+  drishtiOverride?: Drishti | null;
 }): EditItem {
   return {
     uid: uid(),
@@ -104,6 +107,7 @@ function editItemFrom(it: {
     onInhale: it.onInhale,
     onExhale: it.onExhale,
     needsReview: it.needsReview ?? false,
+    drishtiOverride: it.drishtiOverride ?? null,
   };
 }
 
@@ -596,6 +600,7 @@ export function SequenceEditor({
             onInhale: string | null;
             onExhale: string | null;
             needsReview: boolean;
+            drishtiOverride: Drishti | null;
           }[] = [];
           s.rows.forEach((row, rowIdx) => {
             if (row.kind === "item") {
@@ -611,6 +616,7 @@ export function SequenceEditor({
                 onInhale: row.item.onInhale,
                 onExhale: row.item.onExhale,
                 needsReview: row.item.needsReview,
+                drishtiOverride: row.item.drishtiOverride,
               });
             } else {
               blocks.push({ tempId: row.block.uid, reps: row.block.reps, position: rowIdx });
@@ -627,6 +633,7 @@ export function SequenceEditor({
                   onInhale: it.onInhale,
                   onExhale: it.onExhale,
                   needsReview: it.needsReview,
+                  drishtiOverride: it.drishtiOverride,
                 });
               });
             }
@@ -1217,6 +1224,36 @@ function ItemBreathSection({ item, onUpdate }: { item: EditItem; onUpdate: (patc
   );
 }
 
+// Drishti effettiva di una voce: l'eventuale sovrascrittura sulla singola
+// istanza vince su quella della posa collegata (a sua volta ereditata dal
+// padre per le varianti, vedi poseDisplayDrishti). Il picker mostra sempre
+// il valore effettivo; scegliere "Eredita dal catalogo" nel pannello annulla
+// la sovrascrittura tornando al valore del catalogo.
+function ItemDrishtiSection({
+  item,
+  pose,
+  parentPose,
+  onUpdate,
+}: {
+  item: EditItem;
+  pose?: PoseCatalogItem;
+  parentPose?: PoseCatalogItem;
+  onUpdate: (patch: Partial<EditItem>) => void;
+}) {
+  const catalogDrishti = pose ? poseDisplayDrishti(pose, parentPose) : null;
+  return (
+    <div className="mt-1.5" style={{ paddingLeft: 22 }}>
+      <DrishtiPicker
+        value={item.drishtiOverride}
+        inherited={catalogDrishti}
+        overrideLabel="solo qui"
+        onChange={(v) => onUpdate({ drishtiOverride: v })}
+        size="sm"
+      />
+    </div>
+  );
+}
+
 function SectionEditor({
   section,
   poseById,
@@ -1525,6 +1562,7 @@ function ItemRow({
       </div>
       <ItemMetaSection item={item} onUpdate={onUpdate} />
       <ItemBreathSection item={item} onUpdate={onUpdate} />
+      <ItemDrishtiSection item={item} pose={pose} parentPose={parentPose} onUpdate={onUpdate} />
     </div>
   );
 }

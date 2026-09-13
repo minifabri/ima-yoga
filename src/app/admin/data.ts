@@ -7,6 +7,7 @@ import type {
   ClassType,
   ClientItem,
   ClientNotice,
+  Drishti,
   EventBookingItem,
   EventBudget,
   EventItem,
@@ -1222,6 +1223,7 @@ function mapPoseCatalogItem(row: {
   image_url: string | null;
   parent_pose_id: string | null;
   variant_label: string | null;
+  drishti: Drishti | null;
 }): PoseCatalogItem {
   return {
     id: row.id,
@@ -1235,6 +1237,7 @@ function mapPoseCatalogItem(row: {
     imageUrl: row.image_url,
     parentPoseId: row.parent_pose_id,
     variantLabel: row.variant_label || "",
+    drishti: row.drishti,
   };
 }
 
@@ -1259,6 +1262,7 @@ export async function savePose(
     image_url: pose.imageUrl,
     parent_pose_id: pose.parentPoseId,
     variant_label: pose.variantLabel || "",
+    drishti: pose.drishti,
   };
   const query = pose.id
     ? supabase.from("poses").update(payload).eq("id", pose.id).select().single()
@@ -1289,6 +1293,7 @@ export async function bulkInsertPoses(
     image_url: p.imageUrl,
     parent_pose_id: p.parentPoseId,
     variant_label: p.variantLabel || "",
+    drishti: p.drishti,
   }));
   const { data, error } = await supabase.from("poses").insert(payload).select();
   if (error) throw error;
@@ -1371,6 +1376,7 @@ type SequenceRow = {
       on_inhale: string | null;
       on_exhale: string | null;
       needs_review: boolean;
+      drishti_override: Drishti | null;
     }[];
     sequence_item_blocks: {
       id: string;
@@ -1418,6 +1424,7 @@ function mapSequence(row: SequenceRow): Sequence {
             onInhale: it.on_inhale,
             onExhale: it.on_exhale,
             needsReview: it.needs_review,
+            drishtiOverride: it.drishti_override,
           })),
         blocks: (s.sequence_item_blocks || [])
           .slice()
@@ -1481,6 +1488,7 @@ export async function saveSequence(
         onInhale: string | null;
         onExhale: string | null;
         needsReview: boolean;
+        drishtiOverride: Drishti | null;
       }[];
     }[];
   }
@@ -1556,6 +1564,7 @@ export async function saveSequence(
           on_inhale: it.onInhale,
           on_exhale: it.onExhale,
           needs_review: it.needsReview,
+          drishti_override: it.drishtiOverride,
         }))
       );
       if (itemsError) throw itemsError;

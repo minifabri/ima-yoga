@@ -2,8 +2,9 @@
 
 import { createPortal } from "react-dom";
 import { COLORS } from "./colors";
-import { poseDisplayName, poseDisplayImage } from "./poseDisplay";
-import type { HoldUnit, PoseCatalogItem, Sequence } from "./types";
+import { DrishtiEyeIcon, DRISHTI_PRINT_PALETTE } from "./DrishtiEyeIcon";
+import { poseDisplayName, poseDisplayImage, poseDisplayDrishti, DRISHTI_LABELS } from "./poseDisplay";
+import type { Drishti, HoldUnit, PoseCatalogItem, Sequence } from "./types";
 
 // Blocco condiviso tra l'editor admin (SequenceEditor) e la vista di sola
 // lettura lato allievo (area/SequenceReadView): entrambi devono produrre lo
@@ -22,9 +23,10 @@ type SheetSourceItem = {
   holdUnit: HoldUnit | null;
   onInhale: string | null;
   onExhale: string | null;
+  drishtiOverride: Drishti | null;
 };
 
-export type SheetItem = { text: string; meta: string; note: string; breath: string; imageUrl: string | null };
+export type SheetItem = { text: string; meta: string; note: string; breath: string; imageUrl: string | null; drishti: Drishti | null };
 export type SheetRow = { kind: "item"; item: SheetItem } | { kind: "block"; reps: number | null; items: SheetItem[] };
 export type SheetSection = { label: string; rows: SheetRow[] };
 
@@ -54,6 +56,7 @@ export function toSheetItem(it: SheetSourceItem, poseById: Record<string, PoseCa
     meta: formatItemMeta(it.reps, it.holdValue, it.holdUnit),
     breath: formatBreathText(it.onInhale, it.onExhale),
     imageUrl: pose ? poseDisplayImage(pose, parent) : null,
+    drishti: it.drishtiOverride ?? (pose ? poseDisplayDrishti(pose, parent) : null),
   };
 }
 
@@ -99,16 +102,18 @@ export function buildSheetText(sections: SheetSection[], title: string) {
     s.rows.forEach((r) => {
       if (r.kind === "item") {
         const meta = r.item.meta ? ` [${r.item.meta}]` : "";
+        const drishti = r.item.drishti ? ` (sguardo: ${DRISHTI_LABELS[r.item.drishti].detail})` : "";
         const breath = r.item.breath ? `  {${r.item.breath}}` : "";
         const note = r.item.note ? `  (${r.item.note})` : "";
-        lines.push(`- ${r.item.text}${meta}${breath}${note}`);
+        lines.push(`- ${r.item.text}${meta}${drishti}${breath}${note}`);
       } else if (r.items.length > 0) {
         lines.push(`  Ripeti ×${r.reps ?? "?"}:`);
         r.items.forEach((it) => {
           const meta = it.meta ? ` [${it.meta}]` : "";
+          const drishti = it.drishti ? ` (sguardo: ${DRISHTI_LABELS[it.drishti].detail})` : "";
           const breath = it.breath ? `  {${it.breath}}` : "";
           const note = it.note ? `  (${it.note})` : "";
-          lines.push(`  - ${it.text}${meta}${breath}${note}`);
+          lines.push(`  - ${it.text}${meta}${drishti}${breath}${note}`);
         });
       }
     });
@@ -163,6 +168,11 @@ export function SheetItemRow({ item }: { item: SheetItem }) {
           <span style={{ fontFamily: "var(--font-display)" }}>
             {item.text}
             {item.meta && <span style={{ fontFamily: "inherit", fontWeight: 600, color: COLORS.primaryDark, fontSize: 11.5 }}> · {item.meta}</span>}
+            {item.drishti && (
+              <span className="inline-flex items-center gap-1" style={{ fontFamily: "inherit", fontWeight: 600, color: COLORS.primaryDark, fontSize: 11.5, marginLeft: 6 }}>
+                <DrishtiEyeIcon size={10} /> {DRISHTI_LABELS[item.drishti].detail}
+              </span>
+            )}
           </span>
           {item.note && <span style={{ color: COLORS.inkSoft, fontSize: 12, textAlign: "right" }}>{item.note}</span>}
         </div>
@@ -183,6 +193,11 @@ function SheetItemPrintRow({ item }: { item: SheetItem }) {
         <div className="p-text">
           <span>
             {item.text} {item.meta && <span className="p-meta">· {item.meta}</span>}
+            {item.drishti && (
+              <span className="p-drishti">
+                <DrishtiEyeIcon size={10} palette={DRISHTI_PRINT_PALETTE} /> {DRISHTI_LABELS[item.drishti].detail}
+              </span>
+            )}
           </span>
           {item.note && <span className="p-note">{item.note}</span>}
         </div>
@@ -217,6 +232,7 @@ export function PrintSheet({ title, sheetSections }: { title: string; sheetSecti
           #sequence-print-sheet .p-thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: #DFD5EE; flex-shrink: 0; }
           #sequence-print-sheet .p-text { display: flex; justify-content: space-between; gap: 14px; flex: 1; }
           #sequence-print-sheet .p-meta { color: #9C4FA0; font-weight: 600; font-size: 0.78rem; }
+          #sequence-print-sheet .p-drishti { display: inline-flex; align-items: center; gap: 3px; color: #9C4FA0; font-weight: 600; font-size: 0.78rem; margin-left: 6px; }
           #sequence-print-sheet .p-note { color: #5C5470; font-size: 0.85rem; text-align: right; }
           #sequence-print-sheet .p-breath { color: #9C4FA0; font-size: 0.78rem; margin-top: 2px; }
         }
