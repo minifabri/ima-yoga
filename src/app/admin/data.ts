@@ -1377,12 +1377,14 @@ type SequenceRow = {
       on_exhale: string | null;
       needs_review: boolean;
       drishti_override: Drishti | null;
+      repeat_other_side: boolean;
     }[];
     sequence_item_blocks: {
       id: string;
       section_id: string;
       reps: number | null;
       position: number;
+      repeat_other_side: boolean;
     }[];
   }[];
 };
@@ -1425,11 +1427,12 @@ function mapSequence(row: SequenceRow): Sequence {
             onExhale: it.on_exhale,
             needsReview: it.needs_review,
             drishtiOverride: it.drishti_override,
+            repeatOtherSide: it.repeat_other_side,
           })),
         blocks: (s.sequence_item_blocks || [])
           .slice()
           .sort((a, b) => a.position - b.position)
-          .map((b) => ({ id: b.id, sectionId: b.section_id, reps: b.reps, position: b.position })),
+          .map((b) => ({ id: b.id, sectionId: b.section_id, reps: b.reps, position: b.position, repeatOtherSide: b.repeat_other_side })),
       })),
   };
 }
@@ -1475,7 +1478,7 @@ export async function saveSequence(
       label: string;
       position: number;
       enabled: boolean;
-      blocks: { tempId: string; reps: number | null; position: number }[];
+      blocks: { tempId: string; reps: number | null; position: number; repeatOtherSide: boolean }[];
       items: {
         blockTempId: string | null;
         poseId: string | null;
@@ -1489,6 +1492,7 @@ export async function saveSequence(
         onExhale: string | null;
         needsReview: boolean;
         drishtiOverride: Drishti | null;
+        repeatOtherSide: boolean;
       }[];
     }[];
   }
@@ -1542,7 +1546,7 @@ export async function saveSequence(
     for (const b of section.blocks) {
       const { data: blockRow, error: blockError } = await supabase
         .from("sequence_item_blocks")
-        .insert({ section_id: sectionRow.id, reps: b.reps, position: b.position })
+        .insert({ section_id: sectionRow.id, reps: b.reps, position: b.position, repeat_other_side: b.repeatOtherSide })
         .select()
         .single();
       if (blockError) throw blockError;
@@ -1565,6 +1569,7 @@ export async function saveSequence(
           on_exhale: it.onExhale,
           needs_review: it.needsReview,
           drishti_override: it.drishtiOverride,
+          repeat_other_side: it.repeatOtherSide,
         }))
       );
       if (itemsError) throw itemsError;
@@ -1572,6 +1577,46 @@ export async function saveSequence(
   }
 
   return fetchSequence(supabase, seqRow.id);
+}
+
+// Duplica un'intera sequenza salvata (tutte le sezioni, blocchi e item) come
+// bozza indipendente: nome con suffisso "(copia)", nessun allievo assegnato
+// (per non ritrovarsi due sequenze uguali già visibili allo stesso allievo) e
+// non pubblica, anche se l'originale lo era.
+export async function duplicateSequence(supabase: DB, sequence: Sequence): Promise<Sequence> {
+  const sections = sequence.sections.map((section) => {
+    const blockTempIdByDbId = new Map<string, string>();
+    const blocks = section.blocks.map((b) => {
+      const tempId = `dup-${b.id}`;
+      blockTempIdByDbId.set(b.id, tempId);
+      return { tempId, reps: b.reps, position: b.position, repeatOtherSide: b.repeatOtherSide };
+    });
+    const items = section.items.map((it) => ({
+      blockTempId: it.blockId ? (blockTempIdByDbId.get(it.blockId) ?? null) : null,
+      poseId: it.poseId,
+      customLabel: it.customLabel,
+      note: it.note,
+      position: it.position,
+      reps: it.reps,
+      holdValue: it.holdValue,
+      holdUnit: it.holdUnit,
+      onInhale: it.onInhale,
+      onExhale: it.onExhale,
+      needsReview: it.needsReview,
+      drishtiOverride: it.drishtiOverride,
+      repeatOtherSide: it.repeatOtherSide,
+    }));
+    return { kind: section.kind, label: section.label, position: section.position, enabled: section.enabled, blocks, items };
+  });
+
+  return saveSequence(supabase, {
+    classTypeId: sequence.classTypeId,
+    clientIds: [],
+    guestName: "",
+    name: `${sequence.name || "Sequenza"} (copia)`,
+    isPublic: false,
+    sections,
+  });
 }
 
 export async function deleteSequence(supabase: DB, id: string) {

@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { COLORS } from "./colors";
 import { DrishtiEyeIcon, DRISHTI_PRINT_PALETTE } from "./DrishtiEyeIcon";
 import { poseDisplayName, poseDisplayImage, poseDisplayDrishti, DRISHTI_LABELS } from "./poseDisplay";
+import { swapSides } from "./utils";
 import type { Drishti, HoldUnit, PoseCatalogItem, Sequence } from "./types";
 
 // Blocco condiviso tra l'editor admin (SequenceEditor) e la vista di sola
@@ -24,6 +25,7 @@ type SheetSourceItem = {
   onInhale: string | null;
   onExhale: string | null;
   drishtiOverride: Drishti | null;
+  repeatOtherSide: boolean;
 };
 
 export type SheetItem = { text: string; meta: string; note: string; breath: string; imageUrl: string | null; drishti: Drishti | null };
@@ -60,6 +62,32 @@ export function toSheetItem(it: SheetSourceItem, poseById: Record<string, PoseCa
   };
 }
 
+// Gemello speculare di una voce già formattata: stessa posa/foto (il catalogo
+// non è lateralizzato) ma testo/nota/respiro con dx/sx scambiati — usato per
+// "ripeti anche dall'altro lato" (vedi sotto), mai salvato, solo per la resa.
+function mirrorSheetItem(item: SheetItem): SheetItem {
+  return { ...item, text: swapSides(item.text), note: swapSides(item.note), breath: swapSides(item.breath) };
+}
+
+// Una voce con `repeatOtherSide` produce sé stessa più il gemello speculare,
+// subito dopo, senza duplicare nulla nei dati salvati — sia in scheda
+// stampata sia nel testo copiabile, dato che entrambi partono da qui.
+export function expandSheetItem(it: SheetSourceItem, poseById: Record<string, PoseCatalogItem>): SheetItem[] {
+  const base = toSheetItem(it, poseById);
+  return it.repeatOtherSide ? [base, mirrorSheetItem(base)] : [base];
+}
+
+// Come expandSheetItem ma per un intero blocco ripetuto: se il blocco stesso
+// è marcato "ripeti anche dall'altro lato", l'intero set di item (già
+// eventualmente espansi item per item) viene mostrato una seconda volta
+// specchiato, come un secondo blocco "Ripeti ×N" subito sotto.
+export function expandBlockSheetRows(items: SheetSourceItem[], reps: number | null, blockRepeatOtherSide: boolean, poseById: Record<string, PoseCatalogItem>): SheetRow[] {
+  const expandedItems = items.flatMap((it) => expandSheetItem(it, poseById));
+  const rows: SheetRow[] = [{ kind: "block", reps, items: expandedItems }];
+  if (blockRepeatOtherSide) rows.push({ kind: "block", reps, items: expandedItems.map(mirrorSheetItem) });
+  return rows;
+}
+
 // Ricostruisce le righe della scheda direttamente dalla sequenza già salvata
 // (sezioni/item/blocchi con id stabili), senza passare dallo stato "live" di
 // editing — serve alla vista di sola lettura, che non apre mai l'editor.
@@ -67,21 +95,19 @@ export function sheetSectionsFromSequence(sequence: Sequence, poseById: Record<s
   return sequence.sections
     .filter((s) => s.enabled)
     .map((s) => {
-      const blockById = new Map<string, { reps: number | null; items: SheetItem[] }>();
-      s.blocks.forEach((b) => blockById.set(b.id, { reps: b.reps, items: [] }));
+      const blockById = new Map<string, { position: number; reps: number | null; repeatOtherSide: boolean; sourceItems: SheetSourceItem[] }>();
+      s.blocks.forEach((b) => blockById.set(b.id, { position: b.position, reps: b.reps, repeatOtherSide: b.repeatOtherSide, sourceItems: [] }));
 
       const positional: { position: number; row: SheetRow }[] = [];
-      s.blocks.forEach((b) => {
-        const block = blockById.get(b.id)!;
-        positional.push({ position: b.position, row: { kind: "block", reps: block.reps, items: block.items } });
-      });
       s.items.forEach((it) => {
-        const sheetItem = toSheetItem(it, poseById);
         if (it.blockId && blockById.has(it.blockId)) {
-          blockById.get(it.blockId)!.items.push(sheetItem);
+          blockById.get(it.blockId)!.sourceItems.push(it);
         } else {
-          positional.push({ position: it.position, row: { kind: "item", item: sheetItem } });
+          expandSheetItem(it, poseById).forEach((item) => positional.push({ position: it.position, row: { kind: "item", item } }));
         }
+      });
+      blockById.forEach((block) => {
+        expandBlockSheetRows(block.sourceItems, block.reps, block.repeatOtherSide, poseById).forEach((row) => positional.push({ position: block.position, row }));
       });
       positional.sort((a, b) => a.position - b.position);
 

@@ -6,6 +6,7 @@ import {
   AlertCircle,
   Bell,
   BookOpen,
+  BookPlus,
   Check,
   ChevronDown,
   ChevronUp,
@@ -18,10 +19,12 @@ import {
   Plus,
   RefreshCw,
   Repeat,
+  Repeat2,
   Search,
   Share2,
   Sparkles,
   Trash2,
+  Undo2,
   UserCheck,
   X,
 } from "lucide-react";
@@ -49,7 +52,7 @@ import { DrishtiPicker } from "./DrishtiPicker";
 import { EmailPreviewModal } from "./EmailPreviewModal";
 import { sequenceAssignedEmailHtml } from "@/lib/emailTemplates";
 import { poseDisplayName, poseDisplayNameIt, poseDisplayImage, poseDisplayDrishti } from "./poseDisplay";
-import { PrintSheet, SheetItemRow, buildSheetText, toSheetItem, type SheetRow } from "./sequenceSheet";
+import { PrintSheet, SheetItemRow, buildSheetText, expandSheetItem, expandBlockSheetRows, type SheetRow } from "./sequenceSheet";
 
 function parentOfPose(poseById: Record<string, PoseCatalogItem>, pose: PoseCatalogItem | undefined): PoseCatalogItem | undefined {
   return pose?.parentPoseId ? poseById[pose.parentPoseId] : undefined;
@@ -68,8 +71,9 @@ type EditItem = {
   onExhale: string | null;
   needsReview: boolean;
   drishtiOverride: Drishti | null;
+  repeatOtherSide: boolean;
 };
-type EditBlock = { uid: string; reps: number | null; items: EditItem[] };
+type EditBlock = { uid: string; reps: number | null; items: EditItem[]; repeatOtherSide: boolean };
 type EditRow = { uid: string; kind: "item"; item: EditItem } | { uid: string; kind: "block"; block: EditBlock };
 type EditSection = { uid: string; kind: SectionKind; label: string; enabled: boolean; rows: EditRow[] };
 
@@ -83,6 +87,7 @@ const PALETTE_WIDTH_STORAGE_KEY = "ima-yoga:sequence-editor:palette-width";
 const DEFAULT_PALETTE_WIDTH = 260;
 const MIN_PALETTE_WIDTH = 220;
 const MAX_PALETTE_WIDTH = 480;
+const MAX_UNDO_STEPS = 20;
 
 function editItemFrom(it: {
   poseId: string | null;
@@ -95,6 +100,7 @@ function editItemFrom(it: {
   onExhale: string | null;
   needsReview?: boolean;
   drishtiOverride?: Drishti | null;
+  repeatOtherSide?: boolean;
 }): EditItem {
   return {
     uid: uid(),
@@ -108,6 +114,7 @@ function editItemFrom(it: {
     onExhale: it.onExhale,
     needsReview: it.needsReview ?? false,
     drishtiOverride: it.drishtiOverride ?? null,
+    repeatOtherSide: it.repeatOtherSide ?? false,
   };
 }
 
@@ -145,7 +152,11 @@ function cloneSection(section: EditSection, opts: { mirror: boolean }): EditSect
         return { uid: clone.uid, kind: "item", item: clone };
       }
       const blockUid = uid();
-      return { uid: blockUid, kind: "block", block: { uid: blockUid, reps: row.block.reps, items: row.block.items.map((it) => cloneEditItem(it, transform)) } };
+      return {
+        uid: blockUid,
+        kind: "block",
+        block: { uid: blockUid, reps: row.block.reps, repeatOtherSide: row.block.repeatOtherSide, items: row.block.items.map((it) => cloneEditItem(it, transform)) },
+      };
     }),
   };
 }
@@ -153,7 +164,7 @@ function cloneSection(section: EditSection, opts: { mirror: boolean }): EditSect
 function sectionsFromSequence(sequence: Sequence): EditSection[] {
   return sequence.sections.map((s) => {
     const blocksByDbId = new Map<string, EditBlock>();
-    s.blocks.forEach((b) => blocksByDbId.set(b.id, { uid: uid(), reps: b.reps, items: [] }));
+    s.blocks.forEach((b) => blocksByDbId.set(b.id, { uid: uid(), reps: b.reps, repeatOtherSide: b.repeatOtherSide, items: [] }));
 
     const positional: { position: number; row: EditRow }[] = [];
     s.blocks.forEach((b) => {
@@ -215,6 +226,21 @@ export function SequenceEditor({
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const clientPickerRef = useRef<HTMLDivElement>(null);
   const [sections, setSections] = useState<EditSection[]>(sequence ? sectionsFromSequence(sequence) : []);
+  // Cronologia per "Annulla": stesso pattern dello stack snapshot del generatore
+  // di thumbnail (PoseThumbnailGenerator) — salva lo stato precedente prima di
+  // ogni modifica utente, LRU a MAX_UNDO_STEPS. I caricamenti automatici
+  // (sectionsFromTemplate/reset) usano setSections diretto e azzerano lo stack.
+  const [undoStack, setUndoStack] = useState<EditSection[][]>([]);
+  function setSectionsWithHistory(updater: EditSection[] | ((cur: EditSection[]) => EditSection[])) {
+    setUndoStack((stack) => [...stack, sections].slice(-MAX_UNDO_STEPS));
+    setSections(updater);
+  }
+  function handleUndo() {
+    if (undoStack.length === 0) return;
+    const previous = undoStack[undoStack.length - 1];
+    setUndoStack((stack) => stack.slice(0, -1));
+    setSections(previous);
+  }
   const [loadingTemplate, setLoadingTemplate] = useState(!sequence);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -225,6 +251,15 @@ export function SequenceEditor({
   const [isMobile, setIsMobile] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<{ sectionUid: string; blockUid: string | null; itemUid?: string } | null>(null);
   const [editingPose, setEditingPose] = useState<PoseCatalogItem | null>(null);
+  // Voce custom ("+ voce libera", tipicamente da un'ingestione da sequenza
+  // cartacea) che l'insegnante ha scelto di "promuovere" a posizione vera del
+  // catalogo — es. per poterle assegnare una foto. Resta testo libero finché
+  // non viene promossa esplicitamente: niente promozione automatica, per non
+  // sporcare il catalogo di varianti/refusi one-off.
+  const [promotingItem, setPromotingItem] = useState<{ sectionUid: string; blockUid: string | null; itemUid: string; label: string } | null>(null);
+  function promoteCustomItem(sectionUid: string, blockUid: string | null, itemUid: string, label: string) {
+    setPromotingItem({ sectionUid, blockUid, itemUid, label });
+  }
   const [paletteWidth, setPaletteWidth] = useState<number>(DEFAULT_PALETTE_WIDTH);
 
   const poseById = useMemo(() => Object.fromEntries(poseCatalog.map((p) => [p.id, p])), [poseCatalog]);
@@ -279,10 +314,16 @@ export function SequenceEditor({
     setLoadingTemplate(true);
     fetchSequenceTemplate(supabase, classTypeId)
       .then((t) => {
-        if (!cancelled) setSections(sectionsFromTemplate(t));
+        if (!cancelled) {
+          setSections(sectionsFromTemplate(t));
+          setUndoStack([]);
+        }
       })
       .catch(() => {
-        if (!cancelled) setSections([]);
+        if (!cancelled) {
+          setSections([]);
+          setUndoStack([]);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingTemplate(false);
@@ -326,10 +367,98 @@ export function SequenceEditor({
   }
 
   function reorderSectionsByUid(activeUid: string, overUid: string) {
-    setSections((cur) => {
+    setSectionsWithHistory((cur) => {
       const from = cur.findIndex((s) => s.uid === activeUid);
       const to = cur.findIndex((s) => s.uid === overUid);
       return from < 0 || to < 0 ? cur : arrayMove(cur, from, to);
+    });
+  }
+
+  // Sezioni, blocchi e item condividono ormai un unico DndContext (vedi sotto):
+  // solo così un item può essere trascinato fuori dal suo blocco/sezione di
+  // partenza e sganciato in un altro. Ogni sortable porta un `data.type` per
+  // sapere cosa si sta trascinando; queste due funzioni interpretano l'`over`
+  // per capire dove deve atterrare.
+  type DragMeta = { type?: "palette" | "section" | "block" | "item"; pose?: PoseCatalogItem; sectionUid?: string; blockUid?: string | null };
+
+  function resolveItemDropTarget(overId: string, overData: DragMeta | undefined): { sectionUid: string; blockUid: string | null; overUid: string | null } | null {
+    if (overId.startsWith("block-drop:")) {
+      const [, sUid, bUid] = overId.split(":");
+      return { sectionUid: sUid, blockUid: bUid, overUid: null };
+    }
+    if (overId.startsWith("section-drop:")) {
+      return { sectionUid: overId.slice("section-drop:".length), blockUid: null, overUid: null };
+    }
+    if (overData?.type === "item" && overData.sectionUid) return { sectionUid: overData.sectionUid, blockUid: overData.blockUid ?? null, overUid: overId };
+    if (overData?.type === "block" && overData.sectionUid) return { sectionUid: overData.sectionUid, blockUid: overId, overUid: null };
+    if (overData?.type === "section") return { sectionUid: overId, blockUid: null, overUid: null };
+    return null;
+  }
+
+  // Un blocco resta trascinabile solo tra le righe della propria sezione (come
+  // prima): se il punto di rilascio ricade su un item interno a un altro
+  // blocco, si usa il blocco che lo contiene come riferimento di riga.
+  function resolveBlockDropRowUid(overId: string, overData: DragMeta | undefined, activeSectionUid: string): string | null {
+    if (overId.startsWith("block-drop:")) {
+      const [, sUid, bUid] = overId.split(":");
+      return sUid === activeSectionUid ? bUid : null;
+    }
+    if (overData?.type === "block" && overData.sectionUid === activeSectionUid) return overId;
+    if (overData?.type === "item" && overData.sectionUid === activeSectionUid) return overData.blockUid ?? overId;
+    return null;
+  }
+
+  // Sposta un item ovunque: da/verso una riga libera di sezione o da/verso un
+  // blocco, anche cambiando sezione. Un solo passaggio "rimuovi poi inserisci"
+  // così non serve più distinguere riordino nello stesso contenitore da
+  // spostamento tra contenitori diversi.
+  function moveItem(activeUid: string, destSectionUid: string, destBlockUid: string | null, overUid: string | null) {
+    setSectionsWithHistory((cur) => {
+      let moved: EditItem | null = null;
+      const withoutItem = cur.map((s) => ({
+        ...s,
+        rows: s.rows
+          .map((r) => {
+            if (r.kind === "item" && r.item.uid === activeUid) {
+              moved = r.item;
+              return null;
+            }
+            if (r.kind === "block") {
+              const idx = r.block.items.findIndex((it) => it.uid === activeUid);
+              if (idx >= 0) {
+                moved = r.block.items[idx];
+                return { ...r, block: { ...r.block, items: r.block.items.filter((it) => it.uid !== activeUid) } };
+              }
+            }
+            return r;
+          })
+          .filter((r): r is EditRow => r !== null),
+      }));
+      if (!moved) return cur;
+      const movedItem = moved as EditItem;
+
+      return withoutItem.map((s) => {
+        if (s.uid !== destSectionUid) return s;
+        if (destBlockUid === null) {
+          const overIdx = overUid ? s.rows.findIndex((r) => r.uid === overUid) : -1;
+          const newRow: EditRow = { uid: movedItem.uid, kind: "item", item: movedItem };
+          const rows = [...s.rows];
+          if (overIdx >= 0) rows.splice(overIdx, 0, newRow);
+          else rows.push(newRow);
+          return { ...s, rows };
+        }
+        return {
+          ...s,
+          rows: s.rows.map((r) => {
+            if (r.kind !== "block" || r.block.uid !== destBlockUid) return r;
+            const items = [...r.block.items];
+            const overIdx = overUid ? items.findIndex((it) => it.uid === overUid) : -1;
+            if (overIdx >= 0) items.splice(overIdx, 0, movedItem);
+            else items.push(movedItem);
+            return { ...r, block: { ...r.block, items } };
+          }),
+        };
+      });
     });
   }
 
@@ -337,25 +466,60 @@ export function SequenceEditor({
     const { active, over } = e;
     setActiveDragPose(null);
     if (!over) return;
-    const activeData = active.data.current as { type?: string; pose?: PoseCatalogItem } | undefined;
+    const activeData = active.data.current as DragMeta | undefined;
+    const overData = over.data.current as DragMeta | undefined;
+    const overId = String(over.id);
+
     if (activeData?.type === "palette" && activeData.pose) {
-      const overId = String(over.id);
       if (overId.startsWith("block-drop:")) {
         const [, sUid, bUid] = overId.split(":");
         addPoseItem(sUid, bUid, activeData.pose);
       } else if (overId.startsWith("section-drop:")) {
         addPoseItem(overId.slice("section-drop:".length), null, activeData.pose);
+      } else {
+        const target = resolveItemDropTarget(overId, overData);
+        if (target) addPoseItem(target.sectionUid, target.blockUid, activeData.pose);
       }
       return;
     }
+
     if (active.id === over.id) return;
-    reorderSectionsByUid(String(active.id), String(over.id));
+
+    if (activeData?.type === "section") {
+      reorderSectionsByUid(String(active.id), overId);
+      return;
+    }
+    if (activeData?.type === "block" && activeData.sectionUid) {
+      const rowUid = resolveBlockDropRowUid(overId, overData, activeData.sectionUid);
+      if (rowUid) moveRow(activeData.sectionUid, String(active.id), rowUid);
+      return;
+    }
+    if (activeData?.type === "item") {
+      const target = resolveItemDropTarget(overId, overData);
+      if (target) moveItem(String(active.id), target.sectionUid, target.blockUid, target.overUid);
+    }
   }
 
-  function handleMobileSectionsDragEnd(e: DragEndEvent) {
+  function handleMobileDragEnd(e: DragEndEvent) {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
-    reorderSectionsByUid(String(active.id), String(over.id));
+    const activeData = active.data.current as DragMeta | undefined;
+    const overData = over.data.current as DragMeta | undefined;
+    const overId = String(over.id);
+
+    if (activeData?.type === "section") {
+      reorderSectionsByUid(String(active.id), overId);
+      return;
+    }
+    if (activeData?.type === "block" && activeData.sectionUid) {
+      const rowUid = resolveBlockDropRowUid(overId, overData, activeData.sectionUid);
+      if (rowUid) moveRow(activeData.sectionUid, String(active.id), rowUid);
+      return;
+    }
+    if (activeData?.type === "item") {
+      const target = resolveItemDropTarget(overId, overData);
+      if (target) moveItem(String(active.id), target.sectionUid, target.blockUid, target.overUid);
+    }
   }
 
   function handlePaletteResizeStart(e: ReactPointerEvent<HTMLDivElement>) {
@@ -383,7 +547,7 @@ export function SequenceEditor({
   }
 
   function moveRow(sectionUid: string, activeUid: string, overUid: string) {
-    setSections((cur) =>
+    setSectionsWithHistory((cur) =>
       cur.map((s) => {
         if (s.uid !== sectionUid) return s;
         const from = s.rows.findIndex((r) => r.uid === activeUid);
@@ -393,7 +557,7 @@ export function SequenceEditor({
     );
   }
   function moveRowByIndex(sectionUid: string, idx: number, delta: number) {
-    setSections((cur) =>
+    setSectionsWithHistory((cur) =>
       cur.map((s) => {
         if (s.uid !== sectionUid) return s;
         const to = idx + delta;
@@ -402,7 +566,7 @@ export function SequenceEditor({
     );
   }
   function moveItemInBlockByIndex(sectionUid: string, blockUid: string, idx: number, delta: number) {
-    setSections((cur) =>
+    setSectionsWithHistory((cur) =>
       cur.map((s) => {
         if (s.uid !== sectionUid) return s;
         return {
@@ -417,37 +581,21 @@ export function SequenceEditor({
       })
     );
   }
-  function moveItemInBlockByUid(sectionUid: string, blockUid: string, activeUid: string, overUid: string) {
-    setSections((cur) =>
-      cur.map((s) => {
-        if (s.uid !== sectionUid) return s;
-        return {
-          ...s,
-          rows: s.rows.map((r) => {
-            if (r.kind !== "block" || r.block.uid !== blockUid) return r;
-            const from = r.block.items.findIndex((it) => it.uid === activeUid);
-            const to = r.block.items.findIndex((it) => it.uid === overUid);
-            return from < 0 || to < 0 ? r : { ...r, block: { ...r.block, items: arrayMove(r.block.items, from, to) } };
-          }),
-        };
-      })
-    );
-  }
 
   function toggleSection(sectionUid: string, enabled: boolean) {
-    setSections((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, enabled } : s)));
+    setSectionsWithHistory((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, enabled } : s)));
   }
   function renameSection(sectionUid: string, label: string) {
-    setSections((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, label } : s)));
+    setSectionsWithHistory((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, label } : s)));
   }
   function removeSection(sectionUid: string) {
-    setSections((cur) => cur.filter((s) => s.uid !== sectionUid));
+    setSectionsWithHistory((cur) => cur.filter((s) => s.uid !== sectionUid));
   }
   function addCustomSection() {
-    setSections((cur) => [...cur, { uid: uid(), kind: "custom", label: "Nuova sezione", enabled: true, rows: [] }]);
+    setSectionsWithHistory((cur) => [...cur, { uid: uid(), kind: "custom", label: "Nuova sezione", enabled: true, rows: [] }]);
   }
   function duplicateSection(sectionUid: string, mirror: boolean) {
-    setSections((cur) => {
+    setSectionsWithHistory((cur) => {
       const idx = cur.findIndex((s) => s.uid === sectionUid);
       if (idx < 0) return cur;
       const clone = cloneSection(cur[idx], { mirror });
@@ -457,7 +605,7 @@ export function SequenceEditor({
     });
   }
   function moveSectionByIndex(idx: number, delta: number) {
-    setSections((cur) => {
+    setSectionsWithHistory((cur) => {
       const to = idx + delta;
       return to < 0 || to >= cur.length ? cur : arrayMove(cur, idx, to);
     });
@@ -465,7 +613,7 @@ export function SequenceEditor({
 
   function addPoseItem(sectionUid: string, blockUid: string | null, pose: PoseCatalogItem) {
     const newItem = editItemFrom({ poseId: pose.id, customLabel: "", note: "", reps: null, holdValue: null, holdUnit: null, onInhale: null, onExhale: null });
-    setSections((cur) =>
+    setSectionsWithHistory((cur) =>
       cur.map((s) => {
         if (s.uid !== sectionUid) return s;
         if (blockUid === null) return { ...s, rows: [...s.rows, { uid: newItem.uid, kind: "item", item: newItem }] };
@@ -477,7 +625,7 @@ export function SequenceEditor({
   // durata e tag respiro: a differenza di "rimuovi e riaggiungi" non fa
   // perdere il resto dei dati già inseriti sulla riga.
   function replaceItemPose(sectionUid: string, blockUid: string | null, itemUid: string, pose: PoseCatalogItem) {
-    setSections((cur) =>
+    setSectionsWithHistory((cur) =>
       cur.map((s) => {
         if (s.uid !== sectionUid) return s;
         if (blockUid === null) {
@@ -497,7 +645,7 @@ export function SequenceEditor({
   function addCustomItem(sectionUid: string, blockUid: string | null, label: string) {
     if (!label.trim()) return;
     const newItem = editItemFrom({ poseId: null, customLabel: label.trim(), note: "", reps: null, holdValue: null, holdUnit: null, onInhale: null, onExhale: null });
-    setSections((cur) =>
+    setSectionsWithHistory((cur) =>
       cur.map((s) => {
         if (s.uid !== sectionUid) return s;
         if (blockUid === null) return { ...s, rows: [...s.rows, { uid: newItem.uid, kind: "item", item: newItem }] };
@@ -506,7 +654,7 @@ export function SequenceEditor({
     );
   }
   function updateItem(sectionUid: string, blockUid: string | null, itemUid: string, patch: Partial<EditItem>) {
-    setSections((cur) =>
+    setSectionsWithHistory((cur) =>
       cur.map((s) => {
         if (s.uid !== sectionUid) return s;
         if (blockUid === null) return { ...s, rows: s.rows.map((r) => (r.kind === "item" && r.item.uid === itemUid ? { ...r, item: { ...r.item, ...patch } } : r)) };
@@ -522,7 +670,7 @@ export function SequenceEditor({
     );
   }
   function removeItem(sectionUid: string, blockUid: string | null, itemUid: string) {
-    setSections((cur) =>
+    setSectionsWithHistory((cur) =>
       cur.map((s) => {
         if (s.uid !== sectionUid) return s;
         if (blockUid === null) return { ...s, rows: s.rows.filter((r) => !(r.kind === "item" && r.item.uid === itemUid)) };
@@ -536,13 +684,24 @@ export function SequenceEditor({
 
   function addBlock(sectionUid: string) {
     const blockUid = uid();
-    setSections((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, rows: [...s.rows, { uid: blockUid, kind: "block", block: { uid: blockUid, reps: 3, items: [] } }] } : s)));
+    setSectionsWithHistory((cur) =>
+      cur.map((s) => (s.uid === sectionUid ? { ...s, rows: [...s.rows, { uid: blockUid, kind: "block", block: { uid: blockUid, reps: 3, repeatOtherSide: false, items: [] } }] } : s))
+    );
+  }
+  function toggleBlockRepeatOtherSide(sectionUid: string, blockUid: string) {
+    setSectionsWithHistory((cur) =>
+      cur.map((s) =>
+        s.uid === sectionUid
+          ? { ...s, rows: s.rows.map((r) => (r.kind === "block" && r.block.uid === blockUid ? { ...r, block: { ...r.block, repeatOtherSide: !r.block.repeatOtherSide } } : r)) }
+          : s
+      )
+    );
   }
   function removeBlock(sectionUid: string, blockUid: string) {
-    setSections((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, rows: s.rows.filter((r) => r.uid !== blockUid) } : s)));
+    setSectionsWithHistory((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, rows: s.rows.filter((r) => r.uid !== blockUid) } : s)));
   }
   function updateBlockReps(sectionUid: string, blockUid: string, reps: number | null) {
-    setSections((cur) =>
+    setSectionsWithHistory((cur) =>
       cur.map((s) => (s.uid === sectionUid ? { ...s, rows: s.rows.map((r) => (r.kind === "block" && r.block.uid === blockUid ? { ...r, block: { ...r.block, reps } } : r)) } : s))
     );
   }
@@ -565,11 +724,11 @@ export function SequenceEditor({
         .filter((s) => s.enabled)
         .map((s) => ({
           label: s.label,
-          rows: s.rows.map(
-            (r): SheetRow =>
+          rows: s.rows.flatMap(
+            (r): SheetRow[] =>
               r.kind === "item"
-                ? { kind: "item", item: toSheetItem(r.item, poseById) }
-                : { kind: "block", reps: r.block.reps, items: r.block.items.map((it) => toSheetItem(it, poseById)) }
+                ? expandSheetItem(r.item, poseById).map((item) => ({ kind: "item", item }))
+                : expandBlockSheetRows(r.block.items, r.block.reps, r.block.repeatOtherSide, poseById)
           ),
         })),
     [sections, poseById]
@@ -587,7 +746,7 @@ export function SequenceEditor({
         name: name.trim() || "Sequenza senza nome",
         isPublic,
         sections: sections.map((s, sIdx) => {
-          const blocks: { tempId: string; reps: number | null; position: number }[] = [];
+          const blocks: { tempId: string; reps: number | null; position: number; repeatOtherSide: boolean }[] = [];
           const items: {
             blockTempId: string | null;
             poseId: string | null;
@@ -601,6 +760,7 @@ export function SequenceEditor({
             onExhale: string | null;
             needsReview: boolean;
             drishtiOverride: Drishti | null;
+            repeatOtherSide: boolean;
           }[] = [];
           s.rows.forEach((row, rowIdx) => {
             if (row.kind === "item") {
@@ -617,9 +777,10 @@ export function SequenceEditor({
                 onExhale: row.item.onExhale,
                 needsReview: row.item.needsReview,
                 drishtiOverride: row.item.drishtiOverride,
+                repeatOtherSide: row.item.repeatOtherSide,
               });
             } else {
-              blocks.push({ tempId: row.block.uid, reps: row.block.reps, position: rowIdx });
+              blocks.push({ tempId: row.block.uid, reps: row.block.reps, position: rowIdx, repeatOtherSide: row.block.repeatOtherSide });
               row.block.items.forEach((it, itemIdx) => {
                 items.push({
                   blockTempId: row.block.uid,
@@ -634,6 +795,7 @@ export function SequenceEditor({
                   onExhale: it.onExhale,
                   needsReview: it.needsReview,
                   drishtiOverride: it.drishtiOverride,
+                  repeatOtherSide: it.repeatOtherSide,
                 });
               });
             }
@@ -859,7 +1021,7 @@ export function SequenceEditor({
         </div>
       ) : isMobile ? (
         <div className="mb-3">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleMobileSectionsDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleMobileDragEnd}>
             <SortableContext items={sections.map((s) => s.uid)} strategy={verticalListSortingStrategy}>
               <div className="flex flex-col gap-2.5 mb-3">
                 {sections.map((section, idx) => (
@@ -877,16 +1039,16 @@ export function SequenceEditor({
                     onDuplicate={() => duplicateSection(section.uid, false)}
                     onDuplicateMirror={() => duplicateSection(section.uid, true)}
                     onEditPose={setEditingPose}
+                    onPromoteToCatalog={promoteCustomItem}
                     onAddCustomItem={(blockUid, label) => addCustomItem(section.uid, blockUid, label)}
                     onUpdateItem={(blockUid, itemUid, patch) => updateItem(section.uid, blockUid, itemUid, patch)}
                     onRemoveItem={(blockUid, itemUid) => removeItem(section.uid, blockUid, itemUid)}
-                    onMoveRowDrag={(activeUid, overUid) => moveRow(section.uid, activeUid, overUid)}
                     onMoveRowByIndex={(rowIdx, delta) => moveRowByIndex(section.uid, rowIdx, delta)}
                     onMoveItemInBlock={(blockUid, itemIdx, delta) => moveItemInBlockByIndex(section.uid, blockUid, itemIdx, delta)}
-                    onMoveItemInBlockDrag={(blockUid, activeUid, overUid) => moveItemInBlockByUid(section.uid, blockUid, activeUid, overUid)}
                     onAddBlock={() => addBlock(section.uid)}
                     onRemoveBlock={(blockUid) => removeBlock(section.uid, blockUid)}
                     onUpdateBlockReps={(blockUid, reps) => updateBlockReps(section.uid, blockUid, reps)}
+                    onToggleBlockRepeatOtherSide={(blockUid) => toggleBlockRepeatOtherSide(section.uid, blockUid)}
                     onOpenPicker={(blockUid, itemUid) => setPickerTarget({ sectionUid: section.uid, blockUid, itemUid })}
                   />
                 ))}
@@ -921,16 +1083,16 @@ export function SequenceEditor({
                       onDuplicate={() => duplicateSection(section.uid, false)}
                       onDuplicateMirror={() => duplicateSection(section.uid, true)}
                       onEditPose={setEditingPose}
+                      onPromoteToCatalog={promoteCustomItem}
                       onAddCustomItem={(blockUid, label) => addCustomItem(section.uid, blockUid, label)}
                       onUpdateItem={(blockUid, itemUid, patch) => updateItem(section.uid, blockUid, itemUid, patch)}
                       onRemoveItem={(blockUid, itemUid) => removeItem(section.uid, blockUid, itemUid)}
-                      onMoveRowDrag={(activeUid, overUid) => moveRow(section.uid, activeUid, overUid)}
                       onMoveRowByIndex={(rowIdx, delta) => moveRowByIndex(section.uid, rowIdx, delta)}
                       onMoveItemInBlock={(blockUid, itemIdx, delta) => moveItemInBlockByIndex(section.uid, blockUid, itemIdx, delta)}
-                      onMoveItemInBlockDrag={(blockUid, activeUid, overUid) => moveItemInBlockByUid(section.uid, blockUid, activeUid, overUid)}
                       onAddBlock={() => addBlock(section.uid)}
                       onRemoveBlock={(blockUid) => removeBlock(section.uid, blockUid)}
                       onUpdateBlockReps={(blockUid, reps) => updateBlockReps(section.uid, blockUid, reps)}
+                    onToggleBlockRepeatOtherSide={(blockUid) => toggleBlockRepeatOtherSide(section.uid, blockUid)}
                       onOpenPicker={(blockUid, itemUid) => setPickerTarget({ sectionUid: section.uid, blockUid, itemUid })}
                     />
                   ))}
@@ -1009,6 +1171,22 @@ export function SequenceEditor({
         />
       )}
 
+      {promotingItem && (
+        <PoseEditModal
+          supabase={supabase}
+          pose={null}
+          initialName={promotingItem.label}
+          poseCatalog={poseCatalog}
+          categories={poseCategories}
+          onSaved={(saved) => {
+            onPoseCatalogUpdated(saved);
+            replaceItemPose(promotingItem.sectionUid, promotingItem.blockUid, promotingItem.itemUid, saved);
+            setPromotingItem(null);
+          }}
+          onClose={() => setPromotingItem(null)}
+        />
+      )}
+
       {error && (
         <div className="mb-3 flex items-center gap-1.5" style={{ fontSize: 12, color: COLORS.danger }}>
           <AlertCircle size={13} /> {error}
@@ -1028,6 +1206,15 @@ export function SequenceEditor({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleUndo}
+            disabled={undoStack.length === 0}
+            title="Annulla ultima modifica"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-40"
+            style={{ border: `1px solid ${COLORS.border}` }}
+          >
+            <Undo2 size={14} /> Annulla
+          </button>
           <button onClick={() => setShowSheet(true)} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
             Genera scheda
           </button>
@@ -1267,16 +1454,16 @@ function SectionEditor({
   onDuplicate,
   onDuplicateMirror,
   onEditPose,
+  onPromoteToCatalog,
   onAddCustomItem,
   onUpdateItem,
   onRemoveItem,
-  onMoveRowDrag,
   onMoveRowByIndex,
   onMoveItemInBlock,
-  onMoveItemInBlockDrag,
   onAddBlock,
   onRemoveBlock,
   onUpdateBlockReps,
+  onToggleBlockRepeatOtherSide,
   onOpenPicker,
 }: {
   section: EditSection;
@@ -1291,29 +1478,27 @@ function SectionEditor({
   onDuplicate: () => void;
   onDuplicateMirror: () => void;
   onEditPose: (pose: PoseCatalogItem) => void;
+  onPromoteToCatalog: (sectionUid: string, blockUid: string | null, itemUid: string, label: string) => void;
   onAddCustomItem: (blockUid: string | null, label: string) => void;
   onUpdateItem: (blockUid: string | null, itemUid: string, patch: Partial<EditItem>) => void;
   onRemoveItem: (blockUid: string | null, itemUid: string) => void;
-  onMoveRowDrag: (activeUid: string, overUid: string) => void;
   onMoveRowByIndex: (idx: number, delta: number) => void;
   onMoveItemInBlock: (blockUid: string, idx: number, delta: number) => void;
-  onMoveItemInBlockDrag: (blockUid: string, activeUid: string, overUid: string) => void;
   onAddBlock: () => void;
   onRemoveBlock: (blockUid: string) => void;
   onUpdateBlockReps: (blockUid: string, reps: number | null) => void;
+  onToggleBlockRepeatOtherSide: (blockUid: string) => void;
   onOpenPicker: (blockUid: string | null, itemUid?: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.uid });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: section.uid,
+    data: { type: "section" },
+  });
   const [expanded, setExpanded] = useState(true);
   const [addingCustom, setAddingCustom] = useState(false);
   const [customText, setCustomText] = useState("");
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `section-drop:${section.uid}` });
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
-  function handleRowDragEnd(e: DragEndEvent) {
-    const { active, over } = e;
-    if (over && active.id !== over.id) onMoveRowDrag(String(active.id), String(over.id));
-  }
   function submitCustom() {
     if (!customText.trim()) return;
     onAddCustomItem(null, customText);
@@ -1367,51 +1552,53 @@ function SectionEditor({
 
       {expanded && section.enabled && (
         <div ref={setDropRef} className="px-2.5 pb-2.5 rounded-b-xl" style={{ background: isOver ? withAlpha(COLORS.primary, 10) : "transparent" }}>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRowDragEnd}>
-            <SortableContext items={section.rows.map((r) => r.uid)} strategy={verticalListSortingStrategy}>
-              <div className="flex flex-col gap-1.5 mb-2">
-                {section.rows.map((row, idx) =>
-                  row.kind === "item" ? (
-                    <ItemRow
-                      key={row.uid}
-                      item={row.item}
-                      pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
-                      parentPose={parentOfPose(poseById, row.item.poseId ? poseById[row.item.poseId] : undefined)}
-                      isFirst={idx === 0}
-                      isLast={idx === section.rows.length - 1}
-                      onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
-                      onRemove={() => onRemoveItem(null, row.item.uid)}
-                      onMoveUp={() => onMoveRowByIndex(idx, -1)}
-                      onMoveDown={() => onMoveRowByIndex(idx, 1)}
-                      onReplace={() => onOpenPicker(null, row.item.uid)}
-                      onEditPose={onEditPose}
-                    />
-                  ) : (
-                    <BlockCard
-                      key={row.uid}
-                      sectionUid={section.uid}
-                      block={row.block}
-                      poseById={poseById}
-                      isFirst={idx === 0}
-                      isLast={idx === section.rows.length - 1}
-                      onMoveUp={() => onMoveRowByIndex(idx, -1)}
-                      onMoveDown={() => onMoveRowByIndex(idx, 1)}
-                      onUpdateReps={(reps) => onUpdateBlockReps(row.block.uid, reps)}
-                      onRemoveBlock={() => onRemoveBlock(row.block.uid)}
-                      onUpdateItem={(itemUid, patch) => onUpdateItem(row.block.uid, itemUid, patch)}
-                      onRemoveItem={(itemUid) => onRemoveItem(row.block.uid, itemUid)}
-                      onMoveItemUp={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, -1)}
-                      onMoveItemDown={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, 1)}
-                      onMoveItemDrag={(activeUid, overUid) => onMoveItemInBlockDrag(row.block.uid, activeUid, overUid)}
-                      onOpenPicker={(itemUid) => onOpenPicker(row.block.uid, itemUid)}
-                      onAddCustom={(label) => onAddCustomItem(row.block.uid, label)}
-                      onEditPose={onEditPose}
-                    />
-                  )
-                )}
-              </div>
-            </SortableContext>
-          </DndContext>
+          <SortableContext items={section.rows.map((r) => r.uid)} strategy={verticalListSortingStrategy}>
+            <div className="flex flex-col gap-1.5 mb-2">
+              {section.rows.map((row, idx) =>
+                row.kind === "item" ? (
+                  <ItemRow
+                    key={row.uid}
+                    item={row.item}
+                    sectionUid={section.uid}
+                    blockUid={null}
+                    pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
+                    parentPose={parentOfPose(poseById, row.item.poseId ? poseById[row.item.poseId] : undefined)}
+                    isFirst={idx === 0}
+                    isLast={idx === section.rows.length - 1}
+                    onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
+                    onRemove={() => onRemoveItem(null, row.item.uid)}
+                    onMoveUp={() => onMoveRowByIndex(idx, -1)}
+                    onMoveDown={() => onMoveRowByIndex(idx, 1)}
+                    onReplace={() => onOpenPicker(null, row.item.uid)}
+                    onEditPose={onEditPose}
+                    onPromoteToCatalog={onPromoteToCatalog}
+                  />
+                ) : (
+                  <BlockCard
+                    key={row.uid}
+                    sectionUid={section.uid}
+                    block={row.block}
+                    poseById={poseById}
+                    isFirst={idx === 0}
+                    isLast={idx === section.rows.length - 1}
+                    onMoveUp={() => onMoveRowByIndex(idx, -1)}
+                    onMoveDown={() => onMoveRowByIndex(idx, 1)}
+                    onUpdateReps={(reps) => onUpdateBlockReps(row.block.uid, reps)}
+                    onToggleRepeatOtherSide={() => onToggleBlockRepeatOtherSide(row.block.uid)}
+                    onRemoveBlock={() => onRemoveBlock(row.block.uid)}
+                    onUpdateItem={(itemUid, patch) => onUpdateItem(row.block.uid, itemUid, patch)}
+                    onRemoveItem={(itemUid) => onRemoveItem(row.block.uid, itemUid)}
+                    onMoveItemUp={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, -1)}
+                    onMoveItemDown={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, 1)}
+                    onOpenPicker={(itemUid) => onOpenPicker(row.block.uid, itemUid)}
+                    onAddCustom={(label) => onAddCustomItem(row.block.uid, label)}
+                    onEditPose={onEditPose}
+                    onPromoteToCatalog={onPromoteToCatalog}
+                  />
+                )
+              )}
+            </div>
+          </SortableContext>
 
           {section.rows.length === 0 && (
             <div style={{ fontSize: 11.5, color: COLORS.inkSoft, textAlign: "center", padding: "14px 8px", border: `1px dashed ${COLORS.border}`, borderRadius: 10 }} className="mb-2">
@@ -1463,6 +1650,8 @@ function SectionEditor({
 // durata/respiro già inseriti sulla riga.
 function ItemRow({
   item,
+  sectionUid,
+  blockUid,
   pose,
   parentPose,
   isFirst,
@@ -1473,8 +1662,16 @@ function ItemRow({
   onMoveDown,
   onReplace,
   onEditPose,
+  onPromoteToCatalog,
 }: {
   item: EditItem;
+  // Identificano il contenitore corrente della voce (sezione + eventuale
+  // blocco): servono solo come "data" del drag sortable, per capire da dove
+  // arriva un item quando lo si trascina in un altro blocco/sezione — vedi
+  // moveItem/resolveItemDropTarget nel componente padre. La stessa coppia
+  // serve anche a "Promuovi al catalogo" per sapere quale voce aggiornare.
+  sectionUid: string;
+  blockUid: string | null;
   pose?: PoseCatalogItem;
   parentPose?: PoseCatalogItem;
   isFirst: boolean;
@@ -1485,8 +1682,12 @@ function ItemRow({
   onMoveDown: () => void;
   onReplace: () => void;
   onEditPose: (pose: PoseCatalogItem) => void;
+  onPromoteToCatalog: (sectionUid: string, blockUid: string | null, itemUid: string, label: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.uid });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.uid,
+    data: { type: "item", sectionUid, blockUid },
+  });
   const label = pose ? poseDisplayName(pose, parentPose) : item.customLabel;
   const image = pose ? poseDisplayImage(pose, parentPose) : null;
   return (
@@ -1549,6 +1750,22 @@ function ItemRow({
         <button onClick={onReplace} title="Sostituisci posizione" style={{ color: COLORS.inkSoft }}>
           <RefreshCw size={13} />
         </button>
+        {!pose && item.customLabel.trim() && (
+          <button
+            onClick={() => onPromoteToCatalog(sectionUid, blockUid, item.uid, item.customLabel)}
+            title="Promuovi al catalogo (per poterle assegnare una foto e riusarla)"
+            style={{ color: COLORS.primaryDark }}
+          >
+            <BookPlus size={14} />
+          </button>
+        )}
+        <button
+          onClick={() => onUpdate({ repeatOtherSide: !item.repeatOtherSide })}
+          title={item.repeatOtherSide ? "Ripete anche dall'altro lato (in scheda)" : "Ripeti anche dall'altro lato"}
+          style={{ color: item.repeatOtherSide ? COLORS.primaryDark : COLORS.inkSoft }}
+        >
+          <Repeat2 size={14} />
+        </button>
         <button
           onClick={() => onUpdate({ needsReview: !item.needsReview })}
           title={item.needsReview ? "Segnato da verificare" : "Segna da verificare"}
@@ -1572,44 +1789,42 @@ function ItemRow({
 // da quella delle righe della sezione, più le frecce come alternativa — un
 // blocco resta piccolo, ma niente impedisce di trascinare anche lì.
 function BlockBody({
+  sectionUid,
   block,
   poseById,
   onUpdateReps,
+  onToggleRepeatOtherSide,
   onRemoveBlock,
   onUpdateItem,
   onRemoveItem,
   onMoveItemUp,
   onMoveItemDown,
-  onMoveItemDrag,
   onOpenPicker,
   onAddCustom,
   onEditPose,
+  onPromoteToCatalog,
   dropRef,
   isOver,
 }: {
+  sectionUid: string;
   block: EditBlock;
   poseById: Record<string, PoseCatalogItem>;
   onUpdateReps: (reps: number | null) => void;
+  onToggleRepeatOtherSide: () => void;
   onRemoveBlock: () => void;
   onUpdateItem: (itemUid: string, patch: Partial<EditItem>) => void;
   onRemoveItem: (itemUid: string) => void;
   onMoveItemUp: (idx: number) => void;
   onMoveItemDown: (idx: number) => void;
-  onMoveItemDrag: (activeUid: string, overUid: string) => void;
   onOpenPicker: (itemUid?: string) => void;
   onAddCustom: (label: string) => void;
   onEditPose: (pose: PoseCatalogItem) => void;
+  onPromoteToCatalog: (sectionUid: string, blockUid: string | null, itemUid: string, label: string) => void;
   dropRef?: (node: HTMLElement | null) => void;
   isOver?: boolean;
 }) {
   const [addingCustom, setAddingCustom] = useState(false);
   const [customText, setCustomText] = useState("");
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-
-  function handleItemDragEnd(e: DragEndEvent) {
-    const { active, over } = e;
-    if (over && active.id !== over.id) onMoveItemDrag(String(active.id), String(over.id));
-  }
 
   function submitCustom() {
     if (!customText.trim()) return;
@@ -1631,33 +1846,41 @@ function BlockBody({
           style={{ ...inputStyle, width: 52, padding: "3px 6px", fontSize: 12 }}
         />
         <div className="flex-1" />
+        <button
+          onClick={onToggleRepeatOtherSide}
+          title={block.repeatOtherSide ? "Ripete l'intero blocco anche dall'altro lato (in scheda)" : "Ripeti l'intero blocco anche dall'altro lato"}
+          style={{ color: block.repeatOtherSide ? COLORS.primaryDark : COLORS.inkSoft }}
+        >
+          <Repeat2 size={14} />
+        </button>
         <button onClick={onRemoveBlock} title="Rimuovi blocco" style={{ color: COLORS.danger }}>
           <Trash2 size={14} />
         </button>
       </div>
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd}>
-        <SortableContext items={block.items.map((it) => it.uid)} strategy={verticalListSortingStrategy}>
-          <div className="flex flex-col gap-1.5 mb-2">
-            {block.items.map((item, idx) => (
-              <ItemRow
-                key={item.uid}
-                item={item}
-                pose={item.poseId ? poseById[item.poseId] : undefined}
-                parentPose={parentOfPose(poseById, item.poseId ? poseById[item.poseId] : undefined)}
-                isFirst={idx === 0}
-                isLast={idx === block.items.length - 1}
-                onUpdate={(patch) => onUpdateItem(item.uid, patch)}
-                onRemove={() => onRemoveItem(item.uid)}
-                onMoveUp={() => onMoveItemUp(idx)}
-                onMoveDown={() => onMoveItemDown(idx)}
-                onReplace={() => onOpenPicker(item.uid)}
-                onEditPose={onEditPose}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+      <SortableContext items={block.items.map((it) => it.uid)} strategy={verticalListSortingStrategy}>
+        <div className="flex flex-col gap-1.5 mb-2">
+          {block.items.map((item, idx) => (
+            <ItemRow
+              key={item.uid}
+              item={item}
+              sectionUid={sectionUid}
+              blockUid={block.uid}
+              pose={item.poseId ? poseById[item.poseId] : undefined}
+              parentPose={parentOfPose(poseById, item.poseId ? poseById[item.poseId] : undefined)}
+              isFirst={idx === 0}
+              isLast={idx === block.items.length - 1}
+              onUpdate={(patch) => onUpdateItem(item.uid, patch)}
+              onRemove={() => onRemoveItem(item.uid)}
+              onMoveUp={() => onMoveItemUp(idx)}
+              onMoveDown={() => onMoveItemDown(idx)}
+              onReplace={() => onOpenPicker(item.uid)}
+              onEditPose={onEditPose}
+              onPromoteToCatalog={onPromoteToCatalog}
+            />
+          ))}
+        </div>
+      </SortableContext>
 
       {block.items.length === 0 && (
         <div style={{ fontSize: 11, color: COLORS.inkSoft, textAlign: "center", padding: "10px 8px", border: `1px dashed ${COLORS.border}`, borderRadius: 8 }} className="mb-2">
@@ -1706,15 +1929,16 @@ function BlockCard({
   onMoveUp,
   onMoveDown,
   onUpdateReps,
+  onToggleRepeatOtherSide,
   onRemoveBlock,
   onUpdateItem,
   onRemoveItem,
   onMoveItemUp,
   onMoveItemDown,
-  onMoveItemDrag,
   onOpenPicker,
   onAddCustom,
   onEditPose,
+  onPromoteToCatalog,
 }: {
   sectionUid: string;
   block: EditBlock;
@@ -1724,17 +1948,21 @@ function BlockCard({
   onMoveUp: () => void;
   onMoveDown: () => void;
   onUpdateReps: (reps: number | null) => void;
+  onToggleRepeatOtherSide: () => void;
   onRemoveBlock: () => void;
   onUpdateItem: (itemUid: string, patch: Partial<EditItem>) => void;
   onRemoveItem: (itemUid: string) => void;
   onMoveItemUp: (idx: number) => void;
   onMoveItemDown: (idx: number) => void;
-  onMoveItemDrag: (activeUid: string, overUid: string) => void;
   onOpenPicker: (itemUid?: string) => void;
   onAddCustom: (label: string) => void;
   onEditPose: (pose: PoseCatalogItem) => void;
+  onPromoteToCatalog: (sectionUid: string, blockUid: string | null, itemUid: string, label: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.uid });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: block.uid,
+    data: { type: "block", sectionUid },
+  });
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `block-drop:${sectionUid}:${block.uid}` });
 
   return (
@@ -1754,18 +1982,20 @@ function BlockCard({
       </div>
       <div className="flex-1 min-w-0">
         <BlockBody
+          sectionUid={sectionUid}
           block={block}
           poseById={poseById}
           onUpdateReps={onUpdateReps}
+          onToggleRepeatOtherSide={onToggleRepeatOtherSide}
           onRemoveBlock={onRemoveBlock}
           onUpdateItem={onUpdateItem}
           onRemoveItem={onRemoveItem}
           onMoveItemUp={onMoveItemUp}
           onMoveItemDown={onMoveItemDown}
-          onMoveItemDrag={onMoveItemDrag}
           onOpenPicker={onOpenPicker}
           onAddCustom={onAddCustom}
           onEditPose={onEditPose}
+          onPromoteToCatalog={onPromoteToCatalog}
           dropRef={setDropRef}
           isOver={isOver}
         />
@@ -1787,16 +2017,16 @@ function MobileSectionCard({
   onDuplicate,
   onDuplicateMirror,
   onEditPose,
+  onPromoteToCatalog,
   onAddCustomItem,
   onUpdateItem,
   onRemoveItem,
-  onMoveRowDrag,
   onMoveRowByIndex,
   onMoveItemInBlock,
-  onMoveItemInBlockDrag,
   onAddBlock,
   onRemoveBlock,
   onUpdateBlockReps,
+  onToggleBlockRepeatOtherSide,
   onOpenPicker,
 }: {
   section: EditSection;
@@ -1811,28 +2041,26 @@ function MobileSectionCard({
   onDuplicate: () => void;
   onDuplicateMirror: () => void;
   onEditPose: (pose: PoseCatalogItem) => void;
+  onPromoteToCatalog: (sectionUid: string, blockUid: string | null, itemUid: string, label: string) => void;
   onAddCustomItem: (blockUid: string | null, label: string) => void;
   onUpdateItem: (blockUid: string | null, itemUid: string, patch: Partial<EditItem>) => void;
   onRemoveItem: (blockUid: string | null, itemUid: string) => void;
-  onMoveRowDrag: (activeUid: string, overUid: string) => void;
   onMoveRowByIndex: (idx: number, delta: number) => void;
   onMoveItemInBlock: (blockUid: string, idx: number, delta: number) => void;
-  onMoveItemInBlockDrag: (blockUid: string, activeUid: string, overUid: string) => void;
   onAddBlock: () => void;
   onRemoveBlock: (blockUid: string) => void;
   onUpdateBlockReps: (blockUid: string, reps: number | null) => void;
+  onToggleBlockRepeatOtherSide: (blockUid: string) => void;
   onOpenPicker: (blockUid: string | null, itemUid?: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.uid });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: section.uid,
+    data: { type: "section" },
+  });
   const [expanded, setExpanded] = useState(true);
   const [addingCustom, setAddingCustom] = useState(false);
   const [customText, setCustomText] = useState("");
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
-  function handleRowDragEnd(e: DragEndEvent) {
-    const { active, over } = e;
-    if (over && active.id !== over.id) onMoveRowDrag(String(active.id), String(over.id));
-  }
   function submitCustom() {
     if (!customText.trim()) return;
     onAddCustomItem(null, customText);
@@ -1886,51 +2114,53 @@ function MobileSectionCard({
 
       {expanded && section.enabled && (
         <div className="px-2.5 pb-2.5">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRowDragEnd}>
-            <SortableContext items={section.rows.map((r) => r.uid)} strategy={verticalListSortingStrategy}>
-              <div className="flex flex-col gap-1.5 mb-2">
-                {section.rows.map((row, idx) =>
-                  row.kind === "item" ? (
-                    <ItemRow
-                      key={row.uid}
-                      item={row.item}
-                      pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
-                      parentPose={parentOfPose(poseById, row.item.poseId ? poseById[row.item.poseId] : undefined)}
-                      isFirst={idx === 0}
-                      isLast={idx === section.rows.length - 1}
-                      onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
-                      onRemove={() => onRemoveItem(null, row.item.uid)}
-                      onMoveUp={() => onMoveRowByIndex(idx, -1)}
-                      onMoveDown={() => onMoveRowByIndex(idx, 1)}
-                      onReplace={() => onOpenPicker(null, row.item.uid)}
-                      onEditPose={onEditPose}
-                    />
-                  ) : (
-                    <BlockCard
-                      key={row.uid}
-                      sectionUid={section.uid}
-                      block={row.block}
-                      poseById={poseById}
-                      isFirst={idx === 0}
-                      isLast={idx === section.rows.length - 1}
-                      onMoveUp={() => onMoveRowByIndex(idx, -1)}
-                      onMoveDown={() => onMoveRowByIndex(idx, 1)}
-                      onUpdateReps={(reps) => onUpdateBlockReps(row.block.uid, reps)}
-                      onRemoveBlock={() => onRemoveBlock(row.block.uid)}
-                      onUpdateItem={(itemUid, patch) => onUpdateItem(row.block.uid, itemUid, patch)}
-                      onRemoveItem={(itemUid) => onRemoveItem(row.block.uid, itemUid)}
-                      onMoveItemUp={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, -1)}
-                      onMoveItemDown={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, 1)}
-                      onMoveItemDrag={(activeUid, overUid) => onMoveItemInBlockDrag(row.block.uid, activeUid, overUid)}
-                      onOpenPicker={(itemUid) => onOpenPicker(row.block.uid, itemUid)}
-                      onAddCustom={(label) => onAddCustomItem(row.block.uid, label)}
-                      onEditPose={onEditPose}
-                    />
-                  )
-                )}
-              </div>
-            </SortableContext>
-          </DndContext>
+          <SortableContext items={section.rows.map((r) => r.uid)} strategy={verticalListSortingStrategy}>
+            <div className="flex flex-col gap-1.5 mb-2">
+              {section.rows.map((row, idx) =>
+                row.kind === "item" ? (
+                  <ItemRow
+                    key={row.uid}
+                    item={row.item}
+                    sectionUid={section.uid}
+                    blockUid={null}
+                    pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
+                    parentPose={parentOfPose(poseById, row.item.poseId ? poseById[row.item.poseId] : undefined)}
+                    isFirst={idx === 0}
+                    isLast={idx === section.rows.length - 1}
+                    onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
+                    onRemove={() => onRemoveItem(null, row.item.uid)}
+                    onMoveUp={() => onMoveRowByIndex(idx, -1)}
+                    onMoveDown={() => onMoveRowByIndex(idx, 1)}
+                    onReplace={() => onOpenPicker(null, row.item.uid)}
+                    onEditPose={onEditPose}
+                    onPromoteToCatalog={onPromoteToCatalog}
+                  />
+                ) : (
+                  <BlockCard
+                    key={row.uid}
+                    sectionUid={section.uid}
+                    block={row.block}
+                    poseById={poseById}
+                    isFirst={idx === 0}
+                    isLast={idx === section.rows.length - 1}
+                    onMoveUp={() => onMoveRowByIndex(idx, -1)}
+                    onMoveDown={() => onMoveRowByIndex(idx, 1)}
+                    onUpdateReps={(reps) => onUpdateBlockReps(row.block.uid, reps)}
+                    onToggleRepeatOtherSide={() => onToggleBlockRepeatOtherSide(row.block.uid)}
+                    onRemoveBlock={() => onRemoveBlock(row.block.uid)}
+                    onUpdateItem={(itemUid, patch) => onUpdateItem(row.block.uid, itemUid, patch)}
+                    onRemoveItem={(itemUid) => onRemoveItem(row.block.uid, itemUid)}
+                    onMoveItemUp={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, -1)}
+                    onMoveItemDown={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, 1)}
+                    onOpenPicker={(itemUid) => onOpenPicker(row.block.uid, itemUid)}
+                    onAddCustom={(label) => onAddCustomItem(row.block.uid, label)}
+                    onEditPose={onEditPose}
+                    onPromoteToCatalog={onPromoteToCatalog}
+                  />
+                )
+              )}
+            </div>
+          </SortableContext>
 
           {section.rows.length === 0 && (
             <div style={{ fontSize: 11.5, color: COLORS.inkSoft, textAlign: "center", padding: "14px 8px", border: `1px dashed ${COLORS.border}`, borderRadius: 10 }} className="mb-2">
