@@ -52,7 +52,7 @@ import { DrishtiPicker } from "./DrishtiPicker";
 import { EmailPreviewModal } from "./EmailPreviewModal";
 import { sequenceAssignedEmailHtml } from "@/lib/emailTemplates";
 import { poseDisplayName, poseDisplayNameIt, poseDisplayImage, poseDisplayDrishti } from "./poseDisplay";
-import { PrintSheet, SheetItemRow, buildSheetText, expandSheetItem, expandBlockSheetRows, type SheetRow } from "./sequenceSheet";
+import { PrintSheet, SheetItemRow, buildSheetText, printSequenceSheet, expandSheetItem, expandBlockSheetRows, type SheetRow } from "./sequenceSheet";
 
 function parentOfPose(poseById: Record<string, PoseCatalogItem>, pose: PoseCatalogItem | undefined): PoseCatalogItem | undefined {
   return pose?.parentPoseId ? poseById[pose.parentPoseId] : undefined;
@@ -336,7 +336,11 @@ export function SequenceEditor({
 
   const selectedClients = clientIds.map((id) => clients.find((c) => c.id === id)).filter((c): c is ClientItem => !!c);
   const personLabel = selectedClients.length > 0 ? selectedClients.map((c) => c.name).join(", ") : guestName.trim();
-  const sheetTitle = personLabel ? `Sequenza per ${personLabel}` : "Sequenza";
+  // Il nome della sequenza ha sempre la priorità (coerente con la vista di
+  // sola lettura lato allievo, che mostra sempre sequence.name): la persona
+  // resta solo un ripiego prima che la sequenza (nuova, senza nome) sia stata
+  // salvata la prima volta.
+  const sheetTitle = name.trim() || (personLabel ? `Sequenza per ${personLabel}` : "Sequenza");
 
   // Solo i clienti appena aggiunti in questa modifica possono essere avvisati:
   // chi era già assegnato ha già ricevuto (o rifiutato) la notifica la volta
@@ -887,7 +891,7 @@ export function SequenceEditor({
     navigator.share({ title: sheetTitle, text }).catch(() => {});
   }
   function handlePrint() {
-    window.print();
+    printSequenceSheet(sheetTitle);
   }
 
   const selectedType = classTypes.find((t) => t.id === classTypeId);
