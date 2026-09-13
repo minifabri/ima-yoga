@@ -17,7 +17,7 @@ import {
   GripVertical,
   Mail,
   Plus,
-  RefreshCw,
+  Replace,
   Repeat,
   Repeat2,
   Search,
@@ -682,6 +682,40 @@ export function SequenceEditor({
     );
   }
 
+  // Duplica una singola posizione (non l'intera sezione/blocco): copia
+  // l'item con un nuovo uid, invariato (nessuno swap dx/sx, a differenza del
+  // "duplica specchiando" di sezione), inserita subito dopo l'originale
+  // nello stesso contenitore — sia esso le righe libere della sezione o un
+  // blocco ripetuto.
+  function duplicateItem(sectionUid: string, blockUid: string | null, itemUid: string) {
+    setSectionsWithHistory((cur) =>
+      cur.map((s) => {
+        if (s.uid !== sectionUid) return s;
+        if (blockUid === null) {
+          const idx = s.rows.findIndex((r) => r.kind === "item" && r.item.uid === itemUid);
+          if (idx < 0) return s;
+          const original = (s.rows[idx] as { kind: "item"; item: EditItem }).item;
+          const clone = cloneEditItem(original);
+          const rows = [...s.rows];
+          rows.splice(idx + 1, 0, { uid: clone.uid, kind: "item", item: clone });
+          return { ...s, rows };
+        }
+        return {
+          ...s,
+          rows: s.rows.map((r) => {
+            if (r.kind !== "block" || r.block.uid !== blockUid) return r;
+            const idx = r.block.items.findIndex((it) => it.uid === itemUid);
+            if (idx < 0) return r;
+            const clone = cloneEditItem(r.block.items[idx]);
+            const items = [...r.block.items];
+            items.splice(idx + 1, 0, clone);
+            return { ...r, block: { ...r.block, items } };
+          }),
+        };
+      })
+    );
+  }
+
   function addBlock(sectionUid: string) {
     const blockUid = uid();
     setSectionsWithHistory((cur) =>
@@ -1040,6 +1074,7 @@ export function SequenceEditor({
                     onDuplicateMirror={() => duplicateSection(section.uid, true)}
                     onEditPose={setEditingPose}
                     onPromoteToCatalog={promoteCustomItem}
+                    onDuplicateItem={duplicateItem}
                     onAddCustomItem={(blockUid, label) => addCustomItem(section.uid, blockUid, label)}
                     onUpdateItem={(blockUid, itemUid, patch) => updateItem(section.uid, blockUid, itemUid, patch)}
                     onRemoveItem={(blockUid, itemUid) => removeItem(section.uid, blockUid, itemUid)}
@@ -1084,6 +1119,7 @@ export function SequenceEditor({
                       onDuplicateMirror={() => duplicateSection(section.uid, true)}
                       onEditPose={setEditingPose}
                       onPromoteToCatalog={promoteCustomItem}
+                      onDuplicateItem={duplicateItem}
                       onAddCustomItem={(blockUid, label) => addCustomItem(section.uid, blockUid, label)}
                       onUpdateItem={(blockUid, itemUid, patch) => updateItem(section.uid, blockUid, itemUid, patch)}
                       onRemoveItem={(blockUid, itemUid) => removeItem(section.uid, blockUid, itemUid)}
@@ -1455,6 +1491,7 @@ function SectionEditor({
   onDuplicateMirror,
   onEditPose,
   onPromoteToCatalog,
+  onDuplicateItem,
   onAddCustomItem,
   onUpdateItem,
   onRemoveItem,
@@ -1479,6 +1516,7 @@ function SectionEditor({
   onDuplicateMirror: () => void;
   onEditPose: (pose: PoseCatalogItem) => void;
   onPromoteToCatalog: (sectionUid: string, blockUid: string | null, itemUid: string, label: string) => void;
+  onDuplicateItem: (sectionUid: string, blockUid: string | null, itemUid: string) => void;
   onAddCustomItem: (blockUid: string | null, label: string) => void;
   onUpdateItem: (blockUid: string | null, itemUid: string, patch: Partial<EditItem>) => void;
   onRemoveItem: (blockUid: string | null, itemUid: string) => void;
@@ -1572,6 +1610,7 @@ function SectionEditor({
                     onReplace={() => onOpenPicker(null, row.item.uid)}
                     onEditPose={onEditPose}
                     onPromoteToCatalog={onPromoteToCatalog}
+                    onDuplicateItem={onDuplicateItem}
                   />
                 ) : (
                   <BlockCard
@@ -1594,6 +1633,7 @@ function SectionEditor({
                     onAddCustom={(label) => onAddCustomItem(row.block.uid, label)}
                     onEditPose={onEditPose}
                     onPromoteToCatalog={onPromoteToCatalog}
+                    onDuplicateItem={onDuplicateItem}
                   />
                 )
               )}
@@ -1663,6 +1703,7 @@ function ItemRow({
   onReplace,
   onEditPose,
   onPromoteToCatalog,
+  onDuplicateItem,
 }: {
   item: EditItem;
   // Identificano il contenitore corrente della voce (sezione + eventuale
@@ -1683,6 +1724,7 @@ function ItemRow({
   onReplace: () => void;
   onEditPose: (pose: PoseCatalogItem) => void;
   onPromoteToCatalog: (sectionUid: string, blockUid: string | null, itemUid: string, label: string) => void;
+  onDuplicateItem: (sectionUid: string, blockUid: string | null, itemUid: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.uid,
@@ -1748,7 +1790,10 @@ function ItemRow({
           <input value={item.note} onChange={(e) => onUpdate({ note: e.target.value })} placeholder="nota (facoltativa)" style={{ ...inputStyle, padding: "4px 8px", fontSize: 12, marginTop: 2 }} />
         </div>
         <button onClick={onReplace} title="Sostituisci posizione" style={{ color: COLORS.inkSoft }}>
-          <RefreshCw size={13} />
+          <Replace size={13} />
+        </button>
+        <button onClick={() => onDuplicateItem(sectionUid, blockUid, item.uid)} title="Duplica posizione" style={{ color: COLORS.inkSoft }}>
+          <Copy size={13} />
         </button>
         {!pose && item.customLabel.trim() && (
           <button
@@ -1803,6 +1848,7 @@ function BlockBody({
   onAddCustom,
   onEditPose,
   onPromoteToCatalog,
+  onDuplicateItem,
   dropRef,
   isOver,
 }: {
@@ -1820,6 +1866,7 @@ function BlockBody({
   onAddCustom: (label: string) => void;
   onEditPose: (pose: PoseCatalogItem) => void;
   onPromoteToCatalog: (sectionUid: string, blockUid: string | null, itemUid: string, label: string) => void;
+  onDuplicateItem: (sectionUid: string, blockUid: string | null, itemUid: string) => void;
   dropRef?: (node: HTMLElement | null) => void;
   isOver?: boolean;
 }) {
@@ -1877,6 +1924,7 @@ function BlockBody({
               onReplace={() => onOpenPicker(item.uid)}
               onEditPose={onEditPose}
               onPromoteToCatalog={onPromoteToCatalog}
+              onDuplicateItem={onDuplicateItem}
             />
           ))}
         </div>
@@ -1939,6 +1987,7 @@ function BlockCard({
   onAddCustom,
   onEditPose,
   onPromoteToCatalog,
+  onDuplicateItem,
 }: {
   sectionUid: string;
   block: EditBlock;
@@ -1958,6 +2007,7 @@ function BlockCard({
   onAddCustom: (label: string) => void;
   onEditPose: (pose: PoseCatalogItem) => void;
   onPromoteToCatalog: (sectionUid: string, blockUid: string | null, itemUid: string, label: string) => void;
+  onDuplicateItem: (sectionUid: string, blockUid: string | null, itemUid: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: block.uid,
@@ -1996,6 +2046,7 @@ function BlockCard({
           onAddCustom={onAddCustom}
           onEditPose={onEditPose}
           onPromoteToCatalog={onPromoteToCatalog}
+          onDuplicateItem={onDuplicateItem}
           dropRef={setDropRef}
           isOver={isOver}
         />
@@ -2018,6 +2069,7 @@ function MobileSectionCard({
   onDuplicateMirror,
   onEditPose,
   onPromoteToCatalog,
+  onDuplicateItem,
   onAddCustomItem,
   onUpdateItem,
   onRemoveItem,
@@ -2042,6 +2094,7 @@ function MobileSectionCard({
   onDuplicateMirror: () => void;
   onEditPose: (pose: PoseCatalogItem) => void;
   onPromoteToCatalog: (sectionUid: string, blockUid: string | null, itemUid: string, label: string) => void;
+  onDuplicateItem: (sectionUid: string, blockUid: string | null, itemUid: string) => void;
   onAddCustomItem: (blockUid: string | null, label: string) => void;
   onUpdateItem: (blockUid: string | null, itemUid: string, patch: Partial<EditItem>) => void;
   onRemoveItem: (blockUid: string | null, itemUid: string) => void;
@@ -2134,6 +2187,7 @@ function MobileSectionCard({
                     onReplace={() => onOpenPicker(null, row.item.uid)}
                     onEditPose={onEditPose}
                     onPromoteToCatalog={onPromoteToCatalog}
+                    onDuplicateItem={onDuplicateItem}
                   />
                 ) : (
                   <BlockCard
@@ -2156,6 +2210,7 @@ function MobileSectionCard({
                     onAddCustom={(label) => onAddCustomItem(row.block.uid, label)}
                     onEditPose={onEditPose}
                     onPromoteToCatalog={onPromoteToCatalog}
+                    onDuplicateItem={onDuplicateItem}
                   />
                 )
               )}
