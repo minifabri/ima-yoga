@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Plus, ArrowLeft, AlertCircle, Settings2, Trash2, User, Route } from "lucide-react";
+import { Plus, ArrowLeft, AlertCircle, Settings2, Trash2, User, Route, Copy } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { Badge, Modal } from "./ui";
 import { SequenceEditor } from "./SequenceEditor";
 import { SequenceTemplateEditor } from "./SequenceTemplateEditor";
-import { fetchSequences, deleteSequence, fetchPoseCatalog, fetchPoseCategories } from "./data";
+import { fetchSequences, deleteSequence, duplicateSequence, fetchPoseCatalog, fetchPoseCategories } from "./data";
 import type { ClassType, ClientItem, PoseCatalogItem, PoseCategory, Sequence } from "./types";
 
 export function SequencesView({ supabase, clients, classTypes }: { supabase: SupabaseClient; clients: ClientItem[]; classTypes: ClassType[] }) {
@@ -21,6 +21,7 @@ export function SequencesView({ supabase, clients, classTypes }: { supabase: Sup
   const [rowError, setRowError] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [managingTemplateFor, setManagingTemplateFor] = useState<ClassType | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([fetchSequences(supabase), fetchPoseCatalog(supabase), fetchPoseCategories(supabase)])
@@ -48,6 +49,14 @@ export function SequencesView({ supabase, clients, classTypes }: { supabase: Sup
     setSequences((cur) => cur.filter((s) => s.id !== id));
     setConfirmDeleteId(null);
     deleteSequence(supabase, id).catch(() => setRowError("Errore nell'eliminazione della sequenza."));
+  }
+  function handleRowDuplicate(s: Sequence) {
+    setRowError("");
+    setDuplicatingId(s.id);
+    duplicateSequence(supabase, s)
+      .then((copy) => setSequences((cur) => [copy, ...cur]))
+      .catch(() => setRowError("Errore nella duplicazione della sequenza."))
+      .finally(() => setDuplicatingId(null));
   }
 
   const filtered = typeFilter === "all" ? sequences : sequences.filter((s) => s.classTypeId === typeFilter);
@@ -169,6 +178,15 @@ export function SequencesView({ supabase, clients, classTypes }: { supabase: Sup
                       <User size={11} /> {personLabel} · {activeCount} posizioni attive
                     </div>
                   </div>
+                </button>
+                <button
+                  onClick={() => handleRowDuplicate(s)}
+                  disabled={duplicatingId === s.id}
+                  title="Duplica sequenza"
+                  className="flex items-center justify-center rounded-lg flex-shrink-0 disabled:opacity-40"
+                  style={{ width: 30, height: 30, color: COLORS.inkSoft }}
+                >
+                  <Copy size={14} />
                 </button>
                 {confirmDeleteId === s.id ? (
                   <button onClick={() => handleRowDelete(s.id)} className="text-xs font-semibold px-2.5 py-1.5 rounded-lg text-white flex-shrink-0" style={{ background: COLORS.danger }}>

@@ -341,6 +341,10 @@ export type SequenceItem = {
   // non ne ha una impostata); un valore la sovrascrive solo per questa
   // istanza in sequenza, senza toccare il catalogo.
   drishtiOverride: Drishti | null;
+  // Se true, in scheda/lettura la voce viene mostrata anche nella sua
+  // versione speculare (dx/sx scambiati in testo/note/respiro) subito dopo,
+  // senza duplicare fisicamente la riga salvata — vedi expandSheetItem.
+  repeatOtherSide: boolean;
 };
 
 // Un blocco raggruppa alcune posizioni consecutive di una sezione per
@@ -352,6 +356,10 @@ export type SequenceItemBlock = {
   sectionId: string;
   reps: number | null;
   position: number;
+  // Come SequenceItem.repeatOtherSide, ma per l'intero blocco: in
+  // scheda/lettura il blocco viene mostrato una seconda volta con tutti gli
+  // item specchiati (dx/sx scambiati).
+  repeatOtherSide: boolean;
 };
 
 export type SequenceSection = {
