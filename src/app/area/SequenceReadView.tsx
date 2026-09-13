@@ -5,6 +5,7 @@ import { Bookmark, Check, Copy, Download, Repeat, Share2 } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { Badge } from "@/app/admin/ui";
 import { PrintSheet, SheetItemRow, buildSheetText, printSequenceSheet, sheetSectionsFromSequence } from "@/app/admin/sequenceSheet";
+import { isAshtangaClassType } from "@/app/admin/poseDisplay";
 import type { PoseCatalogItem, Sequence } from "@/app/admin/types";
 import type { ClassType } from "./types";
 
@@ -38,7 +39,8 @@ export function SequenceReadView({
   }, []);
 
   const poseById = useMemo(() => Object.fromEntries(poseCatalog.map((p) => [p.id, p])), [poseCatalog]);
-  const sheetSections = useMemo(() => sheetSectionsFromSequence(sequence, poseById), [sequence, poseById]);
+  const autoInheritDrishti = isAshtangaClassType(type?.name);
+  const sheetSections = useMemo(() => sheetSectionsFromSequence(sequence, poseById, autoInheritDrishti), [sequence, poseById, autoInheritDrishti]);
   const title = sequence.name || "Sequenza senza nome";
   const totalActive = sheetSections.reduce((sum, s) => sum + s.rows.reduce((rSum, r) => rSum + (r.kind === "item" ? 1 : r.items.length), 0), 0);
 

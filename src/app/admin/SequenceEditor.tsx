@@ -51,7 +51,7 @@ import { PoseEditModal } from "./PoseEditModal";
 import { DrishtiPicker } from "./DrishtiPicker";
 import { EmailPreviewModal } from "./EmailPreviewModal";
 import { sequenceAssignedEmailHtml } from "@/lib/emailTemplates";
-import { poseDisplayName, poseDisplayNameIt, poseDisplayImage, poseDisplayDrishti } from "./poseDisplay";
+import { poseDisplayName, poseDisplayNameIt, poseDisplayImage, poseDisplayDrishti, isAshtangaClassType } from "./poseDisplay";
 import { PrintSheet, SheetItemRow, buildSheetText, printSequenceSheet, expandSheetItem, expandBlockSheetRows, type SheetRow } from "./sequenceSheet";
 
 function parentOfPose(poseById: Record<string, PoseCatalogItem>, pose: PoseCatalogItem | undefined): PoseCatalogItem | undefined {
@@ -757,6 +757,9 @@ export function SequenceEditor({
     );
   }, 0);
 
+  const selectedType = classTypes.find((t) => t.id === classTypeId);
+  const autoInheritDrishti = isAshtangaClassType(selectedType?.name);
+
   const sheetSections = useMemo(
     () =>
       sections
@@ -766,11 +769,11 @@ export function SequenceEditor({
           rows: s.rows.flatMap(
             (r): SheetRow[] =>
               r.kind === "item"
-                ? expandSheetItem(r.item, poseById).map((item) => ({ kind: "item", item }))
-                : expandBlockSheetRows(r.block.items, r.block.reps, r.block.repeatOtherSide, poseById)
+                ? expandSheetItem(r.item, poseById, autoInheritDrishti).map((item) => ({ kind: "item", item }))
+                : expandBlockSheetRows(r.block.items, r.block.reps, r.block.repeatOtherSide, poseById, autoInheritDrishti)
           ),
         })),
-    [sections, poseById]
+    [sections, poseById, autoInheritDrishti]
   );
 
   async function handleSave() {
@@ -893,8 +896,6 @@ export function SequenceEditor({
   function handlePrint() {
     printSequenceSheet(sheetTitle);
   }
-
-  const selectedType = classTypes.find((t) => t.id === classTypeId);
 
   return (
     <div>
@@ -1081,6 +1082,7 @@ export function SequenceEditor({
                     key={section.uid}
                     section={section}
                     poseById={poseById}
+                    autoInheritDrishti={autoInheritDrishti}
                     isFirst={idx === 0}
                     isLast={idx === sections.length - 1}
                     onMoveUp={() => moveSectionByIndex(idx, -1)}
@@ -1126,6 +1128,7 @@ export function SequenceEditor({
                       key={section.uid}
                       section={section}
                       poseById={poseById}
+                      autoInheritDrishti={autoInheritDrishti}
                       isFirst={idx === 0}
                       isLast={idx === sections.length - 1}
                       onMoveUp={() => moveSectionByIndex(idx, -1)}
@@ -1467,21 +1470,26 @@ function ItemBreathSection({ item, onUpdate }: { item: EditItem; onUpdate: (patc
 
 // Drishti effettiva di una voce: l'eventuale sovrascrittura sulla singola
 // istanza vince su quella della posa collegata (a sua volta ereditata dal
-// padre per le varianti, vedi poseDisplayDrishti). Il picker mostra sempre
-// il valore effettivo; scegliere "Eredita dal catalogo" nel pannello annulla
-// la sovrascrittura tornando al valore del catalogo.
+// padre per le varianti, vedi poseDisplayDrishti) — ma solo se la sequenza è
+// di tipo Ashtanga, unica pratica dove la drishti ha senso: per gli altri
+// tipi la posa non "eredita" nulla di suo, resta comunque possibile
+// impostarla a mano su una singola voce. Il picker mostra sempre il valore
+// effettivo; scegliere "Eredita dal catalogo" nel pannello annulla la
+// sovrascrittura tornando al valore del catalogo.
 function ItemDrishtiSection({
   item,
   pose,
   parentPose,
+  autoInheritDrishti,
   onUpdate,
 }: {
   item: EditItem;
   pose?: PoseCatalogItem;
   parentPose?: PoseCatalogItem;
+  autoInheritDrishti: boolean;
   onUpdate: (patch: Partial<EditItem>) => void;
 }) {
-  const catalogDrishti = pose ? poseDisplayDrishti(pose, parentPose) : null;
+  const catalogDrishti = autoInheritDrishti && pose ? poseDisplayDrishti(pose, parentPose) : null;
   const explicitNone = item.drishtiOverride === "none";
   return (
     <div className="mt-1.5" style={{ paddingLeft: 22 }}>
@@ -1501,6 +1509,7 @@ function ItemDrishtiSection({
 function SectionEditor({
   section,
   poseById,
+  autoInheritDrishti,
   isFirst,
   isLast,
   onMoveUp,
@@ -1526,6 +1535,7 @@ function SectionEditor({
 }: {
   section: EditSection;
   poseById: Record<string, PoseCatalogItem>;
+  autoInheritDrishti: boolean;
   isFirst: boolean;
   isLast: boolean;
   onMoveUp: () => void;
@@ -1622,6 +1632,7 @@ function SectionEditor({
                     blockUid={null}
                     pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
                     parentPose={parentOfPose(poseById, row.item.poseId ? poseById[row.item.poseId] : undefined)}
+                    autoInheritDrishti={autoInheritDrishti}
                     isFirst={idx === 0}
                     isLast={idx === section.rows.length - 1}
                     onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
@@ -1639,6 +1650,7 @@ function SectionEditor({
                     sectionUid={section.uid}
                     block={row.block}
                     poseById={poseById}
+                    autoInheritDrishti={autoInheritDrishti}
                     isFirst={idx === 0}
                     isLast={idx === section.rows.length - 1}
                     onMoveUp={() => onMoveRowByIndex(idx, -1)}
@@ -1715,6 +1727,7 @@ function ItemRow({
   blockUid,
   pose,
   parentPose,
+  autoInheritDrishti,
   isFirst,
   isLast,
   onUpdate,
@@ -1736,6 +1749,7 @@ function ItemRow({
   blockUid: string | null;
   pose?: PoseCatalogItem;
   parentPose?: PoseCatalogItem;
+  autoInheritDrishti: boolean;
   isFirst: boolean;
   isLast: boolean;
   onUpdate: (patch: Partial<EditItem>) => void;
@@ -1845,7 +1859,7 @@ function ItemRow({
       </div>
       <ItemMetaSection item={item} onUpdate={onUpdate} />
       <ItemBreathSection item={item} onUpdate={onUpdate} />
-      <ItemDrishtiSection item={item} pose={pose} parentPose={parentPose} onUpdate={onUpdate} />
+      <ItemDrishtiSection item={item} pose={pose} parentPose={parentPose} autoInheritDrishti={autoInheritDrishti} onUpdate={onUpdate} />
     </div>
   );
 }
@@ -1858,6 +1872,7 @@ function BlockBody({
   sectionUid,
   block,
   poseById,
+  autoInheritDrishti,
   onUpdateReps,
   onToggleRepeatOtherSide,
   onRemoveBlock,
@@ -1876,6 +1891,7 @@ function BlockBody({
   sectionUid: string;
   block: EditBlock;
   poseById: Record<string, PoseCatalogItem>;
+  autoInheritDrishti: boolean;
   onUpdateReps: (reps: number | null) => void;
   onToggleRepeatOtherSide: () => void;
   onRemoveBlock: () => void;
@@ -1936,6 +1952,7 @@ function BlockBody({
               blockUid={block.uid}
               pose={item.poseId ? poseById[item.poseId] : undefined}
               parentPose={parentOfPose(poseById, item.poseId ? poseById[item.poseId] : undefined)}
+              autoInheritDrishti={autoInheritDrishti}
               isFirst={idx === 0}
               isLast={idx === block.items.length - 1}
               onUpdate={(patch) => onUpdateItem(item.uid, patch)}
@@ -1993,6 +2010,7 @@ function BlockCard({
   sectionUid,
   block,
   poseById,
+  autoInheritDrishti,
   isFirst,
   isLast,
   onMoveUp,
@@ -2013,6 +2031,7 @@ function BlockCard({
   sectionUid: string;
   block: EditBlock;
   poseById: Record<string, PoseCatalogItem>;
+  autoInheritDrishti: boolean;
   isFirst: boolean;
   isLast: boolean;
   onMoveUp: () => void;
@@ -2056,6 +2075,7 @@ function BlockCard({
           sectionUid={sectionUid}
           block={block}
           poseById={poseById}
+          autoInheritDrishti={autoInheritDrishti}
           onUpdateReps={onUpdateReps}
           onToggleRepeatOtherSide={onToggleRepeatOtherSide}
           onRemoveBlock={onRemoveBlock}
@@ -2079,6 +2099,7 @@ function BlockCard({
 function MobileSectionCard({
   section,
   poseById,
+  autoInheritDrishti,
   isFirst,
   isLast,
   onMoveUp,
@@ -2104,6 +2125,7 @@ function MobileSectionCard({
 }: {
   section: EditSection;
   poseById: Record<string, PoseCatalogItem>;
+  autoInheritDrishti: boolean;
   isFirst: boolean;
   isLast: boolean;
   onMoveUp: () => void;
@@ -2199,6 +2221,7 @@ function MobileSectionCard({
                     blockUid={null}
                     pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
                     parentPose={parentOfPose(poseById, row.item.poseId ? poseById[row.item.poseId] : undefined)}
+                    autoInheritDrishti={autoInheritDrishti}
                     isFirst={idx === 0}
                     isLast={idx === section.rows.length - 1}
                     onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
@@ -2216,6 +2239,7 @@ function MobileSectionCard({
                     sectionUid={section.uid}
                     block={row.block}
                     poseById={poseById}
+                    autoInheritDrishti={autoInheritDrishti}
                     isFirst={idx === 0}
                     isLast={idx === section.rows.length - 1}
                     onMoveUp={() => onMoveRowByIndex(idx, -1)}

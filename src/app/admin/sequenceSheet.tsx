@@ -49,7 +49,7 @@ export function formatBreathText(onInhale: string | null, onExhale: string | nul
   return parts.join(" · ");
 }
 
-export function toSheetItem(it: SheetSourceItem, poseById: Record<string, PoseCatalogItem>): SheetItem {
+export function toSheetItem(it: SheetSourceItem, poseById: Record<string, PoseCatalogItem>, autoInheritDrishti: boolean): SheetItem {
   const pose = it.poseId ? poseById[it.poseId] : undefined;
   const parent = pose?.parentPoseId ? poseById[pose.parentPoseId] : undefined;
   return {
@@ -58,7 +58,7 @@ export function toSheetItem(it: SheetSourceItem, poseById: Record<string, PoseCa
     meta: formatItemMeta(it.reps, it.holdValue, it.holdUnit),
     breath: formatBreathText(it.onInhale, it.onExhale),
     imageUrl: pose ? poseDisplayImage(pose, parent) : null,
-    drishti: it.drishtiOverride === "none" ? null : (it.drishtiOverride ?? (pose ? poseDisplayDrishti(pose, parent) : null)),
+    drishti: it.drishtiOverride === "none" ? null : (it.drishtiOverride ?? (autoInheritDrishti && pose ? poseDisplayDrishti(pose, parent) : null)),
   };
 }
 
@@ -72,8 +72,8 @@ function mirrorSheetItem(item: SheetItem): SheetItem {
 // Una voce con `repeatOtherSide` produce sé stessa più il gemello speculare,
 // subito dopo, senza duplicare nulla nei dati salvati — sia in scheda
 // stampata sia nel testo copiabile, dato che entrambi partono da qui.
-export function expandSheetItem(it: SheetSourceItem, poseById: Record<string, PoseCatalogItem>): SheetItem[] {
-  const base = toSheetItem(it, poseById);
+export function expandSheetItem(it: SheetSourceItem, poseById: Record<string, PoseCatalogItem>, autoInheritDrishti: boolean): SheetItem[] {
+  const base = toSheetItem(it, poseById, autoInheritDrishti);
   return it.repeatOtherSide ? [base, mirrorSheetItem(base)] : [base];
 }
 
@@ -81,8 +81,14 @@ export function expandSheetItem(it: SheetSourceItem, poseById: Record<string, Po
 // è marcato "ripeti anche dall'altro lato", l'intero set di item (già
 // eventualmente espansi item per item) viene mostrato una seconda volta
 // specchiato, come un secondo blocco "Ripeti ×N" subito sotto.
-export function expandBlockSheetRows(items: SheetSourceItem[], reps: number | null, blockRepeatOtherSide: boolean, poseById: Record<string, PoseCatalogItem>): SheetRow[] {
-  const expandedItems = items.flatMap((it) => expandSheetItem(it, poseById));
+export function expandBlockSheetRows(
+  items: SheetSourceItem[],
+  reps: number | null,
+  blockRepeatOtherSide: boolean,
+  poseById: Record<string, PoseCatalogItem>,
+  autoInheritDrishti: boolean
+): SheetRow[] {
+  const expandedItems = items.flatMap((it) => expandSheetItem(it, poseById, autoInheritDrishti));
   const rows: SheetRow[] = [{ kind: "block", reps, items: expandedItems }];
   if (blockRepeatOtherSide) rows.push({ kind: "block", reps, items: expandedItems.map(mirrorSheetItem) });
   return rows;
@@ -91,7 +97,7 @@ export function expandBlockSheetRows(items: SheetSourceItem[], reps: number | nu
 // Ricostruisce le righe della scheda direttamente dalla sequenza già salvata
 // (sezioni/item/blocchi con id stabili), senza passare dallo stato "live" di
 // editing — serve alla vista di sola lettura, che non apre mai l'editor.
-export function sheetSectionsFromSequence(sequence: Sequence, poseById: Record<string, PoseCatalogItem>): SheetSection[] {
+export function sheetSectionsFromSequence(sequence: Sequence, poseById: Record<string, PoseCatalogItem>, autoInheritDrishti: boolean): SheetSection[] {
   return sequence.sections
     .filter((s) => s.enabled)
     .map((s) => {
@@ -103,11 +109,11 @@ export function sheetSectionsFromSequence(sequence: Sequence, poseById: Record<s
         if (it.blockId && blockById.has(it.blockId)) {
           blockById.get(it.blockId)!.sourceItems.push(it);
         } else {
-          expandSheetItem(it, poseById).forEach((item) => positional.push({ position: it.position, row: { kind: "item", item } }));
+          expandSheetItem(it, poseById, autoInheritDrishti).forEach((item) => positional.push({ position: it.position, row: { kind: "item", item } }));
         }
       });
       blockById.forEach((block) => {
-        expandBlockSheetRows(block.sourceItems, block.reps, block.repeatOtherSide, poseById).forEach((row) => positional.push({ position: block.position, row }));
+        expandBlockSheetRows(block.sourceItems, block.reps, block.repeatOtherSide, poseById, autoInheritDrishti).forEach((row) => positional.push({ position: block.position, row }));
       });
       positional.sort((a, b) => a.position - b.position);
 
