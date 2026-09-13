@@ -147,6 +147,24 @@ export function buildSheetText(sections: SheetSection[], title: string) {
   return lines.join("\n");
 }
 
+// Il PDF che il browser genera da "Salva come PDF" propone come nome file il
+// document.title corrente, che altrimenti resterebbe quello generico della
+// pagina (non il nome della sequenza). Lo si sostituisce solo per la durata
+// della stampa e si ripristina su "afterprint" (invece che subito dopo
+// window.print(), che su alcuni browser mobile non blocca fino alla chiusura
+// del dialogo) così la scheda del browser non resta con il titolo sbagliato.
+export function printSequenceSheet(title: string) {
+  if (typeof document === "undefined") return;
+  const previousTitle = document.title;
+  document.title = title;
+  function restore() {
+    document.title = previousTitle;
+    window.removeEventListener("afterprint", restore);
+  }
+  window.addEventListener("afterprint", restore);
+  window.print();
+}
+
 // Filigrana ripetuta e discreta sulla scheda stampata/PDF: le foto delle
 // posizioni sono materiale proprietario dello studio, quindi la scheda che
 // esce verso gli allievi porta un richiamo al marchio invece di restare
@@ -245,12 +263,20 @@ export function PrintSheet({ title, sheetSections }: { title: string; sheetSecti
       <style>{`
         @media screen { #sequence-print-sheet { display: none; } }
         @media print {
+          /* Margine di pagina a zero: è l'unico modo per far sparire
+             l'intestazione/piè di pagina che il browser disegna di suo
+             (titolo, URL completa con https e percorso /admin, data/ora) —
+             a differenza di quello, il nostro footer qui sotto mostra solo
+             "imayoga.app" pulito. Il padding sul contenuto sostituisce il
+             margine di pagina perso. */
+          @page { margin: 0; }
           body > *:not(#sequence-print-sheet) { display: none !important; }
-          #sequence-print-sheet { display: block !important; position: relative; padding: 24px; max-width: 680px; margin: 0 auto; font-family: 'IBM Plex Sans', sans-serif; color: #2A2440; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          #sequence-print-sheet { display: block !important; position: relative; padding: 36px 32px; max-width: 680px; margin: 0 auto; font-family: 'IBM Plex Sans', sans-serif; color: #2A2440; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           #sequence-print-sheet .p-watermark { display: block; position: absolute; inset: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
           #sequence-print-sheet > *:not(.p-watermark) { position: relative; z-index: 1; }
           #sequence-print-sheet h1 { font-family: 'Fraunces', serif; font-size: 1.4rem; margin: 0 0 18px; }
           #sequence-print-sheet .p-footer { display: flex; justify-content: space-between; align-items: baseline; margin-top: 28px; padding-top: 10px; border-top: 1px solid #E4C77A; font-size: 0.7rem; letter-spacing: 0.3px; color: #8E72C7; }
+          #sequence-print-sheet .p-footer a { color: inherit; text-decoration: none; }
           #sequence-print-sheet .p-section-title { font-size: 0.78rem; font-weight: 600; color: #9C4FA0; margin: 20px 0 6px; text-transform: uppercase; }
           #sequence-print-sheet .p-block { padding-left: 10px; border-left: 2px solid #E4C77A; margin: 6px 0; }
           #sequence-print-sheet .p-block-title { font-size: 0.72rem; font-weight: 700; color: #9C4FA0; margin-bottom: 4px; }
@@ -290,8 +316,8 @@ export function PrintSheet({ title, sheetSections }: { title: string; sheetSecti
         );
       })}
       <div className="p-footer">
-        <span>imayoga.app</span>
-        <span>@ima.yo.ga</span>
+        <a href="https://imayoga.app">imayoga.app</a>
+        <a href="https://www.instagram.com/ima.yo.ga/">@ima.yo.ga</a>
       </div>
     </div>,
     document.body

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Bookmark, Check, Copy, Download, Repeat, Share2 } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { Badge } from "@/app/admin/ui";
-import { PrintSheet, SheetItemRow, buildSheetText, sheetSectionsFromSequence } from "@/app/admin/sequenceSheet";
+import { PrintSheet, SheetItemRow, buildSheetText, printSequenceSheet, sheetSectionsFromSequence } from "@/app/admin/sequenceSheet";
 import type { PoseCatalogItem, Sequence } from "@/app/admin/types";
 import type { ClassType } from "./types";
 
@@ -55,7 +55,7 @@ export function SequenceReadView({
     navigator.share({ title, text: buildSheetText(sheetSections, title) }).catch(() => {});
   }
   function handlePrint() {
-    window.print();
+    printSequenceSheet(title);
   }
 
   return (
