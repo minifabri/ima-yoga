@@ -2068,7 +2068,7 @@ function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalog
 
       <MacroCategoryPicker macro={macro} setMacro={setMacro} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} query={query} setQuery={setQuery} categoriesForMacro={categoriesForMacro} />
 
-      <div className="overflow-y-auto overflow-x-hidden lg:flex-1" style={{ minHeight: 0, maxHeight: "min(60vh, 420px)" }}>
+      <div className="overflow-y-auto overflow-x-hidden max-h-[60vh] lg:max-h-none lg:flex-1" style={{ minHeight: 0 }}>
         <div className="flex flex-col gap-1 pr-0.5">
           {filtered.map((p) => (
             <PaletteThumb key={p.id} pose={p} parentPose={p.parentPoseId ? poseCatalog.find((x) => x.id === p.parentPoseId) : undefined} />
