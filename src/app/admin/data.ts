@@ -1369,6 +1369,7 @@ type SequenceRow = {
       hold_unit: HoldUnit | null;
       on_inhale: string | null;
       on_exhale: string | null;
+      needs_review: boolean;
     }[];
     sequence_item_blocks: {
       id: string;
@@ -1414,6 +1415,7 @@ function mapSequence(row: SequenceRow): Sequence {
             holdUnit: it.hold_unit,
             onInhale: it.on_inhale,
             onExhale: it.on_exhale,
+            needsReview: it.needs_review,
           })),
         blocks: (s.sequence_item_blocks || [])
           .slice()
@@ -1465,6 +1467,7 @@ export async function saveSequence(
         holdUnit: HoldUnit | null;
         onInhale: string | null;
         onExhale: string | null;
+        needsReview: boolean;
       }[];
     }[];
   }
@@ -1538,6 +1541,7 @@ export async function saveSequence(
           hold_unit: it.holdUnit,
           on_inhale: it.onInhale,
           on_exhale: it.onExhale,
+          needs_review: it.needsReview,
         }))
       );
       if (itemsError) throw itemsError;
