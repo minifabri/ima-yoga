@@ -2,7 +2,7 @@
 
 import { useRef, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Image as ImageIcon } from "lucide-react";
-import { COLORS, withAlpha } from "./colors";
+import { COLORS, readableAccent, withAlpha } from "./colors";
 
 export const inputStyle: CSSProperties = {
   width: "100%",
@@ -47,7 +47,7 @@ export function Badge({ color, children }: { color: string; children: ReactNode 
       className="inline-flex items-center gap-1 rounded-full"
       style={{
         background: withAlpha(color, 12),
-        color,
+        color: readableAccent(color),
         fontSize: 11,
         fontWeight: 600,
         padding: "2px 8px",

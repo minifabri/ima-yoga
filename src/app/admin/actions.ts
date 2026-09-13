@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import { logAdminAction } from "@/lib/supabase/audit";
 import { addPersonalNotices } from "./data";
-import { sendSurveyPublishedEmail } from "@/lib/notifications";
+import { sendSequenceAssignedEmail, sendSurveyPublishedEmail } from "@/lib/notifications";
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
@@ -189,6 +189,65 @@ export async function notifySurveyPublished(
     "surveys",
     surveyId,
     `Notifica pubblicazione sondaggio "${surveyTitle}" — email: ${emailsSent}, avvisi: ${noticesSent}${excluded.size > 0 ? `, esclusi: ${excluded.size}` : ""}.`
+  );
+
+  return { ok: true, emailsSent, noticesSent };
+}
+
+// Notifica opzionale (email e/o avviso in-sito) inviata solo ai clienti appena
+// assegnati a una sequenza — a differenza dei sondaggi, l'assegnazione è
+// mirata a chi la riceve, non un annuncio a tutti meno qualche esclusione.
+export async function notifySequenceAssigned(
+  sequenceId: string,
+  sequenceName: string,
+  opts: { sendEmail: boolean; sendSiteNotice: boolean; clientIds: string[] }
+): Promise<{ ok: boolean; emailsSent?: number; noticesSent?: number; error?: string }> {
+  const { ctx, error } = await requireAdminContext();
+  if (!ctx) return { ok: false, error };
+  if ((!opts.sendEmail && !opts.sendSiteNotice) || opts.clientIds.length === 0) {
+    return { ok: true, emailsSent: 0, noticesSent: 0 };
+  }
+
+  const { data: clientProfiles, error: clientsErr } = await ctx.supabase
+    .from("profiles")
+    .select("id, auth_user_id, full_name")
+    .in("id", opts.clientIds)
+    .eq("disabled", false);
+  if (clientsErr) return { ok: false, error: clientsErr.message };
+
+  const origin = await getOrigin();
+  const linkPath = `/area/sequenze/${sequenceId}`;
+  const sequenceUrl = `${origin || "https://ima-yoga.vercel.app"}${linkPath}`;
+
+  let emailsSent = 0;
+  let noticesSent = 0;
+
+  if (opts.sendSiteNotice && clientProfiles && clientProfiles.length > 0) {
+    const ids = clientProfiles.map((c) => c.id);
+    await addPersonalNotices(ctx.supabase, ids, `Ti è stata assegnata una nuova sequenza: «${sequenceName}».`, {
+      kind: "sequence_assigned",
+      linkPath,
+    });
+    noticesSent = ids.length;
+  }
+
+  if (opts.sendEmail && clientProfiles) {
+    for (const profile of clientProfiles) {
+      if (!profile.auth_user_id) continue;
+      const { data: userData } = await ctx.adminClient.auth.admin.getUserById(profile.auth_user_id);
+      const email = userData?.user?.email;
+      if (!email) continue;
+      const ok = await sendSequenceAssignedEmail({ to: email, fullName: profile.full_name || "", sequenceName, sequenceUrl });
+      if (ok) emailsSent++;
+    }
+  }
+
+  await logAdminAction(
+    ctx.supabase,
+    "notify_sequence_assigned",
+    "sequences",
+    sequenceId,
+    `Notifica assegnazione sequenza "${sequenceName}" — email: ${emailsSent}, avvisi: ${noticesSent}.`
   );
 
   return { ok: true, emailsSent, noticesSent };

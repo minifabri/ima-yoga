@@ -33,7 +33,7 @@ export default async function AreaLayout({ children }: LayoutProps<"/area">) {
   }
 
   return (
-    <AreaShell fullName={profile?.full_name || "!"} email={user.email || ""}>
+    <AreaShell fullName={profile?.full_name || "!"} email={user.email || ""} clientId={profile?.id || ""}>
       {children}
     </AreaShell>
   );

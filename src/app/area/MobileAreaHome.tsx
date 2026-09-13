@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Check, List } from "lucide-react";
+import { CalendarDays, Check, List, Route, Sparkles } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { dateKey } from "@/app/admin/utils";
 import { availabilityLabel, formatEventDate, formatUpcomingDate } from "./helpers";
@@ -18,6 +18,7 @@ export function MobileAreaHome({
   onOpenClass,
   onGoToCalendar,
   onGoToMine,
+  onGoToSequences,
 }: {
   classes: PublicClass[];
   typeById: Record<string, ClassType>;
@@ -26,6 +27,7 @@ export function MobileAreaHome({
   onOpenClass: (c: PublicClass) => void;
   onGoToCalendar: () => void;
   onGoToMine: () => void;
+  onGoToSequences: () => void;
 }) {
   const todayKey = dateKey(new Date());
   const upcoming = classes
@@ -86,17 +88,23 @@ export function MobileAreaHome({
       </div>
 
       {nextEvent && (
-        <a
-          href={`/eventi/${nextEvent.slug}`}
-          className="flex items-start gap-2 p-2.5 rounded-lg"
-          style={{ background: withAlpha(COLORS.gold, 12), border: `1px solid ${withAlpha(COLORS.gold, 35)}` }}
-        >
-          <span style={{ width: 6, height: 6, borderRadius: 999, background: COLORS.gold, marginTop: 5, flexShrink: 0 }} />
-          <span style={{ fontSize: 12, color: COLORS.ink, lineHeight: 1.45 }}>
-            <strong>{formatEventDate(nextEvent.date)}</strong> · {nextEvent.name}
-            {nextEvent.location && <span style={{ color: COLORS.inkSoft }}> — {nextEvent.location}</span>}
-          </span>
-        </a>
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={15} color={COLORS.gold} />
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.heading }}>Prossimi eventi</span>
+          </div>
+          <a
+            href={`/eventi/${nextEvent.slug}`}
+            className="flex items-start gap-2 p-2.5 rounded-lg"
+            style={{ background: withAlpha(COLORS.gold, 12), border: `1px solid ${withAlpha(COLORS.gold, 35)}` }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: COLORS.gold, marginTop: 5, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: COLORS.ink, lineHeight: 1.45 }}>
+              <strong>{formatEventDate(nextEvent.date)}</strong> · {nextEvent.name}
+              {nextEvent.location && <span style={{ color: COLORS.inkSoft }}> — {nextEvent.location}</span>}
+            </span>
+          </a>
+        </div>
       )}
 
       <div className="grid grid-cols-2 gap-3">
@@ -129,6 +137,21 @@ export function MobileAreaHome({
           <span style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.ink }}>Le mie prenotazioni</span>
         </button>
       </div>
+
+      <button
+        type="button"
+        onClick={onGoToSequences}
+        className="flex items-center gap-3 rounded-2xl text-left"
+        style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, padding: "14px 16px" }}
+      >
+        <span
+          className="flex items-center justify-center rounded-full flex-shrink-0"
+          style={{ width: 40, height: 40, background: withAlpha(COLORS.primary, 12), color: COLORS.primary }}
+        >
+          <Route size={19} />
+        </span>
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.ink }}>Sequenze</span>
+      </button>
     </div>
   );
 }

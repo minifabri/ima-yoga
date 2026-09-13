@@ -21,6 +21,7 @@ export default function AreaHomePage() {
           onOpenClass={setSelected}
           onGoToCalendar={() => router.push("/area/calendario")}
           onGoToMine={() => router.push("/area/prenotazioni")}
+          onGoToSequences={() => router.push("/area/sequenze")}
         />
       </div>
       <div className="hidden md:block">
