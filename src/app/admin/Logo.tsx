@@ -10,7 +10,7 @@ function LogoMark({ size }: { size: number }) {
         @keyframes logo-mark-breathe { 0%,100%{ transform: scale(1); opacity:.55 } 50%{ transform: scale(1.35); opacity:1 } }
         .logo-mark-spark { animation: logo-mark-breathe 4s ease-in-out infinite; }
       `}</style>
-      <path d="M23 9a10 10 0 1 0 0 20 7.8 7.8 0 0 1 0-20z" stroke={COLORS.heading} strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M23 9A12 12 0 1 0 23 29A10.2 10.2 0 0 1 23 9Z" stroke={COLORS.heading} strokeWidth="1.3" strokeLinejoin="round" />
       <g className="logo-mark-spark" style={{ transformOrigin: "28px 8px" }}>
         <path d="M28 4.5 L28.9 7.1 L31.5 8 L28.9 8.9 L28 11.5 L27.1 8.9 L24.5 8 L27.1 7.1 Z" fill={COLORS.gold} />
       </g>
