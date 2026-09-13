@@ -8,11 +8,13 @@ import { Field, IconButton, Modal, inputStyle } from "./ui";
 import { fetchPoseCatalog, savePose, deletePose, deletePoseThumbnail, fetchPoseCategories, savePoseCategory, deletePoseCategory } from "./data";
 import { PoseBulkImportModal } from "./PoseBulkImport";
 import { PoseThumbnailGenerator, type PoseThumbnailGeneratorHandle } from "./PoseThumbnailGenerator";
-import { poseDisplayName, poseDisplayNameIt, poseDisplayImage } from "./poseDisplay";
+import { DrishtiEyeIcon } from "./DrishtiEyeIcon";
+import { DrishtiPicker } from "./DrishtiPicker";
+import { poseDisplayName, poseDisplayNameIt, poseDisplayImage, poseDisplayDrishti, DRISHTI_LABELS } from "./poseDisplay";
 import type { PoseCatalogItem, PoseCategory, PoseMacro } from "./types";
 
 function emptyDraft(macro: PoseMacro): Omit<PoseCatalogItem, "id"> {
-  return { macro, name: "", nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null, parentPoseId: null, variantLabel: "" };
+  return { macro, name: "", nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null, parentPoseId: null, variantLabel: "", drishti: null };
 }
 
 function slugify(value: string): string {
@@ -148,6 +150,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
       imageUrl: p.imageUrl,
       parentPoseId: p.parentPoseId,
       variantLabel: p.variantLabel,
+      drishti: p.drishti,
     });
     setTagsInput(p.tags.join(", "));
     setShowManualImageUrl(false);
@@ -211,6 +214,15 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
               style={inputStyle}
             />
           </Field>
+          <Field label={isVariant ? "Drishti (sovrascrive quella ereditata)" : "Drishti"}>
+            <DrishtiPicker
+              value={draft.drishti}
+              inherited={isVariant ? (parentPose?.drishti ?? null) : null}
+              onChange={(v) => setDraft((d) => ({ ...d, drishti: v }))}
+            />
+          </Field>
+        </div>
+        <div className="mb-3">
           <Field label="Categoria">
             <select value={draft.categoryId ?? ""} onChange={(e) => setDraft((d) => ({ ...d, categoryId: e.target.value || null }))} style={inputStyle}>
               <option value="">Nessuna categoria</option>
@@ -619,6 +631,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   ) {
     const displayName = poseDisplayName(p, parent);
     const displayImage = poseDisplayImage(p, parent);
+    const displayDrishti = poseDisplayDrishti(p, parent);
     const isEditing = editingId === p.id;
     return (
       <div
@@ -639,6 +652,11 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
             {p.tags.length > 0 && (
               <span className="flex items-center gap-1">
                 <Tag size={10} /> {p.tags.join(", ")}
+              </span>
+            )}
+            {displayDrishti && (
+              <span className="flex items-center gap-1" title="Drishti">
+                <DrishtiEyeIcon size={11} /> {DRISHTI_LABELS[displayDrishti].name}
               </span>
             )}
           </div>
@@ -668,6 +686,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   function renderPoseCard(p: PoseCatalogItem, variants: PoseCatalogItem[]) {
     const displayName = poseDisplayName(p, undefined);
     const displayImage = poseDisplayImage(p, undefined);
+    const displayDrishti = poseDisplayDrishti(p, undefined);
     const isEditingSelf = editingId === p.id;
     const isCardHighlighted = isEditingSelf || variants.some((v) => v.id === editingId);
     return (
@@ -717,6 +736,11 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         </div>
         <div className="p-3 flex flex-col gap-1.5 flex-1" style={{ background: isEditingSelf ? withAlpha(COLORS.primary, 6) : "transparent" }}>
           <div style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.ink }}>{displayName}</div>
+          {displayDrishti && (
+            <div className="flex items-center gap-1" style={{ fontSize: 11, color: COLORS.inkSoft }} title="Drishti">
+              <DrishtiEyeIcon size={11} /> {DRISHTI_LABELS[displayDrishti].name}
+            </div>
+          )}
           {p.tags.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {p.tags.map((t) => (

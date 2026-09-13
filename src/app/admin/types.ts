@@ -258,6 +258,20 @@ export type PoseCategory = {
   position: number;
 };
 
+// Le nove drishti (punti di sguardo) tradizionali: elenco fisso, non
+// modificabile dall'utente — vedi DRISHTI_LABELS in poseDisplay.ts per le
+// etichette in italiano.
+export type Drishti =
+  | "nasagrai"
+  | "ajna_chakra"
+  | "nabi_chakra"
+  | "hastagrai"
+  | "padhayoragrai"
+  | "parsva_destra"
+  | "parsva_sinistra"
+  | "angustha_ma_dyai"
+  | "urdhva_antara";
+
 // Una variante (parentPoseId non nullo) può lasciare name/nameIt/nameEn
 // vuoti: in quel caso il nome mostrato si ottiene concatenando il nome del
 // padre con variantLabel (vedi poseDisplay.ts). Se invece li compila,
@@ -275,6 +289,7 @@ export type PoseCatalogItem = {
   imageUrl: string | null;
   parentPoseId: string | null;
   variantLabel: string;
+  drishti: Drishti | null;
 };
 
 export type SectionKind =
@@ -322,6 +337,10 @@ export type SequenceItem = {
   onInhale: string | null;
   onExhale: string | null;
   needsReview: boolean;
+  // null = eredita la drishti della posa collegata (o nessuna, se la posa
+  // non ne ha una impostata); un valore la sovrascrive solo per questa
+  // istanza in sequenza, senza toccare il catalogo.
+  drishtiOverride: Drishti | null;
 };
 
 // Un blocco raggruppa alcune posizioni consecutive di una sezione per

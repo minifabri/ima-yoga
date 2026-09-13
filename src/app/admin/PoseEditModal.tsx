@@ -6,11 +6,12 @@ import { COLORS } from "./colors";
 import { Field, Modal, inputStyle } from "./ui";
 import { savePose, deletePoseThumbnail } from "./data";
 import { PoseThumbnailGenerator, type PoseThumbnailGeneratorHandle } from "./PoseThumbnailGenerator";
+import { DrishtiPicker } from "./DrishtiPicker";
 import { slugify } from "./utils";
 import type { PoseCatalogItem, PoseCategory, PoseMacro } from "./types";
 
 function emptyDraft(macro: PoseMacro, initialName: string): Omit<PoseCatalogItem, "id"> {
-  return { macro, name: initialName, nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null, parentPoseId: null, variantLabel: "" };
+  return { macro, name: initialName, nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null, parentPoseId: null, variantLabel: "", drishti: null };
 }
 
 // Stesso form di modifica di PoseCatalogView.tsx, estratto in un componente
@@ -53,6 +54,7 @@ export function PoseEditModal({
           imageUrl: pose.imageUrl,
           parentPoseId: pose.parentPoseId,
           variantLabel: pose.variantLabel,
+          drishti: pose.drishti,
         }
       : emptyDraft(initialMacro ?? "asana", initialName ?? "")
   );
@@ -154,6 +156,15 @@ export function PoseEditModal({
               style={inputStyle}
             />
           </Field>
+          <Field label={isVariant ? "Drishti (sovrascrive quella ereditata)" : "Drishti"}>
+            <DrishtiPicker
+              value={draft.drishti}
+              inherited={isVariant ? (parentPose?.drishti ?? null) : null}
+              onChange={(v) => setDraft((d) => ({ ...d, drishti: v }))}
+            />
+          </Field>
+        </div>
+        <div className="mb-3">
           <Field label="Categoria">
             <select value={draft.categoryId ?? ""} onChange={(e) => setDraft((d) => ({ ...d, categoryId: e.target.value || null }))} style={inputStyle}>
               <option value="">Nessuna categoria</option>

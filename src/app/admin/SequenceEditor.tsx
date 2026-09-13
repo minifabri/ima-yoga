@@ -23,12 +23,14 @@ import { Field, Modal, Switch, inputStyle } from "./ui";
 import { swapSides } from "./utils";
 import { saveSequence, deleteSequence, fetchSequenceTemplate } from "./data";
 import { PoseEditModal } from "./PoseEditModal";
-import { poseDisplayName, poseDisplayNameIt, poseDisplayImage } from "./poseDisplay";
+import { DrishtiEyeIcon, DRISHTI_PRINT_PALETTE } from "./DrishtiEyeIcon";
+import { DrishtiPicker } from "./DrishtiPicker";
+import { poseDisplayName, poseDisplayNameIt, poseDisplayImage, poseDisplayDrishti, DRISHTI_LABELS } from "./poseDisplay";
 
 function parentOfPose(poseById: Record<string, PoseCatalogItem>, pose: PoseCatalogItem | undefined): PoseCatalogItem | undefined {
   return pose?.parentPoseId ? poseById[pose.parentPoseId] : undefined;
 }
-import type { ClassType, ClientItem, HoldUnit, PoseCatalogItem, PoseCategory, PoseMacro, Sequence, SectionKind } from "./types";
+import type { ClassType, ClientItem, Drishti, HoldUnit, PoseCatalogItem, PoseCategory, PoseMacro, Sequence, SectionKind } from "./types";
 
 // Filigrana ripetuta e discreta sulla scheda stampata/PDF: le foto delle
 // posizioni sono materiale proprietario dello studio, quindi la scheda che
@@ -76,6 +78,7 @@ type EditItem = {
   onInhale: string | null;
   onExhale: string | null;
   needsReview: boolean;
+  drishtiOverride: Drishti | null;
 };
 type EditBlock = { uid: string; reps: number | null; items: EditItem[] };
 type EditRow = { uid: string; kind: "item"; item: EditItem } | { uid: string; kind: "block"; block: EditBlock };
@@ -102,6 +105,7 @@ function editItemFrom(it: {
   onInhale: string | null;
   onExhale: string | null;
   needsReview?: boolean;
+  drishtiOverride?: Drishti | null;
 }): EditItem {
   return {
     uid: uid(),
@@ -114,6 +118,7 @@ function editItemFrom(it: {
     onInhale: it.onInhale,
     onExhale: it.onExhale,
     needsReview: it.needsReview ?? false,
+    drishtiOverride: it.drishtiOverride ?? null,
   };
 }
 
@@ -202,7 +207,7 @@ function formatBreathText(onInhale: string | null, onExhale: string | null): str
   return parts.join(" · ");
 }
 
-type SheetItem = { text: string; meta: string; note: string; breath: string; imageUrl: string | null };
+type SheetItem = { text: string; meta: string; note: string; breath: string; imageUrl: string | null; drishti: Drishti | null };
 type SheetRow = { kind: "item"; item: SheetItem } | { kind: "block"; reps: number | null; items: SheetItem[] };
 
 function toSheetItem(it: EditItem, poseById: Record<string, PoseCatalogItem>): SheetItem {
@@ -214,6 +219,7 @@ function toSheetItem(it: EditItem, poseById: Record<string, PoseCatalogItem>): S
     meta: formatItemMeta(it.reps, it.holdValue, it.holdUnit),
     breath: formatBreathText(it.onInhale, it.onExhale),
     imageUrl: pose ? poseDisplayImage(pose, parent) : null,
+    drishti: it.drishtiOverride ?? (pose ? poseDisplayDrishti(pose, parent) : null),
   };
 }
 
@@ -227,16 +233,18 @@ function buildSheetText(sections: { label: string; rows: SheetRow[] }[], personL
     s.rows.forEach((r) => {
       if (r.kind === "item") {
         const meta = r.item.meta ? ` [${r.item.meta}]` : "";
+        const drishti = r.item.drishti ? ` (sguardo: ${DRISHTI_LABELS[r.item.drishti].detail})` : "";
         const breath = r.item.breath ? `  {${r.item.breath}}` : "";
         const note = r.item.note ? `  (${r.item.note})` : "";
-        lines.push(`- ${r.item.text}${meta}${breath}${note}`);
+        lines.push(`- ${r.item.text}${meta}${drishti}${breath}${note}`);
       } else if (r.items.length > 0) {
         lines.push(`  Ripeti ×${r.reps ?? "?"}:`);
         r.items.forEach((it) => {
           const meta = it.meta ? ` [${it.meta}]` : "";
+          const drishti = it.drishti ? ` (sguardo: ${DRISHTI_LABELS[it.drishti].detail})` : "";
           const breath = it.breath ? `  {${it.breath}}` : "";
           const note = it.note ? `  (${it.note})` : "";
-          lines.push(`  - ${it.text}${meta}${breath}${note}`);
+          lines.push(`  - ${it.text}${meta}${drishti}${breath}${note}`);
         });
       }
     });
@@ -646,6 +654,7 @@ export function SequenceEditor({
             onInhale: string | null;
             onExhale: string | null;
             needsReview: boolean;
+            drishtiOverride: Drishti | null;
           }[] = [];
           s.rows.forEach((row, rowIdx) => {
             if (row.kind === "item") {
@@ -661,6 +670,7 @@ export function SequenceEditor({
                 onInhale: row.item.onInhale,
                 onExhale: row.item.onExhale,
                 needsReview: row.item.needsReview,
+                drishtiOverride: row.item.drishtiOverride,
               });
             } else {
               blocks.push({ tempId: row.block.uid, reps: row.block.reps, position: rowIdx });
@@ -677,6 +687,7 @@ export function SequenceEditor({
                   onInhale: it.onInhale,
                   onExhale: it.onExhale,
                   needsReview: it.needsReview,
+                  drishtiOverride: it.drishtiOverride,
                 });
               });
             }
@@ -1077,6 +1088,7 @@ export function SequenceEditor({
                     #sequence-print-sheet .p-thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: #DFD5EE; flex-shrink: 0; }
                     #sequence-print-sheet .p-text { display: flex; justify-content: space-between; gap: 14px; flex: 1; }
                     #sequence-print-sheet .p-meta { color: #9C4FA0; font-weight: 600; font-size: 0.78rem; }
+                    #sequence-print-sheet .p-drishti { display: inline-flex; align-items: center; gap: 3px; color: #9C4FA0; font-weight: 600; font-size: 0.78rem; margin-left: 6px; }
                     #sequence-print-sheet .p-note { color: #5C5470; font-size: 0.85rem; text-align: right; }
                     #sequence-print-sheet .p-breath { color: #9C4FA0; font-size: 0.78rem; margin-top: 2px; }
                   }
@@ -1132,6 +1144,11 @@ function SheetItemRow({ item }: { item: SheetItem }) {
           <span style={{ fontFamily: "var(--font-display)" }}>
             {item.text}
             {item.meta && <span style={{ fontFamily: "inherit", fontWeight: 600, color: COLORS.primaryDark, fontSize: 11.5 }}> · {item.meta}</span>}
+            {item.drishti && (
+              <span className="inline-flex items-center gap-1" style={{ fontFamily: "inherit", fontWeight: 600, color: COLORS.primaryDark, fontSize: 11.5, marginLeft: 6 }}>
+                <DrishtiEyeIcon size={10} /> {DRISHTI_LABELS[item.drishti].detail}
+              </span>
+            )}
           </span>
           {item.note && <span style={{ color: COLORS.inkSoft, fontSize: 12, textAlign: "right" }}>{item.note}</span>}
         </div>
@@ -1152,6 +1169,11 @@ function SheetItemPrintRow({ item }: { item: SheetItem }) {
         <div className="p-text">
           <span>
             {item.text} {item.meta && <span className="p-meta">· {item.meta}</span>}
+            {item.drishti && (
+              <span className="p-drishti">
+                <DrishtiEyeIcon size={10} palette={DRISHTI_PRINT_PALETTE} /> {DRISHTI_LABELS[item.drishti].detail}
+              </span>
+            )}
           </span>
           {item.note && <span className="p-note">{item.note}</span>}
         </div>
@@ -1275,6 +1297,36 @@ function ItemBreathSection({ item, onUpdate }: { item: EditItem; onUpdate: (patc
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Drishti effettiva di una voce: l'eventuale sovrascrittura sulla singola
+// istanza vince su quella della posa collegata (a sua volta ereditata dal
+// padre per le varianti, vedi poseDisplayDrishti). Il picker mostra sempre
+// il valore effettivo; scegliere "Eredita dal catalogo" nel pannello annulla
+// la sovrascrittura tornando al valore del catalogo.
+function ItemDrishtiSection({
+  item,
+  pose,
+  parentPose,
+  onUpdate,
+}: {
+  item: EditItem;
+  pose?: PoseCatalogItem;
+  parentPose?: PoseCatalogItem;
+  onUpdate: (patch: Partial<EditItem>) => void;
+}) {
+  const catalogDrishti = pose ? poseDisplayDrishti(pose, parentPose) : null;
+  return (
+    <div className="mt-1.5" style={{ paddingLeft: 22 }}>
+      <DrishtiPicker
+        value={item.drishtiOverride}
+        inherited={catalogDrishti}
+        overrideLabel="solo qui"
+        onChange={(v) => onUpdate({ drishtiOverride: v })}
+        size="sm"
+      />
     </div>
   );
 }
@@ -1587,6 +1639,7 @@ function ItemRow({
       </div>
       <ItemMetaSection item={item} onUpdate={onUpdate} />
       <ItemBreathSection item={item} onUpdate={onUpdate} />
+      <ItemDrishtiSection item={item} pose={pose} parentPose={parentPose} onUpdate={onUpdate} />
     </div>
   );
 }
