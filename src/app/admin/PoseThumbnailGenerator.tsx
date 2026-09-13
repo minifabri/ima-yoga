@@ -12,6 +12,8 @@ const FILL_COLOR: [number, number, number] = [107, 79, 160]; // #6b4fa0, viola i
 const DEFAULT_MARGIN = 0.08;
 const MAX_WORKING_DIM = 900; // limita il lavoro per-pixel su foto molto grandi
 const DEFAULT_BRUSH_SIZE = 24; // diametro in pixel del canvas (spazio OUTPUT_SIZE)
+const LOUPE_SIZE = 160; // lente d'ingrandimento per la gomma: dimensione in pixel (CSS e canvas coincidono)
+const LOUPE_ZOOM = 4; // fattore di ingrandimento della lente rispetto al canvas di lavoro
 
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -220,7 +222,9 @@ export const PoseThumbnailGenerator = forwardRef<
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [showLoupe, setShowLoupe] = useState(false);
   const previewRef = useRef<HTMLCanvasElement>(null);
+  const loupeRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isErasingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -279,6 +283,27 @@ export const PoseThumbnailGenerator = forwardRef<
     }
   }
 
+  // Mostra, nella lente, un ritaglio ingrandito del canvas di lavoro centrato
+  // sul puntatore (agganciato ai bordi se il punto è vicino al margine), con
+  // un cerchio che indica l'esatta area che la gomma cancellerebbe.
+  function updateLoupe(x: number, y: number) {
+    const main = previewRef.current;
+    const loupe = loupeRef.current;
+    const lctx = loupe?.getContext("2d");
+    if (!main || !lctx) return;
+    const sampleSize = LOUPE_SIZE / LOUPE_ZOOM;
+    const sx = Math.min(Math.max(x - sampleSize / 2, 0), OUTPUT_SIZE - sampleSize);
+    const sy = Math.min(Math.max(y - sampleSize / 2, 0), OUTPUT_SIZE - sampleSize);
+    lctx.imageSmoothingEnabled = false;
+    lctx.clearRect(0, 0, LOUPE_SIZE, LOUPE_SIZE);
+    lctx.drawImage(main, sx, sy, sampleSize, sampleSize, 0, 0, LOUPE_SIZE, LOUPE_SIZE);
+    lctx.strokeStyle = "rgba(0,0,0,0.55)";
+    lctx.lineWidth = 1;
+    lctx.beginPath();
+    lctx.arc((x - sx) * LOUPE_ZOOM, (y - sy) * LOUPE_ZOOM, (brushSizeRef.current / 2) * LOUPE_ZOOM, 0, Math.PI * 2);
+    lctx.stroke();
+  }
+
   function handleEraseStart(e: React.PointerEvent<HTMLCanvasElement>) {
     if (!sourceImg || uploading) return;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -286,19 +311,30 @@ export const PoseThumbnailGenerator = forwardRef<
     const point = getCanvasPoint(e);
     lastPointRef.current = point;
     eraseAt(point.x, point.y);
+    updateLoupe(point.x, point.y);
+    setShowLoupe(true);
   }
 
   function handleEraseMove(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (!isErasingRef.current) return;
+    if (!sourceImg) return;
     const point = getCanvasPoint(e);
-    if (lastPointRef.current) eraseSegment(lastPointRef.current, point);
-    else eraseAt(point.x, point.y);
-    lastPointRef.current = point;
+    if (isErasingRef.current) {
+      if (lastPointRef.current) eraseSegment(lastPointRef.current, point);
+      else eraseAt(point.x, point.y);
+      lastPointRef.current = point;
+    }
+    updateLoupe(point.x, point.y);
+    setShowLoupe(true);
   }
 
   function handleEraseEnd() {
     isErasingRef.current = false;
     lastPointRef.current = null;
+  }
+
+  function handlePointerLeaveCanvas() {
+    handleEraseEnd();
+    setShowLoupe(false);
   }
 
   async function handleFile(file: File) {
@@ -415,10 +451,19 @@ export const PoseThumbnailGenerator = forwardRef<
               onPointerDown={handleEraseStart}
               onPointerMove={handleEraseMove}
               onPointerUp={handleEraseEnd}
-              onPointerLeave={handleEraseEnd}
-              onPointerCancel={handleEraseEnd}
+              onPointerLeave={handlePointerLeaveCanvas}
+              onPointerCancel={handlePointerLeaveCanvas}
             />
             <span style={{ fontSize: 10, color: COLORS.inkSoft }}>Anteprima thumbnail</span>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <canvas
+              ref={loupeRef}
+              width={LOUPE_SIZE}
+              height={LOUPE_SIZE}
+              style={{ width: LOUPE_SIZE, height: LOUPE_SIZE, borderRadius: 8, background: COLORS.subtle, opacity: showLoupe ? 1 : 0.25, transition: "opacity 0.1s" }}
+            />
+            <span style={{ fontSize: 10, color: COLORS.inkSoft }}>Lente (passa il mouse per usare la gomma con precisione)</span>
           </div>
           <div className="flex-1" style={{ minWidth: 170 }}>
             <label className="flex items-center gap-1.5 mb-2" style={{ fontSize: 11.5, color: COLORS.ink }}>
