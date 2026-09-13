@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Eraser, FlipHorizontal2, ImagePlus, Loader2, RotateCcw, Upload } from "lucide-react";
+import { Eraser, FlipHorizontal2, ImagePlus, Loader2, RotateCcw, Undo2, Upload } from "lucide-react";
 import { COLORS } from "./colors";
 import { uploadPoseThumbnail } from "./data";
 
@@ -12,6 +12,7 @@ const FILL_COLOR: [number, number, number] = [107, 79, 160]; // #6b4fa0, viola i
 const DEFAULT_MARGIN = 0.08;
 const MAX_WORKING_DIM = 900; // limita il lavoro per-pixel su foto molto grandi
 const DEFAULT_BRUSH_SIZE = 24; // diametro in pixel del canvas (spazio OUTPUT_SIZE)
+const MAX_UNDO_STEPS = 20; // limite ai passaggi annullabili, per non far crescere la memoria all'infinito
 const LOUPE_SIZE = 160; // lente d'ingrandimento per la gomma: dimensione in pixel (CSS e canvas coincidono)
 const LOUPE_ZOOM = 4; // fattore di ingrandimento della lente rispetto al canvas di lavoro
 
@@ -223,6 +224,7 @@ export const PoseThumbnailGenerator = forwardRef<
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [showLoupe, setShowLoupe] = useState(false);
+  const [undoStack, setUndoStack] = useState<ImageData[]>([]);
   const previewRef = useRef<HTMLCanvasElement>(null);
   const loupeRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -239,6 +241,7 @@ export const PoseThumbnailGenerator = forwardRef<
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+    setUndoStack([]); // una rigenerazione completa invalida i passaggi di gomma annullabili
     if (!result) {
       setError("Nessun soggetto rilevato: prova a regolare la sensibilità o l'opzione sfondo scuro.");
       return;
@@ -306,6 +309,11 @@ export const PoseThumbnailGenerator = forwardRef<
 
   function handleEraseStart(e: React.PointerEvent<HTMLCanvasElement>) {
     if (!sourceImg || uploading) return;
+    const ctx = previewRef.current?.getContext("2d");
+    if (ctx) {
+      const snapshot = ctx.getImageData(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+      setUndoStack((stack) => [...stack, snapshot].slice(-MAX_UNDO_STEPS));
+    }
     e.currentTarget.setPointerCapture(e.pointerId);
     isErasingRef.current = true;
     const point = getCanvasPoint(e);
@@ -313,6 +321,19 @@ export const PoseThumbnailGenerator = forwardRef<
     eraseAt(point.x, point.y);
     updateLoupe(point.x, point.y);
     setShowLoupe(true);
+  }
+
+  // Ripristina lo stato del canvas prima dell'ultimo tratto di gomma, un
+  // passaggio alla volta — a differenza di "Ripristina" che riparte da zero
+  // buttando via tutte le cancellature fatte finora.
+  function handleUndo() {
+    setUndoStack((stack) => {
+      if (stack.length === 0) return stack;
+      const previous = stack[stack.length - 1];
+      const ctx = previewRef.current?.getContext("2d");
+      if (ctx) ctx.putImageData(previous, 0, 0);
+      return stack.slice(0, -1);
+    });
   }
 
   function handleEraseMove(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -523,14 +544,25 @@ export const PoseThumbnailGenerator = forwardRef<
                 </div>
                 <input type="range" min={6} max={60} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} style={{ width: "100%" }} />
               </label>
-              <button
-                onClick={() => sourceImg && renderPreview(sourceImg, currentOpts())}
-                type="button"
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
-                style={{ border: `1px solid ${COLORS.border}` }}
-              >
-                <RotateCcw size={12} /> Ripristina
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleUndo}
+                  disabled={undoStack.length === 0}
+                  type="button"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium disabled:opacity-40"
+                  style={{ border: `1px solid ${COLORS.border}` }}
+                >
+                  <Undo2 size={12} /> Annulla
+                </button>
+                <button
+                  onClick={() => sourceImg && renderPreview(sourceImg, currentOpts())}
+                  type="button"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+                  style={{ border: `1px solid ${COLORS.border}` }}
+                >
+                  <RotateCcw size={12} /> Ripristina
+                </button>
+              </div>
             </div>
 
             <button
