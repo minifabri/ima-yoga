@@ -44,6 +44,21 @@ export async function deleteMyNotice(supabase: DB, id: string): Promise<void> {
   await supabase.from("client_notices").delete().eq("id", id);
 }
 
+export async function fetchMyFavoriteSequenceIds(supabase: DB): Promise<string[]> {
+  const { data } = await supabase.from("sequence_favorites").select("sequence_id");
+  return (data ?? []).map((r) => r.sequence_id);
+}
+
+export async function addFavoriteSequence(supabase: DB, clientId: string, sequenceId: string): Promise<void> {
+  const { error } = await supabase.from("sequence_favorites").insert({ client_id: clientId, sequence_id: sequenceId });
+  if (error) throw error;
+}
+
+export async function removeFavoriteSequence(supabase: DB, clientId: string, sequenceId: string): Promise<void> {
+  const { error } = await supabase.from("sequence_favorites").delete().eq("client_id", clientId).eq("sequence_id", sequenceId);
+  if (error) throw error;
+}
+
 export async function fetchPublicClasses(supabase: DB, from: string, to: string): Promise<PublicClass[]> {
   const { data, error } = await supabase.rpc("public_classes", { p_from: from, p_to: to });
   if (error) throw error;

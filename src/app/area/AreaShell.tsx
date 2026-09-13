@@ -16,6 +16,7 @@ import {
   Megaphone,
   MessageCircle,
   PackagePlus,
+  Route,
   Sparkles,
   Trash2,
   User,
@@ -30,14 +31,17 @@ import { ThemeToggle } from "@/app/admin/ThemeToggle";
 import { Logo } from "@/app/admin/Logo";
 import { dateKey, getCalendarDays } from "@/app/admin/utils";
 import * as db from "./data";
+import { fetchVisibleSequences, fetchPoseCatalog } from "@/app/admin/data";
 import { downloadIcsFile } from "@/lib/ics";
 import { notifyClassFull } from "@/lib/notifications";
 import { availabilityLabel, canStillCancel, errorMessage, formatNoticeDate, isPastClass } from "./helpers";
 import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyEventBooking, MyLedgerEntry, MyPackage, PublicClass, PublicEvent } from "./types";
+import type { PoseCatalogItem, Sequence } from "@/app/admin/types";
 
 const DISMISSED_ANNOUNCEMENTS_KEY = "ima-yoga-dismissed-announcements";
 
 type AreaContextValue = {
+  clientId: string;
   classTypes: ClassType[];
   levels: Level[];
   typeById: Record<string, ClassType>;
@@ -54,6 +58,10 @@ type AreaContextValue = {
   myEventBookings: MyEventBooking[];
   myPackages: MyPackage[];
   myLedger: MyLedgerEntry[];
+  sequences: Sequence[];
+  poseCatalog: PoseCatalogItem[];
+  favoriteSequenceIds: Set<string>;
+  toggleFavoriteSequence: (sequenceId: string) => void;
   pending: boolean;
   handleBook: (c: PublicClass) => Promise<void>;
   handleCancel: (classId: string) => Promise<void>;
@@ -68,11 +76,12 @@ export function useArea() {
   return ctx;
 }
 
-export function AreaShell({ fullName, email, children }: { fullName: string; email: string; children: ReactNode }) {
+export function AreaShell({ fullName, email, clientId, children }: { fullName: string; email: string; clientId: string; children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
   const pathname = usePathname();
   const isHome = pathname === "/area";
   const isMine = pathname === "/area/prenotazioni";
+  const isSequenze = pathname.startsWith("/area/sequenze");
 
   const [viewDate, setViewDate] = useState(new Date());
   const [classTypes, setClassTypes] = useState<ClassType[]>([]);
@@ -94,6 +103,9 @@ export function AreaShell({ fullName, email, children }: { fullName: string; ema
   const [myEventBookings, setMyEventBookings] = useState<MyEventBooking[]>([]);
   const [myPackages, setMyPackages] = useState<MyPackage[]>([]);
   const [myLedger, setMyLedger] = useState<MyLedgerEntry[]>([]);
+  const [sequences, setSequences] = useState<Sequence[]>([]);
+  const [poseCatalog, setPoseCatalog] = useState<PoseCatalogItem[]>([]);
+  const [favoriteSequenceIds, setFavoriteSequenceIds] = useState<Set<string>>(new Set());
   const [myNotices, setMyNotices] = useState<ClientNotice[]>([]);
   const [unreadNoticeCount, setUnreadNoticeCount] = useState(0);
   const [selected, setSelected] = useState<PublicClass | null>(null);
@@ -228,6 +240,38 @@ export function AreaShell({ fullName, email, children }: { fullName: string; ema
     db.fetchPublicEvents(supabase, from, to).then(setEvents).catch(() => {});
   }, [supabase]);
 
+  useEffect(() => {
+    Promise.all([fetchVisibleSequences(supabase), fetchPoseCatalog(supabase), db.fetchMyFavoriteSequenceIds(supabase)])
+      .then(([seqs, poses, favIds]) => {
+        setSequences(seqs);
+        setPoseCatalog(poses);
+        setFavoriteSequenceIds(new Set(favIds));
+      })
+      .catch(() => {});
+  }, [supabase]);
+
+  async function toggleFavoriteSequence(sequenceId: string) {
+    const isFavorite = favoriteSequenceIds.has(sequenceId);
+    setFavoriteSequenceIds((cur) => {
+      const next = new Set(cur);
+      if (isFavorite) next.delete(sequenceId);
+      else next.add(sequenceId);
+      return next;
+    });
+    try {
+      if (isFavorite) await db.removeFavoriteSequence(supabase, clientId, sequenceId);
+      else await db.addFavoriteSequence(supabase, clientId, sequenceId);
+    } catch {
+      // ripristina lo stato precedente se la scrittura fallisce (es. offline)
+      setFavoriteSequenceIds((cur) => {
+        const next = new Set(cur);
+        if (isFavorite) next.add(sequenceId);
+        else next.delete(sequenceId);
+        return next;
+      });
+    }
+  }
+
   async function refreshMine() {
     const [bookings, eventBookings, packages, ledger] = await Promise.all([
       db.fetchMyBookings(supabase),
@@ -338,6 +382,7 @@ export function AreaShell({ fullName, email, children }: { fullName: string; ema
   }
 
   const value: AreaContextValue = {
+    clientId,
     classTypes,
     levels,
     typeById,
@@ -354,6 +399,10 @@ export function AreaShell({ fullName, email, children }: { fullName: string; ema
     myEventBookings,
     myPackages,
     myLedger,
+    sequences,
+    poseCatalog,
+    favoriteSequenceIds,
+    toggleFavoriteSequence,
     pending,
     handleBook,
     handleCancel,
@@ -383,7 +432,7 @@ export function AreaShell({ fullName, email, children }: { fullName: string; ema
                 <Link
                   href="/area/calendario"
                   className="px-3 py-2 text-sm font-medium"
-                  style={{ background: !isMine ? COLORS.primary : "transparent", color: !isMine ? "#fff" : COLORS.ink }}
+                  style={{ background: !isMine && !isSequenze ? COLORS.primary : "transparent", color: !isMine && !isSequenze ? "#fff" : COLORS.ink }}
                 >
                   Calendario
                 </Link>
@@ -393,6 +442,13 @@ export function AreaShell({ fullName, email, children }: { fullName: string; ema
                   style={{ background: isMine ? COLORS.primary : "transparent", color: isMine ? "#fff" : COLORS.ink }}
                 >
                   Le mie prenotazioni
+                </Link>
+                <Link
+                  href="/area/sequenze"
+                  className="px-3 py-2 text-sm font-medium"
+                  style={{ background: isSequenze ? COLORS.primary : "transparent", color: isSequenze ? "#fff" : COLORS.ink }}
+                >
+                  Sequenze
                 </Link>
               </div>
               <div className="hidden md:block">
@@ -456,6 +512,8 @@ export function AreaShell({ fullName, email, children }: { fullName: string; ema
                             const icon =
                               n.kind === "survey_published" ? (
                                 <ClipboardList size={14} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
+                              ) : n.kind === "sequence_assigned" ? (
+                                <Route size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                               ) : n.kind === "package_assigned" ? (
                                 <PackagePlus size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                               ) : n.kind === "welcome" ? (
