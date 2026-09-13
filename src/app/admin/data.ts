@@ -1618,6 +1618,7 @@ export async function duplicateSequence(supabase: DB, sequence: Sequence): Promi
     clientIds: [],
     guestName: "",
     name: `${sequence.name || "Sequenza"} (copia)`,
+    description: sequence.description,
     isPublic: false,
     sections,
   });
