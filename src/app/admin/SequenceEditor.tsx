@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, BookOpen, Check, ChevronDown, ChevronUp, Copy, Flag, GripVertical, Plus, Printer, Repeat, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
+import { AlertCircle, BookOpen, Check, ChevronDown, ChevronUp, Copy, Flag, GripVertical, Plus, Printer, RefreshCw, Repeat, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -283,7 +283,7 @@ export function SequenceEditor({
   const [canShare, setCanShare] = useState(false);
   const [activeDragPose, setActiveDragPose] = useState<PoseCatalogItem | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [pickerTarget, setPickerTarget] = useState<{ sectionUid: string; blockUid: string | null } | null>(null);
+  const [pickerTarget, setPickerTarget] = useState<{ sectionUid: string; blockUid: string | null; itemUid?: string } | null>(null);
   const [editingPose, setEditingPose] = useState<PoseCatalogItem | null>(null);
   const [paletteWidth, setPaletteWidth] = useState<number>(DEFAULT_PALETTE_WIDTH);
 
@@ -312,7 +312,10 @@ export function SequenceEditor({
 
   useEffect(() => {
     // Sotto la stessa soglia "lg" usata per il layout a due colonne: sotto,
-    // niente drag-and-drop (inaffidabile su touch), si passa a tocco+frecce.
+    // niente pannello catalogo affiancato (non c'è spazio), si passa a un
+    // layout a colonna singola con "Aggiungi dal catalogo" al posto del
+    // drag dalla palette — il riordino (drag-and-drop + frecce) resta
+    // disponibile su entrambi i layout.
     const mq = window.matchMedia("(max-width: 1023px)");
     const update = () => setIsMobile(mq.matches);
     update();
@@ -369,6 +372,14 @@ export function SequenceEditor({
     setActiveDragPose(data?.type === "palette" ? (data.pose ?? null) : null);
   }
 
+  function reorderSectionsByUid(activeUid: string, overUid: string) {
+    setSections((cur) => {
+      const from = cur.findIndex((s) => s.uid === activeUid);
+      const to = cur.findIndex((s) => s.uid === overUid);
+      return from < 0 || to < 0 ? cur : arrayMove(cur, from, to);
+    });
+  }
+
   function handleOuterDragEnd(e: DragEndEvent) {
     const { active, over } = e;
     setActiveDragPose(null);
@@ -385,11 +396,13 @@ export function SequenceEditor({
       return;
     }
     if (active.id === over.id) return;
-    setSections((cur) => {
-      const from = cur.findIndex((s) => s.uid === active.id);
-      const to = cur.findIndex((s) => s.uid === over.id);
-      return from < 0 || to < 0 ? cur : arrayMove(cur, from, to);
-    });
+    reorderSectionsByUid(String(active.id), String(over.id));
+  }
+
+  function handleMobileSectionsDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    reorderSectionsByUid(String(active.id), String(over.id));
   }
 
   function handlePaletteResizeStart(e: ReactPointerEvent<HTMLDivElement>) {
@@ -451,6 +464,22 @@ export function SequenceEditor({
       })
     );
   }
+  function moveItemInBlockByUid(sectionUid: string, blockUid: string, activeUid: string, overUid: string) {
+    setSections((cur) =>
+      cur.map((s) => {
+        if (s.uid !== sectionUid) return s;
+        return {
+          ...s,
+          rows: s.rows.map((r) => {
+            if (r.kind !== "block" || r.block.uid !== blockUid) return r;
+            const from = r.block.items.findIndex((it) => it.uid === activeUid);
+            const to = r.block.items.findIndex((it) => it.uid === overUid);
+            return from < 0 || to < 0 ? r : { ...r, block: { ...r.block, items: arrayMove(r.block.items, from, to) } };
+          }),
+        };
+      })
+    );
+  }
 
   function toggleSection(sectionUid: string, enabled: boolean) {
     setSections((cur) => cur.map((s) => (s.uid === sectionUid ? { ...s, enabled } : s)));
@@ -488,6 +517,27 @@ export function SequenceEditor({
         if (s.uid !== sectionUid) return s;
         if (blockUid === null) return { ...s, rows: [...s.rows, { uid: newItem.uid, kind: "item", item: newItem }] };
         return { ...s, rows: s.rows.map((r) => (r.kind === "block" && r.block.uid === blockUid ? { ...r, block: { ...r.block, items: [...r.block.items, newItem] } } : r)) };
+      })
+    );
+  }
+  // Sostituisce la posa di una voce già esistente mantenendo note, ripetizioni,
+  // durata e tag respiro: a differenza di "rimuovi e riaggiungi" non fa
+  // perdere il resto dei dati già inseriti sulla riga.
+  function replaceItemPose(sectionUid: string, blockUid: string | null, itemUid: string, pose: PoseCatalogItem) {
+    setSections((cur) =>
+      cur.map((s) => {
+        if (s.uid !== sectionUid) return s;
+        if (blockUid === null) {
+          return { ...s, rows: s.rows.map((r) => (r.kind === "item" && r.item.uid === itemUid ? { ...r, item: { ...r.item, poseId: pose.id, customLabel: "" } } : r)) };
+        }
+        return {
+          ...s,
+          rows: s.rows.map((r) =>
+            r.kind === "block" && r.block.uid === blockUid
+              ? { ...r, block: { ...r.block, items: r.block.items.map((it) => (it.uid === itemUid ? { ...it, poseId: pose.id, customLabel: "" } : it)) } }
+              : r
+          ),
+        };
       })
     );
   }
@@ -765,33 +815,41 @@ export function SequenceEditor({
           Caricamento template…
         </div>
       ) : isMobile ? (
-        <div className="flex flex-col gap-2.5 mb-3">
-          {sections.map((section, idx) => (
-            <MobileSectionCard
-              key={section.uid}
-              section={section}
-              poseById={poseById}
-              isFirst={idx === 0}
-              isLast={idx === sections.length - 1}
-              onMoveUp={() => moveSectionByIndex(idx, -1)}
-              onMoveDown={() => moveSectionByIndex(idx, 1)}
-              onToggle={(v) => toggleSection(section.uid, v)}
-              onRename={(v) => renameSection(section.uid, v)}
-              onRemove={() => removeSection(section.uid)}
-              onDuplicate={() => duplicateSection(section.uid, false)}
-              onDuplicateMirror={() => duplicateSection(section.uid, true)}
-              onEditPose={setEditingPose}
-              onAddCustomItem={(blockUid, label) => addCustomItem(section.uid, blockUid, label)}
-              onUpdateItem={(blockUid, itemUid, patch) => updateItem(section.uid, blockUid, itemUid, patch)}
-              onRemoveItem={(blockUid, itemUid) => removeItem(section.uid, blockUid, itemUid)}
-              onMoveRow={(rowIdx, delta) => moveRowByIndex(section.uid, rowIdx, delta)}
-              onMoveItemInBlock={(blockUid, itemIdx, delta) => moveItemInBlockByIndex(section.uid, blockUid, itemIdx, delta)}
-              onAddBlock={() => addBlock(section.uid)}
-              onRemoveBlock={(blockUid) => removeBlock(section.uid, blockUid)}
-              onUpdateBlockReps={(blockUid, reps) => updateBlockReps(section.uid, blockUid, reps)}
-              onOpenPicker={(blockUid) => setPickerTarget({ sectionUid: section.uid, blockUid })}
-            />
-          ))}
+        <div className="mb-3">
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleMobileSectionsDragEnd}>
+            <SortableContext items={sections.map((s) => s.uid)} strategy={verticalListSortingStrategy}>
+              <div className="flex flex-col gap-2.5 mb-3">
+                {sections.map((section, idx) => (
+                  <MobileSectionCard
+                    key={section.uid}
+                    section={section}
+                    poseById={poseById}
+                    isFirst={idx === 0}
+                    isLast={idx === sections.length - 1}
+                    onMoveUp={() => moveSectionByIndex(idx, -1)}
+                    onMoveDown={() => moveSectionByIndex(idx, 1)}
+                    onToggle={(v) => toggleSection(section.uid, v)}
+                    onRename={(v) => renameSection(section.uid, v)}
+                    onRemove={() => removeSection(section.uid)}
+                    onDuplicate={() => duplicateSection(section.uid, false)}
+                    onDuplicateMirror={() => duplicateSection(section.uid, true)}
+                    onEditPose={setEditingPose}
+                    onAddCustomItem={(blockUid, label) => addCustomItem(section.uid, blockUid, label)}
+                    onUpdateItem={(blockUid, itemUid, patch) => updateItem(section.uid, blockUid, itemUid, patch)}
+                    onRemoveItem={(blockUid, itemUid) => removeItem(section.uid, blockUid, itemUid)}
+                    onMoveRowDrag={(activeUid, overUid) => moveRow(section.uid, activeUid, overUid)}
+                    onMoveRowByIndex={(rowIdx, delta) => moveRowByIndex(section.uid, rowIdx, delta)}
+                    onMoveItemInBlock={(blockUid, itemIdx, delta) => moveItemInBlockByIndex(section.uid, blockUid, itemIdx, delta)}
+                    onMoveItemInBlockDrag={(blockUid, activeUid, overUid) => moveItemInBlockByUid(section.uid, blockUid, activeUid, overUid)}
+                    onAddBlock={() => addBlock(section.uid)}
+                    onRemoveBlock={(blockUid) => removeBlock(section.uid, blockUid)}
+                    onUpdateBlockReps={(blockUid, reps) => updateBlockReps(section.uid, blockUid, reps)}
+                    onOpenPicker={(blockUid, itemUid) => setPickerTarget({ sectionUid: section.uid, blockUid, itemUid })}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
           <button onClick={addCustomSection} className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: COLORS.primaryDark }}>
             <Plus size={13} /> Aggiungi sezione personalizzata
           </button>
@@ -805,11 +863,15 @@ export function SequenceEditor({
             <div>
               <SortableContext items={sections.map((s) => s.uid)} strategy={verticalListSortingStrategy}>
                 <div className="flex flex-col gap-2.5">
-                  {sections.map((section) => (
+                  {sections.map((section, idx) => (
                     <SectionEditor
                       key={section.uid}
                       section={section}
                       poseById={poseById}
+                      isFirst={idx === 0}
+                      isLast={idx === sections.length - 1}
+                      onMoveUp={() => moveSectionByIndex(idx, -1)}
+                      onMoveDown={() => moveSectionByIndex(idx, 1)}
                       onToggle={(v) => toggleSection(section.uid, v)}
                       onRename={(v) => renameSection(section.uid, v)}
                       onRemove={() => removeSection(section.uid)}
@@ -819,12 +881,14 @@ export function SequenceEditor({
                       onAddCustomItem={(blockUid, label) => addCustomItem(section.uid, blockUid, label)}
                       onUpdateItem={(blockUid, itemUid, patch) => updateItem(section.uid, blockUid, itemUid, patch)}
                       onRemoveItem={(blockUid, itemUid) => removeItem(section.uid, blockUid, itemUid)}
-                      onMoveRow={(activeUid, overUid) => moveRow(section.uid, activeUid, overUid)}
+                      onMoveRowDrag={(activeUid, overUid) => moveRow(section.uid, activeUid, overUid)}
+                      onMoveRowByIndex={(rowIdx, delta) => moveRowByIndex(section.uid, rowIdx, delta)}
                       onMoveItemInBlock={(blockUid, itemIdx, delta) => moveItemInBlockByIndex(section.uid, blockUid, itemIdx, delta)}
+                      onMoveItemInBlockDrag={(blockUid, activeUid, overUid) => moveItemInBlockByUid(section.uid, blockUid, activeUid, overUid)}
                       onAddBlock={() => addBlock(section.uid)}
                       onRemoveBlock={(blockUid) => removeBlock(section.uid, blockUid)}
                       onUpdateBlockReps={(blockUid, reps) => updateBlockReps(section.uid, blockUid, reps)}
-                      onOpenPicker={(blockUid) => setPickerTarget({ sectionUid: section.uid, blockUid })}
+                      onOpenPicker={(blockUid, itemUid) => setPickerTarget({ sectionUid: section.uid, blockUid, itemUid })}
                     />
                   ))}
                 </div>
@@ -847,7 +911,7 @@ export function SequenceEditor({
               <div style={{ width: 3, height: 44, borderRadius: 999, background: COLORS.border }} />
             </div>
 
-            <PosePalette poseCatalog={poseCatalog} poseCategories={poseCategories} />
+            <PosePalette supabase={supabase} poseCatalog={poseCatalog} poseCategories={poseCategories} onPoseCatalogUpdated={onPoseCatalogUpdated} />
           </div>
 
           <DragOverlay>
@@ -871,11 +935,18 @@ export function SequenceEditor({
 
       {pickerTarget && (
         <PosePickerSheet
+          supabase={supabase}
           poseCatalog={poseCatalog}
           poseCategories={poseCategories}
+          mode={pickerTarget.itemUid ? "replace" : "add"}
+          onPoseCatalogUpdated={onPoseCatalogUpdated}
           onClose={() => setPickerTarget(null)}
           onPick={(pose) => {
-            addPoseItem(pickerTarget.sectionUid, pickerTarget.blockUid, pose);
+            if (pickerTarget.itemUid) {
+              replaceItemPose(pickerTarget.sectionUid, pickerTarget.blockUid, pickerTarget.itemUid, pose);
+            } else {
+              addPoseItem(pickerTarget.sectionUid, pickerTarget.blockUid, pose);
+            }
             setPickerTarget(null);
           }}
         />
@@ -1211,6 +1282,10 @@ function ItemBreathSection({ item, onUpdate }: { item: EditItem; onUpdate: (patc
 function SectionEditor({
   section,
   poseById,
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
   onToggle,
   onRename,
   onRemove,
@@ -1220,8 +1295,10 @@ function SectionEditor({
   onAddCustomItem,
   onUpdateItem,
   onRemoveItem,
-  onMoveRow,
+  onMoveRowDrag,
+  onMoveRowByIndex,
   onMoveItemInBlock,
+  onMoveItemInBlockDrag,
   onAddBlock,
   onRemoveBlock,
   onUpdateBlockReps,
@@ -1229,6 +1306,10 @@ function SectionEditor({
 }: {
   section: EditSection;
   poseById: Record<string, PoseCatalogItem>;
+  isFirst: boolean;
+  isLast: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
   onToggle: (v: boolean) => void;
   onRename: (v: string) => void;
   onRemove: () => void;
@@ -1238,12 +1319,14 @@ function SectionEditor({
   onAddCustomItem: (blockUid: string | null, label: string) => void;
   onUpdateItem: (blockUid: string | null, itemUid: string, patch: Partial<EditItem>) => void;
   onRemoveItem: (blockUid: string | null, itemUid: string) => void;
-  onMoveRow: (activeUid: string, overUid: string) => void;
+  onMoveRowDrag: (activeUid: string, overUid: string) => void;
+  onMoveRowByIndex: (idx: number, delta: number) => void;
   onMoveItemInBlock: (blockUid: string, idx: number, delta: number) => void;
+  onMoveItemInBlockDrag: (blockUid: string, activeUid: string, overUid: string) => void;
   onAddBlock: () => void;
   onRemoveBlock: (blockUid: string) => void;
   onUpdateBlockReps: (blockUid: string, reps: number | null) => void;
-  onOpenPicker: (blockUid: string | null) => void;
+  onOpenPicker: (blockUid: string | null, itemUid?: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.uid });
   const [expanded, setExpanded] = useState(true);
@@ -1254,7 +1337,7 @@ function SectionEditor({
 
   function handleRowDragEnd(e: DragEndEvent) {
     const { active, over } = e;
-    if (over && active.id !== over.id) onMoveRow(String(active.id), String(over.id));
+    if (over && active.id !== over.id) onMoveRowDrag(String(active.id), String(over.id));
   }
   function submitCustom() {
     if (!customText.trim()) return;
@@ -1281,6 +1364,14 @@ function SectionEditor({
         <button {...attributes} {...listeners} className="cursor-grab flex items-center" style={{ color: COLORS.inkSoft, touchAction: "none" }} title="Trascina per riordinare">
           <GripVertical size={15} />
         </button>
+        <div className="flex flex-col">
+          <button onClick={onMoveUp} disabled={isFirst} style={{ color: isFirst ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta su">
+            <ChevronUp size={12} />
+          </button>
+          <button onClick={onMoveDown} disabled={isLast} style={{ color: isLast ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta giù">
+            <ChevronDown size={12} />
+          </button>
+        </div>
         <button onClick={() => setExpanded((v) => !v)} className="flex-1 text-left flex items-center gap-2">
           <input
             value={section.label}
@@ -1304,15 +1395,20 @@ function SectionEditor({
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRowDragEnd}>
             <SortableContext items={section.rows.map((r) => r.uid)} strategy={verticalListSortingStrategy}>
               <div className="flex flex-col gap-1.5 mb-2">
-                {section.rows.map((row) =>
+                {section.rows.map((row, idx) =>
                   row.kind === "item" ? (
                     <ItemRow
                       key={row.uid}
                       item={row.item}
                       pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
                       parentPose={parentOfPose(poseById, row.item.poseId ? poseById[row.item.poseId] : undefined)}
+                      isFirst={idx === 0}
+                      isLast={idx === section.rows.length - 1}
                       onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
                       onRemove={() => onRemoveItem(null, row.item.uid)}
+                      onMoveUp={() => onMoveRowByIndex(idx, -1)}
+                      onMoveDown={() => onMoveRowByIndex(idx, 1)}
+                      onReplace={() => onOpenPicker(null, row.item.uid)}
                       onEditPose={onEditPose}
                     />
                   ) : (
@@ -1321,13 +1417,18 @@ function SectionEditor({
                       sectionUid={section.uid}
                       block={row.block}
                       poseById={poseById}
+                      isFirst={idx === 0}
+                      isLast={idx === section.rows.length - 1}
+                      onMoveUp={() => onMoveRowByIndex(idx, -1)}
+                      onMoveDown={() => onMoveRowByIndex(idx, 1)}
                       onUpdateReps={(reps) => onUpdateBlockReps(row.block.uid, reps)}
                       onRemoveBlock={() => onRemoveBlock(row.block.uid)}
                       onUpdateItem={(itemUid, patch) => onUpdateItem(row.block.uid, itemUid, patch)}
                       onRemoveItem={(itemUid) => onRemoveItem(row.block.uid, itemUid)}
-                      onMoveItemUp={(idx) => onMoveItemInBlock(row.block.uid, idx, -1)}
-                      onMoveItemDown={(idx) => onMoveItemInBlock(row.block.uid, idx, 1)}
-                      onOpenPicker={() => onOpenPicker(row.block.uid)}
+                      onMoveItemUp={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, -1)}
+                      onMoveItemDown={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, 1)}
+                      onMoveItemDrag={(activeUid, overUid) => onMoveItemInBlockDrag(row.block.uid, activeUid, overUid)}
+                      onOpenPicker={(itemUid) => onOpenPicker(row.block.uid, itemUid)}
                       onAddCustom={(label) => onAddCustomItem(row.block.uid, label)}
                       onEditPose={onEditPose}
                     />
@@ -1379,19 +1480,35 @@ function SectionEditor({
   );
 }
 
+// Voce di sequenza (posa singola): trascinabile con la maniglia E riordinabile
+// a frecce, così lo spostamento funziona sia con il drag-and-drop sia con un
+// tocco preciso — utile soprattutto su schermi piccoli o quando il drag non
+// è comodo (tante voci, scroll lungo). "Sostituisci" apre lo stesso catalogo
+// usato per aggiungere, ma sostituisce la posa mantenendo note/ripetizioni/
+// durata/respiro già inseriti sulla riga.
 function ItemRow({
   item,
   pose,
   parentPose,
+  isFirst,
+  isLast,
   onUpdate,
   onRemove,
+  onMoveUp,
+  onMoveDown,
+  onReplace,
   onEditPose,
 }: {
   item: EditItem;
   pose?: PoseCatalogItem;
   parentPose?: PoseCatalogItem;
+  isFirst: boolean;
+  isLast: boolean;
   onUpdate: (patch: Partial<EditItem>) => void;
   onRemove: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onReplace: () => void;
   onEditPose: (pose: PoseCatalogItem) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.uid });
@@ -1409,94 +1526,10 @@ function ItemRow({
         transition,
       }}
     >
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
         <button {...attributes} {...listeners} className="cursor-grab flex items-center" style={{ color: COLORS.inkSoft, touchAction: "none" }} title="Trascina per riordinare">
           <GripVertical size={14} />
         </button>
-        {image && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={image}
-            alt={label}
-            width={36}
-            height={36}
-            onDoubleClick={() => pose && onEditPose(pose)}
-            style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0, cursor: pose ? "pointer" : undefined }}
-            title={pose ? "Doppio click per modificare nel catalogo" : undefined}
-          />
-        )}
-        <div className="flex-1 min-w-0">
-          {pose ? (
-            <div
-              onDoubleClick={() => onEditPose(pose)}
-              className="flex items-center gap-1"
-              style={{ fontSize: 13, fontWeight: 600, cursor: "pointer", width: "fit-content" }}
-              title="Doppio click per modificare nel catalogo"
-            >
-              {label}
-              <BookOpen size={10} style={{ color: COLORS.inkSoft, flexShrink: 0 }} />
-            </div>
-          ) : (
-            <input
-              value={item.customLabel}
-              onChange={(e) => onUpdate({ customLabel: e.target.value })}
-              placeholder="Voce senza nome"
-              style={{ ...inputStyle, border: "none", background: "transparent", padding: 0, fontSize: 13, fontWeight: 600, color: COLORS.ink }}
-            />
-          )}
-          <input value={item.note} onChange={(e) => onUpdate({ note: e.target.value })} placeholder="nota (facoltativa)" style={{ ...inputStyle, padding: "4px 8px", fontSize: 12, marginTop: 2 }} />
-        </div>
-        <button
-          onClick={() => onUpdate({ needsReview: !item.needsReview })}
-          title={item.needsReview ? "Segnato da verificare" : "Segna da verificare"}
-          style={{ color: item.needsReview ? COLORS.gold : COLORS.inkSoft }}
-        >
-          <Flag size={14} fill={item.needsReview ? COLORS.gold : "none"} />
-        </button>
-        <button onClick={onRemove} title="Rimuovi" style={{ color: COLORS.inkSoft }}>
-          <X size={14} />
-        </button>
-      </div>
-      <ItemMetaSection item={item} onUpdate={onUpdate} />
-      <ItemBreathSection item={item} onUpdate={onUpdate} />
-    </div>
-  );
-}
-
-// Interazione a frecce (nessun drag): usata per gli item dentro un blocco
-// (in ogni piattaforma) e per le righe di primo livello su mobile, dove il
-// drag-and-drop è poco affidabile.
-function ArrowItemRow({
-  item,
-  pose,
-  parentPose,
-  isFirst,
-  isLast,
-  onUpdate,
-  onRemove,
-  onMoveUp,
-  onMoveDown,
-  onEditPose,
-}: {
-  item: EditItem;
-  pose?: PoseCatalogItem;
-  parentPose?: PoseCatalogItem;
-  isFirst: boolean;
-  isLast: boolean;
-  onUpdate: (patch: Partial<EditItem>) => void;
-  onRemove: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  onEditPose: (pose: PoseCatalogItem) => void;
-}) {
-  const label = pose ? poseDisplayName(pose, parentPose) : item.customLabel;
-  const image = pose ? poseDisplayImage(pose, parentPose) : null;
-  return (
-    <div
-      className="p-2 rounded-xl"
-      style={{ background: item.needsReview ? withAlpha(COLORS.gold, 8) : COLORS.bg, border: `1px solid ${item.needsReview ? withAlpha(COLORS.gold, 45) : COLORS.border}` }}
-    >
-      <div className="flex items-center gap-2">
         <div className="flex flex-col">
           <button onClick={onMoveUp} disabled={isFirst} style={{ color: isFirst ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta su">
             <ChevronUp size={12} />
@@ -1538,6 +1571,9 @@ function ArrowItemRow({
           )}
           <input value={item.note} onChange={(e) => onUpdate({ note: e.target.value })} placeholder="nota (facoltativa)" style={{ ...inputStyle, padding: "4px 8px", fontSize: 12, marginTop: 2 }} />
         </div>
+        <button onClick={onReplace} title="Sostituisci posizione" style={{ color: COLORS.inkSoft }}>
+          <RefreshCw size={13} />
+        </button>
         <button
           onClick={() => onUpdate({ needsReview: !item.needsReview })}
           title={item.needsReview ? "Segnato da verificare" : "Segna da verificare"}
@@ -1556,8 +1592,9 @@ function ArrowItemRow({
 }
 
 // Contenuto condiviso di un blocco (intestazione ripetizioni + items al suo
-// interno, sempre riordinabili a frecce, mai a drag — anche su desktop:
-// un blocco è pensato per restare piccolo, le frecce bastano).
+// interno): gli item hanno una loro mini area di drag-and-drop indipendente
+// da quella delle righe della sezione, più le frecce come alternativa — un
+// blocco resta piccolo, ma niente impedisce di trascinare anche lì.
 function BlockBody({
   block,
   poseById,
@@ -1567,6 +1604,7 @@ function BlockBody({
   onRemoveItem,
   onMoveItemUp,
   onMoveItemDown,
+  onMoveItemDrag,
   onOpenPicker,
   onAddCustom,
   onEditPose,
@@ -1581,7 +1619,8 @@ function BlockBody({
   onRemoveItem: (itemUid: string) => void;
   onMoveItemUp: (idx: number) => void;
   onMoveItemDown: (idx: number) => void;
-  onOpenPicker: () => void;
+  onMoveItemDrag: (activeUid: string, overUid: string) => void;
+  onOpenPicker: (itemUid?: string) => void;
   onAddCustom: (label: string) => void;
   onEditPose: (pose: PoseCatalogItem) => void;
   dropRef?: (node: HTMLElement | null) => void;
@@ -1589,6 +1628,12 @@ function BlockBody({
 }) {
   const [addingCustom, setAddingCustom] = useState(false);
   const [customText, setCustomText] = useState("");
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  function handleItemDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (over && active.id !== over.id) onMoveItemDrag(String(active.id), String(over.id));
+  }
 
   function submitCustom() {
     if (!customText.trim()) return;
@@ -1615,23 +1660,28 @@ function BlockBody({
         </button>
       </div>
 
-      <div className="flex flex-col gap-1.5 mb-2">
-        {block.items.map((item, idx) => (
-          <ArrowItemRow
-            key={item.uid}
-            item={item}
-            pose={item.poseId ? poseById[item.poseId] : undefined}
-            parentPose={parentOfPose(poseById, item.poseId ? poseById[item.poseId] : undefined)}
-            isFirst={idx === 0}
-            isLast={idx === block.items.length - 1}
-            onUpdate={(patch) => onUpdateItem(item.uid, patch)}
-            onRemove={() => onRemoveItem(item.uid)}
-            onMoveUp={() => onMoveItemUp(idx)}
-            onMoveDown={() => onMoveItemDown(idx)}
-            onEditPose={onEditPose}
-          />
-        ))}
-      </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd}>
+        <SortableContext items={block.items.map((it) => it.uid)} strategy={verticalListSortingStrategy}>
+          <div className="flex flex-col gap-1.5 mb-2">
+            {block.items.map((item, idx) => (
+              <ItemRow
+                key={item.uid}
+                item={item}
+                pose={item.poseId ? poseById[item.poseId] : undefined}
+                parentPose={parentOfPose(poseById, item.poseId ? poseById[item.poseId] : undefined)}
+                isFirst={idx === 0}
+                isLast={idx === block.items.length - 1}
+                onUpdate={(patch) => onUpdateItem(item.uid, patch)}
+                onRemove={() => onRemoveItem(item.uid)}
+                onMoveUp={() => onMoveItemUp(idx)}
+                onMoveDown={() => onMoveItemDown(idx)}
+                onReplace={() => onOpenPicker(item.uid)}
+                onEditPose={onEditPose}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {block.items.length === 0 && (
         <div style={{ fontSize: 11, color: COLORS.inkSoft, textAlign: "center", padding: "10px 8px", border: `1px dashed ${COLORS.border}`, borderRadius: 8 }} className="mb-2">
@@ -1640,7 +1690,7 @@ function BlockBody({
       )}
 
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={onOpenPicker} className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg text-white" style={{ background: COLORS.primary }}>
+        <button onClick={() => onOpenPicker()} className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg text-white" style={{ background: COLORS.primary }}>
           <Plus size={11} /> Aggiungi al blocco
         </button>
         {addingCustom ? (
@@ -1669,17 +1719,23 @@ function BlockBody({
 
 // Blocco su desktop: l'intero blocco è trascinabile come riga unica tra le
 // altre righe della sezione, e accetta anche il drop diretto di una posa
-// dal pannello catalogo.
+// dal pannello catalogo (sia su desktop che su mobile, dove la sezione ha la
+// sua area di drag-and-drop indipendente).
 function BlockCard({
   sectionUid,
   block,
   poseById,
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
   onUpdateReps,
   onRemoveBlock,
   onUpdateItem,
   onRemoveItem,
   onMoveItemUp,
   onMoveItemDown,
+  onMoveItemDrag,
   onOpenPicker,
   onAddCustom,
   onEditPose,
@@ -1687,13 +1743,18 @@ function BlockCard({
   sectionUid: string;
   block: EditBlock;
   poseById: Record<string, PoseCatalogItem>;
+  isFirst: boolean;
+  isLast: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
   onUpdateReps: (reps: number | null) => void;
   onRemoveBlock: () => void;
   onUpdateItem: (itemUid: string, patch: Partial<EditItem>) => void;
   onRemoveItem: (itemUid: string) => void;
   onMoveItemUp: (idx: number) => void;
   onMoveItemDown: (idx: number) => void;
-  onOpenPicker: () => void;
+  onMoveItemDrag: (activeUid: string, overUid: string) => void;
+  onOpenPicker: (itemUid?: string) => void;
   onAddCustom: (label: string) => void;
   onEditPose: (pose: PoseCatalogItem) => void;
 }) {
@@ -1702,9 +1763,19 @@ function BlockCard({
 
   return (
     <div ref={setNodeRef} className="flex items-start gap-2" style={{ opacity: isDragging ? 0.6 : 1, transform: CSS.Transform.toString(transform), transition }}>
-      <button {...attributes} {...listeners} className="cursor-grab flex items-center mt-2.5" style={{ color: COLORS.inkSoft, touchAction: "none" }} title="Trascina per riordinare">
-        <GripVertical size={14} />
-      </button>
+      <div className="flex items-center gap-1 mt-2.5">
+        <button {...attributes} {...listeners} className="cursor-grab flex items-center" style={{ color: COLORS.inkSoft, touchAction: "none" }} title="Trascina per riordinare">
+          <GripVertical size={14} />
+        </button>
+        <div className="flex flex-col">
+          <button onClick={onMoveUp} disabled={isFirst} style={{ color: isFirst ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta su">
+            <ChevronUp size={12} />
+          </button>
+          <button onClick={onMoveDown} disabled={isLast} style={{ color: isLast ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta giù">
+            <ChevronDown size={12} />
+          </button>
+        </div>
+      </div>
       <div className="flex-1 min-w-0">
         <BlockBody
           block={block}
@@ -1715,6 +1786,7 @@ function BlockCard({
           onRemoveItem={onRemoveItem}
           onMoveItemUp={onMoveItemUp}
           onMoveItemDown={onMoveItemDown}
+          onMoveItemDrag={onMoveItemDrag}
           onOpenPicker={onOpenPicker}
           onAddCustom={onAddCustom}
           onEditPose={onEditPose}
@@ -1742,8 +1814,10 @@ function MobileSectionCard({
   onAddCustomItem,
   onUpdateItem,
   onRemoveItem,
-  onMoveRow,
+  onMoveRowDrag,
+  onMoveRowByIndex,
   onMoveItemInBlock,
+  onMoveItemInBlockDrag,
   onAddBlock,
   onRemoveBlock,
   onUpdateBlockReps,
@@ -1764,17 +1838,25 @@ function MobileSectionCard({
   onAddCustomItem: (blockUid: string | null, label: string) => void;
   onUpdateItem: (blockUid: string | null, itemUid: string, patch: Partial<EditItem>) => void;
   onRemoveItem: (blockUid: string | null, itemUid: string) => void;
-  onMoveRow: (idx: number, delta: number) => void;
+  onMoveRowDrag: (activeUid: string, overUid: string) => void;
+  onMoveRowByIndex: (idx: number, delta: number) => void;
   onMoveItemInBlock: (blockUid: string, idx: number, delta: number) => void;
+  onMoveItemInBlockDrag: (blockUid: string, activeUid: string, overUid: string) => void;
   onAddBlock: () => void;
   onRemoveBlock: (blockUid: string) => void;
   onUpdateBlockReps: (blockUid: string, reps: number | null) => void;
-  onOpenPicker: (blockUid: string | null) => void;
+  onOpenPicker: (blockUid: string | null, itemUid?: string) => void;
 }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.uid });
   const [expanded, setExpanded] = useState(true);
   const [addingCustom, setAddingCustom] = useState(false);
   const [customText, setCustomText] = useState("");
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
+  function handleRowDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (over && active.id !== over.id) onMoveRowDrag(String(active.id), String(over.id));
+  }
   function submitCustom() {
     if (!customText.trim()) return;
     onAddCustomItem(null, customText);
@@ -1785,8 +1867,21 @@ function MobileSectionCard({
   const itemCount = section.rows.reduce((sum, r) => sum + (r.kind === "item" ? 1 : r.block.items.length), 0);
 
   return (
-    <div style={{ border: `1px solid ${COLORS.border}`, borderRadius: 12, background: section.enabled ? COLORS.card : COLORS.subtle }}>
+    <div
+      ref={setNodeRef}
+      style={{
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: 12,
+        background: section.enabled ? COLORS.card : COLORS.subtle,
+        opacity: isDragging ? 0.6 : 1,
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
       <div className="flex items-center gap-1.5 p-2.5">
+        <button {...attributes} {...listeners} className="cursor-grab flex items-center" style={{ color: COLORS.inkSoft, touchAction: "none" }} title="Trascina per riordinare">
+          <GripVertical size={15} />
+        </button>
         <div className="flex flex-col">
           <button onClick={onMoveUp} disabled={isFirst} style={{ color: isFirst ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta su">
             <ChevronUp size={14} />
@@ -1815,56 +1910,51 @@ function MobileSectionCard({
 
       {expanded && section.enabled && (
         <div className="px-2.5 pb-2.5">
-          <div className="flex flex-col gap-1.5 mb-2">
-            {section.rows.map((row, idx) =>
-              row.kind === "item" ? (
-                <ArrowItemRow
-                  key={row.uid}
-                  item={row.item}
-                  pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
-                  parentPose={parentOfPose(poseById, row.item.poseId ? poseById[row.item.poseId] : undefined)}
-                  isFirst={idx === 0}
-                  isLast={idx === section.rows.length - 1}
-                  onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
-                  onRemove={() => onRemoveItem(null, row.item.uid)}
-                  onMoveUp={() => onMoveRow(idx, -1)}
-                  onMoveDown={() => onMoveRow(idx, 1)}
-                  onEditPose={onEditPose}
-                />
-              ) : (
-                <div key={row.uid} className="flex items-start gap-1.5">
-                  <div className="flex flex-col mt-2.5">
-                    <button onClick={() => onMoveRow(idx, -1)} disabled={idx === 0} style={{ color: idx === 0 ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }} title="Sposta su">
-                      <ChevronUp size={12} />
-                    </button>
-                    <button
-                      onClick={() => onMoveRow(idx, 1)}
-                      disabled={idx === section.rows.length - 1}
-                      style={{ color: idx === section.rows.length - 1 ? COLORS.border : COLORS.inkSoft, lineHeight: 0 }}
-                      title="Sposta giù"
-                    >
-                      <ChevronDown size={12} />
-                    </button>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <BlockBody
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRowDragEnd}>
+            <SortableContext items={section.rows.map((r) => r.uid)} strategy={verticalListSortingStrategy}>
+              <div className="flex flex-col gap-1.5 mb-2">
+                {section.rows.map((row, idx) =>
+                  row.kind === "item" ? (
+                    <ItemRow
+                      key={row.uid}
+                      item={row.item}
+                      pose={row.item.poseId ? poseById[row.item.poseId] : undefined}
+                      parentPose={parentOfPose(poseById, row.item.poseId ? poseById[row.item.poseId] : undefined)}
+                      isFirst={idx === 0}
+                      isLast={idx === section.rows.length - 1}
+                      onUpdate={(patch) => onUpdateItem(null, row.item.uid, patch)}
+                      onRemove={() => onRemoveItem(null, row.item.uid)}
+                      onMoveUp={() => onMoveRowByIndex(idx, -1)}
+                      onMoveDown={() => onMoveRowByIndex(idx, 1)}
+                      onReplace={() => onOpenPicker(null, row.item.uid)}
+                      onEditPose={onEditPose}
+                    />
+                  ) : (
+                    <BlockCard
+                      key={row.uid}
+                      sectionUid={section.uid}
                       block={row.block}
                       poseById={poseById}
+                      isFirst={idx === 0}
+                      isLast={idx === section.rows.length - 1}
+                      onMoveUp={() => onMoveRowByIndex(idx, -1)}
+                      onMoveDown={() => onMoveRowByIndex(idx, 1)}
                       onUpdateReps={(reps) => onUpdateBlockReps(row.block.uid, reps)}
                       onRemoveBlock={() => onRemoveBlock(row.block.uid)}
                       onUpdateItem={(itemUid, patch) => onUpdateItem(row.block.uid, itemUid, patch)}
                       onRemoveItem={(itemUid) => onRemoveItem(row.block.uid, itemUid)}
                       onMoveItemUp={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, -1)}
                       onMoveItemDown={(itemIdx) => onMoveItemInBlock(row.block.uid, itemIdx, 1)}
-                      onOpenPicker={() => onOpenPicker(row.block.uid)}
+                      onMoveItemDrag={(activeUid, overUid) => onMoveItemInBlockDrag(row.block.uid, activeUid, overUid)}
+                      onOpenPicker={(itemUid) => onOpenPicker(row.block.uid, itemUid)}
                       onAddCustom={(label) => onAddCustomItem(row.block.uid, label)}
                       onEditPose={onEditPose}
                     />
-                  </div>
-                </div>
-              )
-            )}
-          </div>
+                  )
+                )}
+              </div>
+            </SortableContext>
+          </DndContext>
 
           {section.rows.length === 0 && (
             <div style={{ fontSize: 11.5, color: COLORS.inkSoft, textAlign: "center", padding: "14px 8px", border: `1px dashed ${COLORS.border}`, borderRadius: 10 }} className="mb-2">
@@ -2000,98 +2090,167 @@ function MacroCategoryPicker({
 }
 
 function PosePickerSheet({
+  supabase,
   poseCatalog,
   poseCategories,
+  mode = "add",
+  onPoseCatalogUpdated,
   onPick,
   onClose,
 }: {
+  supabase: SupabaseClient;
   poseCatalog: PoseCatalogItem[];
   poseCategories: PoseCategory[];
+  mode?: "add" | "replace";
+  onPoseCatalogUpdated: (pose: PoseCatalogItem) => void;
   onPick: (pose: PoseCatalogItem) => void;
   onClose: () => void;
 }) {
   const { macro, setMacro, categoryFilter, setCategoryFilter, query, setQuery, categoriesForMacro, filtered } = usePoseFilter(poseCatalog, poseCategories);
+  const [creatingPose, setCreatingPose] = useState(false);
   return (
-    <Modal onClose={onClose} width={480}>
-      <div className="p-4 flex flex-col" style={{ maxHeight: "82dvh" }}>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1.5">
-            <Sparkles size={14} style={{ color: COLORS.primaryDark }} />
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, color: COLORS.heading }}>Aggiungi posizione</div>
+    <>
+      <Modal onClose={onClose} width={480}>
+        <div className="p-4 flex flex-col" style={{ maxHeight: "82dvh" }}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-1.5">
+              <Sparkles size={14} style={{ color: COLORS.primaryDark }} />
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, color: COLORS.heading }}>
+                {mode === "replace" ? "Sostituisci posizione" : "Aggiungi posizione"}
+              </div>
+            </div>
+            <button onClick={onClose} style={{ color: COLORS.inkSoft }} title="Chiudi">
+              <X size={18} />
+            </button>
           </div>
-          <button onClick={onClose} style={{ color: COLORS.inkSoft }} title="Chiudi">
-            <X size={18} />
+
+          <MacroCategoryPicker macro={macro} setMacro={setMacro} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} query={query} setQuery={setQuery} categoriesForMacro={categoriesForMacro} />
+
+          {/* Sempre visibile, non solo quando la ricerca non trova nulla: in fase
+              di ingestion da sequenze cartacee capita spesso che la posa non sia
+              ancora a catalogo, ed è più comodo crearla al volo che interrompere
+              il lavoro per andare nel Catalogo. */}
+          <button onClick={() => setCreatingPose(true)} className="flex items-center gap-1.5 text-xs font-semibold mb-3" style={{ color: COLORS.primaryDark }}>
+            <Plus size={13} /> Nuova posizione nel catalogo
           </button>
+
+          <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
+            <div className="flex flex-col gap-1.5">
+              {filtered.map((p) => {
+                const parent = p.parentPoseId ? poseCatalog.find((x) => x.id === p.parentPoseId) : undefined;
+                const displayName = poseDisplayName(p, parent);
+                const displayImage = poseDisplayImage(p, parent);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => onPick(p)}
+                    className="flex items-center gap-2.5 p-2 rounded-xl text-left"
+                    style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}` }}
+                  >
+                    {displayImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={displayImage} alt="" width={34} height={34} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 34, height: 34, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
+                    )}
+                    <div className="min-w-0">
+                      <div style={{ fontSize: 13.5, color: COLORS.ink }}>{displayName}</div>
+                      {parent && <div style={{ fontSize: 11, color: COLORS.inkSoft }}>Variante di {parent.name}</div>}
+                    </div>
+                  </button>
+                );
+              })}
+              {filtered.length === 0 && (
+                <div style={{ fontSize: 12, color: COLORS.inkSoft }} className="text-center py-6">
+                  Nessuna posizione trovata.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {creatingPose && (
+        <PoseEditModal
+          supabase={supabase}
+          pose={null}
+          initialMacro={macro}
+          initialName={query.trim()}
+          poseCatalog={poseCatalog}
+          categories={poseCategories}
+          onSaved={(saved) => {
+            onPoseCatalogUpdated(saved);
+            onPick(saved);
+            setCreatingPose(false);
+          }}
+          onClose={() => setCreatingPose(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function PosePalette({
+  supabase,
+  poseCatalog,
+  poseCategories,
+  onPoseCatalogUpdated,
+}: {
+  supabase: SupabaseClient;
+  poseCatalog: PoseCatalogItem[];
+  poseCategories: PoseCategory[];
+  onPoseCatalogUpdated: (pose: PoseCatalogItem) => void;
+}) {
+  const { macro, setMacro, categoryFilter, setCategoryFilter, query, setQuery, categoriesForMacro, filtered } = usePoseFilter(poseCatalog, poseCategories);
+  const [creatingPose, setCreatingPose] = useState(false);
+
+  return (
+    <>
+      <div
+        className="p-3.5 rounded-2xl lg:sticky lg:top-3 lg:max-h-[calc(100dvh-160px)] flex flex-col"
+        style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: `0 1px 2px ${withAlpha(COLORS.ink, 4)}` }}
+      >
+        <div className="flex items-center gap-1.5 mb-3">
+          <Sparkles size={14} style={{ color: COLORS.primaryDark }} />
+          <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.heading }}>Catalogo</div>
         </div>
 
         <MacroCategoryPicker macro={macro} setMacro={setMacro} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} query={query} setQuery={setQuery} categoriesForMacro={categoriesForMacro} />
 
-        <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
-          <div className="flex flex-col gap-1.5">
-            {filtered.map((p) => {
-              const parent = p.parentPoseId ? poseCatalog.find((x) => x.id === p.parentPoseId) : undefined;
-              const displayName = poseDisplayName(p, parent);
-              const displayImage = poseDisplayImage(p, parent);
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => onPick(p)}
-                  className="flex items-center gap-2.5 p-2 rounded-xl text-left"
-                  style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}` }}
-                >
-                  {displayImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={displayImage} alt="" width={34} height={34} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
-                  ) : (
-                    <div style={{ width: 34, height: 34, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
-                  )}
-                  <div className="min-w-0">
-                    <div style={{ fontSize: 13.5, color: COLORS.ink }}>{displayName}</div>
-                    {parent && <div style={{ fontSize: 11, color: COLORS.inkSoft }}>Variante di {parent.name}</div>}
-                  </div>
-                </button>
-              );
-            })}
-            {filtered.length === 0 && (
-              <div style={{ fontSize: 12, color: COLORS.inkSoft }} className="text-center py-6">
-                Nessuna posizione trovata.
-              </div>
-            )}
+        <button onClick={() => setCreatingPose(true)} className="flex items-center gap-1.5 text-xs font-semibold mb-2.5" style={{ color: COLORS.primaryDark }}>
+          <Plus size={13} /> Nuova posizione
+        </button>
+
+        <div className="overflow-y-auto overflow-x-hidden max-h-[60vh] lg:max-h-none lg:flex-1" style={{ minHeight: 0 }}>
+          <div className="flex flex-col gap-1 pr-0.5">
+            {filtered.map((p) => (
+              <PaletteThumb key={p.id} pose={p} parentPose={p.parentPoseId ? poseCatalog.find((x) => x.id === p.parentPoseId) : undefined} />
+            ))}
           </div>
+          {filtered.length === 0 && (
+            <div style={{ fontSize: 11.5, color: COLORS.inkSoft }} className="text-center py-6">
+              Nessuna posizione trovata.
+            </div>
+          )}
         </div>
       </div>
-    </Modal>
-  );
-}
 
-function PosePalette({ poseCatalog, poseCategories }: { poseCatalog: PoseCatalogItem[]; poseCategories: PoseCategory[] }) {
-  const { macro, setMacro, categoryFilter, setCategoryFilter, query, setQuery, categoriesForMacro, filtered } = usePoseFilter(poseCatalog, poseCategories);
-
-  return (
-    <div
-      className="p-3.5 rounded-2xl lg:sticky lg:top-3 lg:max-h-[calc(100dvh-160px)] flex flex-col"
-      style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, boxShadow: `0 1px 2px ${withAlpha(COLORS.ink, 4)}` }}
-    >
-      <div className="flex items-center gap-1.5 mb-3">
-        <Sparkles size={14} style={{ color: COLORS.primaryDark }} />
-        <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.heading }}>Catalogo</div>
-      </div>
-
-      <MacroCategoryPicker macro={macro} setMacro={setMacro} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} query={query} setQuery={setQuery} categoriesForMacro={categoriesForMacro} />
-
-      <div className="overflow-y-auto overflow-x-hidden max-h-[60vh] lg:max-h-none lg:flex-1" style={{ minHeight: 0 }}>
-        <div className="flex flex-col gap-1 pr-0.5">
-          {filtered.map((p) => (
-            <PaletteThumb key={p.id} pose={p} parentPose={p.parentPoseId ? poseCatalog.find((x) => x.id === p.parentPoseId) : undefined} />
-          ))}
-        </div>
-        {filtered.length === 0 && (
-          <div style={{ fontSize: 11.5, color: COLORS.inkSoft }} className="text-center py-6">
-            Nessuna posizione trovata.
-          </div>
-        )}
-      </div>
-    </div>
+      {creatingPose && (
+        <PoseEditModal
+          supabase={supabase}
+          pose={null}
+          initialMacro={macro}
+          initialName={query.trim()}
+          poseCatalog={poseCatalog}
+          categories={poseCategories}
+          onSaved={(saved) => {
+            onPoseCatalogUpdated(saved);
+            setCreatingPose(false);
+          }}
+          onClose={() => setCreatingPose(false)}
+        />
+      )}
+    </>
   );
 }
 
