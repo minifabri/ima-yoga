@@ -7,42 +7,56 @@ import { Field, Modal, inputStyle } from "./ui";
 import { savePose, deletePoseThumbnail } from "./data";
 import { PoseThumbnailGenerator, type PoseThumbnailGeneratorHandle } from "./PoseThumbnailGenerator";
 import { slugify } from "./utils";
-import type { PoseCatalogItem, PoseCategory } from "./types";
+import type { PoseCatalogItem, PoseCategory, PoseMacro } from "./types";
+
+function emptyDraft(macro: PoseMacro, initialName: string): Omit<PoseCatalogItem, "id"> {
+  return { macro, name: initialName, nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null, parentPoseId: null, variantLabel: "" };
+}
 
 // Stesso form di modifica di PoseCatalogView.tsx, estratto in un componente
 // autonomo per poterlo aprire anche dall'editor sequenza (doppio click su
-// una posizione collegata al catalogo): qui si modifica sempre una posizione
-// già esistente, mai una nuova, e non c'è azione di eliminazione — cancellare
-// una posizione usata altrove mentre si lavora su una sequenza è un compito
-// che resta al Catalogo.
+// una posizione collegata al catalogo, oppure la scorciatoia "Nuova
+// posizione" dal catalogo/picker durante l'inserimento di una sequenza).
+// `pose` null significa creazione: niente azione di eliminazione in
+// entrambi i casi — cancellare una posizione usata altrove resta un compito
+// del Catalogo.
 export function PoseEditModal({
   supabase,
   pose,
+  initialMacro,
+  initialName,
   poseCatalog,
   categories,
   onSaved,
   onClose,
 }: {
   supabase: SupabaseClient;
-  pose: PoseCatalogItem;
+  pose: PoseCatalogItem | null;
+  initialMacro?: PoseMacro;
+  initialName?: string;
   poseCatalog: PoseCatalogItem[];
   categories: PoseCategory[];
   onSaved: (saved: PoseCatalogItem) => void;
   onClose: () => void;
 }) {
-  const [draft, setDraft] = useState<Omit<PoseCatalogItem, "id">>({
-    macro: pose.macro,
-    name: pose.name,
-    nameIt: pose.nameIt,
-    nameEn: pose.nameEn,
-    description: pose.description,
-    categoryId: pose.categoryId,
-    tags: pose.tags,
-    imageUrl: pose.imageUrl,
-    parentPoseId: pose.parentPoseId,
-    variantLabel: pose.variantLabel,
-  });
-  const [tagsInput, setTagsInput] = useState(pose.tags.join(", "));
+  const isNew = pose === null;
+  const [draft, setDraft] = useState<Omit<PoseCatalogItem, "id">>(
+    pose
+      ? {
+          macro: pose.macro,
+          name: pose.name,
+          nameIt: pose.nameIt,
+          nameEn: pose.nameEn,
+          description: pose.description,
+          categoryId: pose.categoryId,
+          tags: pose.tags,
+          imageUrl: pose.imageUrl,
+          parentPoseId: pose.parentPoseId,
+          variantLabel: pose.variantLabel,
+        }
+      : emptyDraft(initialMacro ?? "asana", initialName ?? "")
+  );
+  const [tagsInput, setTagsInput] = useState(pose?.tags.join(", ") ?? "");
   const [showManualImageUrl, setShowManualImageUrl] = useState(false);
   const [error, setError] = useState("");
   const thumbnailGeneratorRef = useRef<PoseThumbnailGeneratorHandle>(null);
@@ -50,9 +64,9 @@ export function PoseEditModal({
   const poseById = Object.fromEntries(poseCatalog.map((p) => [p.id, p]));
   const isVariant = Boolean(draft.parentPoseId);
   const parentPose = draft.parentPoseId ? poseById[draft.parentPoseId] : undefined;
-  const hasChildren = poseCatalog.some((p) => p.parentPoseId === pose.id);
+  const hasChildren = pose ? poseCatalog.some((p) => p.parentPoseId === pose.id) : false;
   const categoriesForMacro = categories.filter((c) => c.macro === draft.macro);
-  const parentCandidates = poseCatalog.filter((p) => p.macro === draft.macro && !p.parentPoseId && p.id !== pose.id).sort((a, b) => a.name.localeCompare(b.name));
+  const parentCandidates = poseCatalog.filter((p) => p.macro === draft.macro && !p.parentPoseId && p.id !== pose?.id).sort((a, b) => a.name.localeCompare(b.name));
   const previewName = isVariant ? draft.name || [parentPose?.name, draft.variantLabel].filter(Boolean).join(" ") || "—" : null;
 
   async function handleRemoveOwnImage() {
@@ -83,7 +97,7 @@ export function PoseEditModal({
       .map((t) => t.trim())
       .filter(Boolean);
     try {
-      const saved = await savePose(supabase, { id: pose.id, ...draft, name, variantLabel: draft.variantLabel.trim(), tags });
+      const saved = await savePose(supabase, { id: pose?.id, ...draft, name, variantLabel: draft.variantLabel.trim(), tags });
       onSaved(saved);
     } catch {
       setError("Errore nel salvataggio della posizione.");
@@ -94,7 +108,7 @@ export function PoseEditModal({
     <Modal onClose={onClose} width={560}>
       <div className="p-4 overflow-y-auto" style={{ flex: 1 }}>
         <div className="mb-3" style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: COLORS.heading }}>
-          Modifica posizione
+          {isNew ? "Nuova posizione" : "Modifica posizione"}
         </div>
 
         <div className="mb-3">
@@ -228,7 +242,7 @@ export function PoseEditModal({
 
         <div className="flex items-center gap-2">
           <button onClick={handleSave} className="px-3 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: COLORS.primary }}>
-            Salva posizione
+            {isNew ? "Crea posizione" : "Salva posizione"}
           </button>
           <button onClick={onClose} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
             Annulla
