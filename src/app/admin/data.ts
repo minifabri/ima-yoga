@@ -104,7 +104,7 @@ function mapClientNotice(row: {
   id: string;
   client_id: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published";
+  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published" | "sequence_assigned";
   link_path: string | null;
   read: boolean;
   created_at: string;
@@ -1346,6 +1346,7 @@ type SequenceRow = {
   class_type_id: string;
   guest_name: string | null;
   name: string;
+  is_public: boolean;
   created_at: string;
   updated_at: string;
   sequence_clients: { client_id: string }[];
@@ -1387,6 +1388,7 @@ function mapSequence(row: SequenceRow): Sequence {
     clientIds: (row.sequence_clients || []).map((sc) => sc.client_id),
     guestName: row.guest_name || "",
     name: row.name,
+    isPublic: row.is_public,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     sections: (row.sequence_sections || [])
@@ -1433,6 +1435,16 @@ export async function fetchSequences(supabase: DB): Promise<Sequence[]> {
   return (data ?? []).map(mapSequence);
 }
 
+// Sequenze visibili all'allievo loggato: assegnate a lui/lei o rese
+// pubbliche nel catalogo. Il filtro effettivo è demandato alla RLS
+// (sequences_select_visible) — qui si legge semplicemente tutto ciò che
+// la query può vedere.
+export async function fetchVisibleSequences(supabase: DB): Promise<Sequence[]> {
+  const { data, error } = await supabase.from("sequences").select(SEQUENCE_SELECT).order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapSequence);
+}
+
 export async function fetchSequence(supabase: DB, id: string): Promise<Sequence> {
   const { data, error } = await supabase.from("sequences").select(SEQUENCE_SELECT).eq("id", id).single();
   if (error) throw error;
@@ -1450,6 +1462,7 @@ export async function saveSequence(
     clientIds: string[];
     guestName: string;
     name: string;
+    isPublic: boolean;
     sections: {
       kind: SectionKind;
       label: string;
@@ -1476,6 +1489,7 @@ export async function saveSequence(
     class_type_id: sequence.classTypeId,
     guest_name: sequence.guestName || null,
     name: sequence.name,
+    is_public: sequence.isPublic,
   };
 
   // Le relazioni con gli allievi vanno sincronizzate prima della query di

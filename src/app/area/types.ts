@@ -18,7 +18,7 @@ export type Announcement = {
 export type ClientNotice = {
   id: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published";
+  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published" | "sequence_assigned";
   linkPath: string | null;
   createdAt: string;
   read: boolean;

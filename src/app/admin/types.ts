@@ -100,7 +100,7 @@ export type ClientNotice = {
   clientId: string;
   clientName: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published";
+  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published" | "sequence_assigned";
   linkPath: string | null;
   read: boolean;
   createdAt: string;
@@ -352,6 +352,7 @@ export type Sequence = {
   clientIds: string[];
   guestName: string;
   name: string;
+  isPublic: boolean;
   sections: SequenceSection[];
   createdAt: string;
   updatedAt: string;

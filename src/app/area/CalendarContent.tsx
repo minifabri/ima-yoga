@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarClock, CheckSquare, ChevronLeft, ChevronRight, Gift, LayoutGrid, List, Lock, Square } from "lucide-react";
+import { CalendarClock, CheckSquare, ChevronLeft, ChevronRight, Gift, LayoutGrid, List, Lock, Sparkles, Square } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay } from "@/app/admin/utils";
 import { availabilityLabel, formatEventDate, isPastClass, typeInitials } from "./helpers";
@@ -21,14 +21,11 @@ export function CalendarContent() {
     return map;
   }, [visibleClasses]);
   const listDays = useMemo(() => days.filter((d) => (classesByDay[dateKey(d)] || []).length > 0), [days, classesByDay]);
-  const monthEvents = useMemo(
-    () =>
-      events.filter((e) => {
-        const [y, m] = e.date.split("-").map(Number);
-        return y === viewDate.getFullYear() && m === viewDate.getMonth() + 1;
-      }),
-    [events, viewDate]
-  );
+  // `events` arriva già ordinato per data crescente e filtrato sui prossimi
+  // 180 giorni (vedi AreaShell): qui prendiamo i più vicini a prescindere dal
+  // mese che si sta sfogliando nel calendario, altrimenti un evento del mese
+  // prossimo resterebbe invisibile finché non ci si sposta manualmente lì.
+  const upcomingEvents = events.slice(0, 3);
 
   return (
     <>
@@ -94,6 +91,31 @@ export function CalendarContent() {
           {onlyMine ? <CheckSquare size={15} color={COLORS.primary} /> : <Square size={15} />} Solo le mie prenotazioni
         </button>
       </div>
+
+      {upcomingEvents.length > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={15} color={COLORS.gold} />
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.heading }}>Prossimi eventi</span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {upcomingEvents.map((e) => (
+              <a
+                key={e.slug}
+                href={`/eventi/${e.slug}`}
+                className="flex items-start gap-2 p-2.5 rounded-lg"
+                style={{ background: withAlpha(COLORS.gold, 12), border: `1px solid ${withAlpha(COLORS.gold, 35)}` }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: 999, background: COLORS.gold, marginTop: 5, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: COLORS.ink, lineHeight: 1.45 }}>
+                  <strong>{formatEventDate(e.date)}</strong> · {e.name}
+                  {e.location && <span style={{ color: COLORS.inkSoft }}> — {e.location}</span>}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {calendarMode === "grid" ? (
         <>
@@ -277,25 +299,6 @@ export function CalendarContent() {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {monthEvents.length > 0 && (
-        <div className="flex flex-col gap-1.5 mt-4">
-          {monthEvents.map((e) => (
-            <a
-              key={e.slug}
-              href={`/eventi/${e.slug}`}
-              className="flex items-start gap-2 p-2.5 rounded-lg"
-              style={{ background: withAlpha(COLORS.gold, 12), border: `1px solid ${withAlpha(COLORS.gold, 35)}` }}
-            >
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: COLORS.gold, marginTop: 5, flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: COLORS.ink, lineHeight: 1.45 }}>
-                <strong>{formatEventDate(e.date)}</strong> · {e.name}
-                {e.location && <span style={{ color: COLORS.inkSoft }}> — {e.location}</span>}
-              </span>
-            </a>
-          ))}
         </div>
       )}
     </>

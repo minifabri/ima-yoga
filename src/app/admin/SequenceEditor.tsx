@@ -1,9 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { createPortal } from "react-dom";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, BookOpen, Check, ChevronDown, ChevronUp, Copy, Flag, GripVertical, Plus, Printer, Repeat, Search, Share2, Sparkles, Trash2, X } from "lucide-react";
+import {
+  AlertCircle,
+  Bell,
+  BookOpen,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Download,
+  Eye,
+  Flag,
+  GripVertical,
+  Mail,
+  Plus,
+  Repeat,
+  Search,
+  Share2,
+  Sparkles,
+  Trash2,
+  UserCheck,
+  X,
+} from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -22,48 +42,17 @@ import { COLORS, withAlpha } from "./colors";
 import { Field, Modal, Switch, inputStyle } from "./ui";
 import { swapSides } from "./utils";
 import { saveSequence, deleteSequence, fetchSequenceTemplate } from "./data";
+import { notifySequenceAssigned } from "./actions";
 import { PoseEditModal } from "./PoseEditModal";
+import { EmailPreviewModal } from "./EmailPreviewModal";
+import { sequenceAssignedEmailHtml } from "@/lib/emailTemplates";
 import { poseDisplayName, poseDisplayNameIt, poseDisplayImage } from "./poseDisplay";
+import { PrintSheet, SheetItemRow, buildSheetText, toSheetItem, type SheetRow } from "./sequenceSheet";
 
 function parentOfPose(poseById: Record<string, PoseCatalogItem>, pose: PoseCatalogItem | undefined): PoseCatalogItem | undefined {
   return pose?.parentPoseId ? poseById[pose.parentPoseId] : undefined;
 }
 import type { ClassType, ClientItem, HoldUnit, PoseCatalogItem, PoseCategory, PoseMacro, Sequence, SectionKind } from "./types";
-
-// Filigrana ripetuta e discreta sulla scheda stampata/PDF: le foto delle
-// posizioni sono materiale proprietario dello studio, quindi la scheda che
-// esce verso gli allievi porta un richiamo al marchio invece di restare
-// "pulita" e facilmente ricondivisibile senza contesto. Il tassello si ripete
-// ogni 200px e passa SOPRA a testo e foto, così anche ritagliando solo una
-// porzione della pagina (es. sopra/sotto) resta visibile un frammento del
-// marchio. La rotazione è sulla `pattern` stessa (patternTransform) e non su
-// un <g> annidato dentro: in stampa/PDF Chromium a volte appiattisce i
-// transform sui figli di un pattern, mentre patternTransform è l'attributo
-// SVG pensato apposta per ruotare un intero tassello ripetuto ed è molto più
-// affidabile in quel percorso. Per lo stesso motivo l'elemento è "position:
-// absolute" (alto quanto tutta la scheda) invece di "fixed": fixed in stampa
-// attiva un meccanismo di ripetizione per-pagina che ha lo stesso problema.
-//
-// SVG inline nel DOM (non un'immagine di sfondo in data URI): un'immagine
-// esterna gira in un contesto isolato che non vede i web font della pagina,
-// quindi il wordmark "ima yoga" veniva reso con il font di sistema invece del
-// Cormorant Garamond del logo vero (var(--font-display), vedi Logo.tsx).
-// Da inline invece eredita i font della pagina come qualunque altro testo.
-const WATERMARK_TILE_ID = "sequence-watermark-tile";
-function PrintWatermark() {
-  return (
-    <svg className="p-watermark" aria-hidden="true">
-      <defs>
-        <pattern id={WATERMARK_TILE_ID} width="200" height="200" patternUnits="userSpaceOnUse" patternTransform="rotate(-28)">
-          <text x="100" y="104" textAnchor="middle" fontSize={18} fontWeight={500} fill="#8E72C7" fillOpacity={0.25} style={{ fontFamily: "var(--font-display)" }}>
-            ima yoga
-          </text>
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill={`url(#${WATERMARK_TILE_ID})`} />
-    </svg>
-  );
-}
 
 type EditItem = {
   uid: string;
@@ -185,65 +174,6 @@ function sectionsFromTemplate(template: { sections: { kind: SectionKind; label: 
   return template.sections.map((s) => ({ uid: uid(), kind: s.kind, label: s.label, enabled: s.enabled, rows: [] }));
 }
 
-function formatItemMeta(reps: number | null, holdValue: number | null, holdUnit: HoldUnit | null): string {
-  const parts: string[] = [];
-  if (reps) parts.push(`×${reps}`);
-  if (holdValue) {
-    const unitLabel = holdUnit === "minutes" ? (holdValue === 1 ? "minuto" : "minuti") : holdUnit === "breaths" ? (holdValue === 1 ? "respiro" : "respiri") : holdValue === 1 ? "secondo" : "secondi";
-    parts.push(`${holdValue} ${unitLabel}`);
-  }
-  return parts.join(" · ");
-}
-
-function formatBreathText(onInhale: string | null, onExhale: string | null): string {
-  const parts: string[] = [];
-  if (onInhale !== null) parts.push(onInhale ? `inspiro: ${onInhale}` : "inspiro");
-  if (onExhale !== null) parts.push(onExhale ? `espiro: ${onExhale}` : "espiro");
-  return parts.join(" · ");
-}
-
-type SheetItem = { text: string; meta: string; note: string; breath: string; imageUrl: string | null };
-type SheetRow = { kind: "item"; item: SheetItem } | { kind: "block"; reps: number | null; items: SheetItem[] };
-
-function toSheetItem(it: EditItem, poseById: Record<string, PoseCatalogItem>): SheetItem {
-  const pose = it.poseId ? poseById[it.poseId] : undefined;
-  const parent = pose?.parentPoseId ? poseById[pose.parentPoseId] : undefined;
-  return {
-    text: pose ? poseDisplayName(pose, parent) : it.customLabel,
-    note: it.note,
-    meta: formatItemMeta(it.reps, it.holdValue, it.holdUnit),
-    breath: formatBreathText(it.onInhale, it.onExhale),
-    imageUrl: pose ? poseDisplayImage(pose, parent) : null,
-  };
-}
-
-function buildSheetText(sections: { label: string; rows: SheetRow[] }[], personLabel: string) {
-  const lines = [personLabel ? `Sequenza per ${personLabel}` : "Sequenza"];
-  sections.forEach((s) => {
-    const hasContent = s.rows.some((r) => (r.kind === "item" ? true : r.items.length > 0));
-    if (!hasContent) return;
-    lines.push("");
-    lines.push(s.label.toUpperCase());
-    s.rows.forEach((r) => {
-      if (r.kind === "item") {
-        const meta = r.item.meta ? ` [${r.item.meta}]` : "";
-        const breath = r.item.breath ? `  {${r.item.breath}}` : "";
-        const note = r.item.note ? `  (${r.item.note})` : "";
-        lines.push(`- ${r.item.text}${meta}${breath}${note}`);
-      } else if (r.items.length > 0) {
-        lines.push(`  Ripeti ×${r.reps ?? "?"}:`);
-        r.items.forEach((it) => {
-          const meta = it.meta ? ` [${it.meta}]` : "";
-          const breath = it.breath ? `  {${it.breath}}` : "";
-          const note = it.note ? `  (${it.note})` : "";
-          lines.push(`  - ${it.text}${meta}${breath}${note}`);
-        });
-      }
-    });
-  });
-  return lines.join("\n");
-}
-
 export function SequenceEditor({
   supabase,
   sequence,
@@ -271,6 +201,11 @@ export function SequenceEditor({
   const [name, setName] = useState(sequence?.name ?? "");
   const [clientIds, setClientIds] = useState<string[]>(sequence?.clientIds ?? []);
   const [guestName, setGuestName] = useState(sequence?.guestName ?? "");
+  const [isPublic, setIsPublic] = useState(sequence?.isPublic ?? false);
+  const [notifyEmail, setNotifyEmail] = useState(false);
+  const [notifySiteNotice, setNotifySiteNotice] = useState(false);
+  const [excludedNotifyIds, setExcludedNotifyIds] = useState<string[]>([]);
+  const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [clientQuery, setClientQuery] = useState("");
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const clientPickerRef = useRef<HTMLDivElement>(null);
@@ -351,6 +286,19 @@ export function SequenceEditor({
 
   const selectedClients = clientIds.map((id) => clients.find((c) => c.id === id)).filter((c): c is ClientItem => !!c);
   const personLabel = selectedClients.length > 0 ? selectedClients.map((c) => c.name).join(", ") : guestName.trim();
+  const sheetTitle = personLabel ? `Sequenza per ${personLabel}` : "Sequenza";
+
+  // Solo i clienti appena aggiunti in questa modifica possono essere avvisati:
+  // chi era già assegnato ha già ricevuto (o rifiutato) la notifica la volta
+  // scorsa, riproporla ad ogni salvataggio sarebbe spam. Solo chi ha un
+  // account riceve davvero email/avvisi (stesso motivo dei sondaggi).
+  const previouslyAssignedIds = sequence?.clientIds ?? [];
+  const newlyAssignedClients = selectedClients.filter((c) => !previouslyAssignedIds.includes(c.id) && c.hasAccount && !c.disabled);
+  const notifyRecipients = newlyAssignedClients.filter((c) => !excludedNotifyIds.includes(c.id));
+
+  function toggleNotifyRecipient(id: string) {
+    setExcludedNotifyIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  }
   const clientSuggestions = clientQuery.trim()
     ? clients.filter((c) => c.name.toLowerCase().includes(clientQuery.trim().toLowerCase()) && !clientIds.includes(c.id)).slice(0, 8)
     : clients.filter((c) => !clientIds.includes(c.id)).slice(0, 8);
@@ -582,6 +530,7 @@ export function SequenceEditor({
         clientIds,
         guestName: clientIds.length > 0 ? "" : guestName.trim(),
         name: name.trim() || "Sequenza senza nome",
+        isPublic,
         sections: sections.map((s, sIdx) => {
           const blocks: { tempId: string; reps: number | null; position: number }[] = [];
           const items: {
@@ -634,6 +583,18 @@ export function SequenceEditor({
           return { kind: s.kind, label: s.label, enabled: s.enabled, position: sIdx, blocks, items };
         }),
       });
+
+      // Invio in background, non bloccante: come per le altre email di questo
+      // progetto, un problema nell'invio non deve mai impedire il salvataggio
+      // né tenere l'admin in attesa (vedi notifyClassFull in lib/notifications.ts).
+      if ((notifyEmail || notifySiteNotice) && notifyRecipients.length > 0) {
+        notifySequenceAssigned(saved.id, saved.name, {
+          sendEmail: notifyEmail,
+          sendSiteNotice: notifySiteNotice,
+          clientIds: notifyRecipients.map((c) => c.id),
+        }).catch(() => {});
+      }
+
       onSaved(saved);
     } catch {
       setError("Errore nel salvataggio della sequenza.");
@@ -656,7 +617,7 @@ export function SequenceEditor({
   }
 
   function handleCopy() {
-    const text = buildSheetText(sheetSections, personLabel);
+    const text = buildSheetText(sheetSections, sheetTitle);
     navigator.clipboard
       .writeText(text)
       .then(() => {
@@ -666,8 +627,8 @@ export function SequenceEditor({
       .catch(() => {});
   }
   function handleShare() {
-    const text = buildSheetText(sheetSections, personLabel);
-    navigator.share({ title: personLabel ? `Sequenza per ${personLabel}` : "Sequenza", text }).catch(() => {});
+    const text = buildSheetText(sheetSections, sheetTitle);
+    navigator.share({ title: sheetTitle, text }).catch(() => {});
   }
   function handlePrint() {
     window.print();
@@ -759,6 +720,80 @@ export function SequenceEditor({
           </Field>
         )}
       </div>
+
+      <div className="flex items-start gap-3 mb-4 p-3 rounded-lg" style={{ background: COLORS.subtle }}>
+        <Switch checked={isPublic} onChange={setIsPublic} label="Visibile a tutti nel catalogo" onText="Pubblica" offText="Privata" />
+        <div style={{ fontSize: 11.5, color: COLORS.inkSoft, lineHeight: 1.4 }}>
+          Indipendente dall&apos;assegnazione: puoi tenerla privata, assegnarla a uno o più allievi, renderla pubblica nel catalogo, o entrambe le cose.
+        </div>
+      </div>
+
+      {newlyAssignedClients.length > 0 && (
+        <div className="mb-4 p-3 rounded-lg" style={{ background: withAlpha(COLORS.primary, 8), border: `1px solid ${withAlpha(COLORS.primary, 25)}` }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.heading }} className="mb-2">
+            Avvisare {newlyAssignedClients.length === 1 ? "l'allievo appena assegnato" : "gli allievi appena assegnati"}?
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="flex items-center gap-2" style={{ fontSize: 12.5, color: COLORS.ink }}>
+                <input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
+                <Mail size={13} /> Notifica via email
+              </label>
+              {notifyEmail && (
+                <button
+                  type="button"
+                  onClick={() => setShowEmailPreview(true)}
+                  className="flex items-center gap-1 text-xs font-semibold flex-shrink-0"
+                  style={{ color: COLORS.primaryDark }}
+                >
+                  <Eye size={12} /> Anteprima email
+                </button>
+              )}
+            </div>
+            <label className="flex items-center gap-2" style={{ fontSize: 12.5, color: COLORS.ink }}>
+              <input type="checkbox" checked={notifySiteNotice} onChange={(e) => setNotifySiteNotice(e.target.checked)} />
+              <Bell size={13} /> Notifica via avviso sito
+            </label>
+          </div>
+
+          {(notifyEmail || notifySiteNotice) && newlyAssignedClients.length > 1 && (
+            <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${withAlpha(COLORS.primary, 20)}` }}>
+              <div className="flex items-center gap-1.5 mb-1.5" style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft }}>
+                <UserCheck size={13} /> Destinatari
+              </div>
+              <div className="flex flex-col rounded-lg" style={{ border: `1px solid ${COLORS.border}`, background: COLORS.card }}>
+                {newlyAssignedClients.map((c) => {
+                  const included = !excludedNotifyIds.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => toggleNotifyRecipient(c.id)}
+                      className="flex items-center gap-2 text-left px-2.5 py-1.5"
+                      style={{ fontSize: 12.5, borderBottom: `1px solid ${COLORS.border}` }}
+                    >
+                      <input type="checkbox" checked={included} onChange={() => toggleNotifyRecipient(c.id)} onClick={(e) => e.stopPropagation()} />
+                      <span style={{ color: included ? COLORS.ink : COLORS.inkSoft, textDecoration: included ? "none" : "line-through" }}>{c.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {showEmailPreview && (
+        <EmailPreviewModal
+          subject={`Nuova sequenza — ${name.trim() || "Titolo sequenza"}`}
+          html={sequenceAssignedEmailHtml({
+            fullName: "Nome Cognome",
+            sequenceName: name.trim() || "Titolo sequenza",
+            sequenceUrl: `https://imayoga.app/area/sequenze/…`,
+          })}
+          onClose={() => setShowEmailPreview(false)}
+        />
+      )}
 
       {loadingTemplate ? (
         <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="py-6 text-center">
@@ -931,9 +966,7 @@ export function SequenceEditor({
       {showSheet && (
         <Modal onClose={() => setShowSheet(false)} width={520}>
           <div className="p-5 overflow-y-auto">
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>
-              {personLabel ? `Sequenza per ${personLabel}` : "Sequenza"}
-            </div>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>{sheetTitle}</div>
             <div className="mb-4" style={{ fontSize: 12, color: COLORS.inkSoft }}>
               {new Date().toLocaleDateString("it-IT")}
             </div>
@@ -982,110 +1015,14 @@ export function SequenceEditor({
                 </button>
               )}
               <button onClick={handlePrint} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: COLORS.primary }}>
-                <Printer size={14} /> Stampa
+                <Download size={14} /> Esporta PDF
               </button>
             </div>
           </div>
 
-          {typeof document !== "undefined" &&
-            createPortal(
-              <div id="sequence-print-sheet">
-                <style>{`
-                  @media screen { #sequence-print-sheet { display: none; } }
-                  @media print {
-                    body > *:not(#sequence-print-sheet) { display: none !important; }
-                    #sequence-print-sheet { display: block !important; position: relative; padding: 24px; max-width: 680px; margin: 0 auto; font-family: 'IBM Plex Sans', sans-serif; color: #2A2440; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                    #sequence-print-sheet .p-watermark { display: block; position: absolute; inset: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
-                    #sequence-print-sheet > *:not(.p-watermark) { position: relative; z-index: 1; }
-                    #sequence-print-sheet h1 { font-family: 'Fraunces', serif; font-size: 1.4rem; margin: 0 0 18px; }
-                    #sequence-print-sheet .p-footer { display: flex; justify-content: space-between; align-items: baseline; margin-top: 28px; padding-top: 10px; border-top: 1px solid #E4C77A; font-size: 0.7rem; letter-spacing: 0.3px; color: #8E72C7; }
-                    #sequence-print-sheet .p-section-title { font-size: 0.78rem; font-weight: 600; color: #9C4FA0; margin: 20px 0 6px; text-transform: uppercase; }
-                    #sequence-print-sheet .p-block { padding-left: 10px; border-left: 2px solid #E4C77A; margin: 6px 0; }
-                    #sequence-print-sheet .p-block-title { font-size: 0.72rem; font-weight: 700; color: #9C4FA0; margin-bottom: 4px; }
-                    #sequence-print-sheet .p-row { display: flex; align-items: center; gap: 12px; padding: 5px 0; border-bottom: 1px dashed #DCD3EC; break-inside: avoid; }
-                    #sequence-print-sheet .p-thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: #DFD5EE; flex-shrink: 0; }
-                    #sequence-print-sheet .p-text { display: flex; justify-content: space-between; gap: 14px; flex: 1; }
-                    #sequence-print-sheet .p-meta { color: #9C4FA0; font-weight: 600; font-size: 0.78rem; }
-                    #sequence-print-sheet .p-note { color: #5C5470; font-size: 0.85rem; text-align: right; }
-                    #sequence-print-sheet .p-breath { color: #9C4FA0; font-size: 0.78rem; margin-top: 2px; }
-                  }
-                `}</style>
-                {/* Contenuto proprietario (foto delle posizioni) che esce dallo studio: una
-                    filigrana ripetuta e discreta, sopra testo e foto, lo scoraggia dal girare
-                    fuori contesto anche se qualcuno ritaglia la pagina. */}
-                <PrintWatermark />
-                <h1>{personLabel ? `Sequenza per ${personLabel}` : "Sequenza"}</h1>
-                {sheetSections.map((s, idx) => {
-                  const hasContent = s.rows.some((r) => (r.kind === "item" ? true : r.items.length > 0));
-                  if (!hasContent) return null;
-                  return (
-                    <div key={idx}>
-                      <div className="p-section-title">{s.label}</div>
-                      {s.rows.map((r, rIdx) =>
-                        r.kind === "item" ? (
-                          <SheetItemPrintRow key={rIdx} item={r.item} />
-                        ) : r.items.length === 0 ? null : (
-                          <div key={rIdx} className="p-block">
-                            <div className="p-block-title">Ripeti ×{r.reps ?? "?"}</div>
-                            {r.items.map((it, i2) => (
-                              <SheetItemPrintRow key={i2} item={it} />
-                            ))}
-                          </div>
-                        )
-                      )}
-                    </div>
-                  );
-                })}
-                <div className="p-footer">
-                  <span>imayoga.app</span>
-                  <span>@ima.yo.ga</span>
-                </div>
-              </div>,
-              document.body
-            )}
+          <PrintSheet title={sheetTitle} sheetSections={sheetSections} />
         </Modal>
       )}
-    </div>
-  );
-}
-
-function SheetItemRow({ item }: { item: SheetItem }) {
-  return (
-    <div className="flex items-center gap-2.5" style={{ fontSize: 13, borderBottom: `1px dashed ${COLORS.border}`, paddingBottom: 6 }}>
-      {item.imageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.imageUrl} alt="" width={32} height={32} style={{ borderRadius: 6, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <span style={{ fontFamily: "var(--font-display)" }}>
-            {item.text}
-            {item.meta && <span style={{ fontFamily: "inherit", fontWeight: 600, color: COLORS.primaryDark, fontSize: 11.5 }}> · {item.meta}</span>}
-          </span>
-          {item.note && <span style={{ color: COLORS.inkSoft, fontSize: 12, textAlign: "right" }}>{item.note}</span>}
-        </div>
-        {item.breath && <div style={{ color: COLORS.primaryDark, fontSize: 11.5, marginTop: 2 }}>{item.breath}</div>}
-      </div>
-    </div>
-  );
-}
-
-function SheetItemPrintRow({ item }: { item: SheetItem }) {
-  return (
-    <div className="p-row">
-      {item.imageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="p-thumb" src={item.imageUrl} alt="" />
-      )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="p-text">
-          <span>
-            {item.text} {item.meta && <span className="p-meta">· {item.meta}</span>}
-          </span>
-          {item.note && <span className="p-note">{item.note}</span>}
-        </div>
-        {item.breath && <div className="p-breath">{item.breath}</div>}
-      </div>
     </div>
   );
 }
