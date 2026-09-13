@@ -24,7 +24,7 @@ type SheetSourceItem = {
   holdUnit: HoldUnit | null;
   onInhale: string | null;
   onExhale: string | null;
-  drishtiOverride: Drishti | null;
+  drishtiOverride: Drishti | "none" | null;
   repeatOtherSide: boolean;
 };
 
@@ -58,7 +58,7 @@ export function toSheetItem(it: SheetSourceItem, poseById: Record<string, PoseCa
     meta: formatItemMeta(it.reps, it.holdValue, it.holdUnit),
     breath: formatBreathText(it.onInhale, it.onExhale),
     imageUrl: pose ? poseDisplayImage(pose, parent) : null,
-    drishti: it.drishtiOverride ?? (pose ? poseDisplayDrishti(pose, parent) : null),
+    drishti: it.drishtiOverride === "none" ? null : (it.drishtiOverride ?? (pose ? poseDisplayDrishti(pose, parent) : null)),
   };
 }
 

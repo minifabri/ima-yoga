@@ -338,9 +338,11 @@ export type SequenceItem = {
   onExhale: string | null;
   needsReview: boolean;
   // null = eredita la drishti della posa collegata (o nessuna, se la posa
-  // non ne ha una impostata); un valore la sovrascrive solo per questa
-  // istanza in sequenza, senza toccare il catalogo.
-  drishtiOverride: Drishti | null;
+  // non ne ha una impostata); "none" = nessuna drishti per questa istanza
+  // anche se la posa collegata ne ha una impostata; un valore Drishti la
+  // sovrascrive con una scelta specifica. In entrambi i casi espliciti,
+  // solo per questa istanza in sequenza, senza toccare il catalogo.
+  drishtiOverride: Drishti | "none" | null;
   // Se true, in scheda/lettura la voce viene mostrata anche nella sua
   // versione speculare (dx/sx scambiati in testo/note/respiro) subito dopo,
   // senza duplicare fisicamente la riga salvata — vedi expandSheetItem.

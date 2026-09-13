@@ -17,18 +17,26 @@ import type { Drishti } from "./types";
 // placeholder vuoto, e la prima riga del pannello permette di tornarci.
 // `overrideLabel`, se passato, marca in oro un valore esplicito qui quando
 // esiste anche un `inherited` diverso — usato solo nell'editor sequenze.
+// `explicitNone`/`onSelectNone` (opzionali, sempre passati insieme) coprono
+// il caso in cui esiste un `inherited` ma si vuole comunque nessuna drishti
+// per questa istanza: senza di essi l'unica scelta possibile quando c'è un
+// `inherited` è tornare a quel valore, mai eliminarlo davvero.
 export function DrishtiPicker({
   value,
   inherited = null,
   overrideLabel,
   onChange,
   size = "md",
+  explicitNone = false,
+  onSelectNone,
 }: {
   value: Drishti | null;
   inherited?: Drishti | null;
   overrideLabel?: string;
   onChange: (value: Drishti | null) => void;
   size?: "sm" | "md";
+  explicitNone?: boolean;
+  onSelectNone?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -50,9 +58,10 @@ export function DrishtiPicker({
     };
   }, [open]);
 
-  const effective = value ?? inherited;
+  const effective = explicitNone ? null : (value ?? inherited);
   const showOverrideMark = Boolean(overrideLabel) && value !== null && inherited !== null;
   const clearLabel = inherited ? `Eredita dal catalogo: ${DRISHTI_LABELS[inherited].name}` : "Nessuna";
+  const canSelectNone = inherited !== null && Boolean(onSelectNone);
 
   function choose(next: Drishti | null) {
     onChange(next);
@@ -85,6 +94,26 @@ export function DrishtiPicker({
           )}
           <ChevronDown size={isSmall ? 10 : 11} style={{ opacity: 0.6, transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
         </button>
+      ) : explicitNone ? (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="inline-flex items-center gap-1.5 rounded-full"
+          style={{
+            padding: isSmall ? "3px 9px" : "5px 11px",
+            fontSize: isSmall ? 11 : 12.5,
+            fontWeight: 600,
+            border: `1px dashed ${COLORS.border}`,
+            color: COLORS.inkSoft,
+          }}
+        >
+          <DrishtiEyeIcon size={isSmall ? 11 : 13} />
+          <span>
+            Nessuna drishti
+            {overrideLabel && <span style={{ fontWeight: 700, color: COLORS.gold, fontSize: isSmall ? 9.5 : 10.5 }}> ({overrideLabel})</span>}
+          </span>
+          <ChevronDown size={isSmall ? 10 : 11} style={{ opacity: 0.6, transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+        </button>
       ) : (
         <button type="button" onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1" style={{ fontSize: isSmall ? 11 : 12.5, fontWeight: 600, color: COLORS.primaryDark }}>
           <DrishtiEyeIcon size={isSmall ? 11 : 13} /> + drishti
@@ -110,10 +139,22 @@ export function DrishtiPicker({
           <button
             onClick={() => choose(null)}
             className="text-left rounded-lg"
-            style={{ padding: "7px 10px", fontSize: 12, fontWeight: 500, color: COLORS.inkSoft, background: value === null ? withAlpha(COLORS.primary, 10) : "transparent" }}
+            style={{ padding: "7px 10px", fontSize: 12, fontWeight: 500, color: COLORS.inkSoft, background: value === null && !explicitNone ? withAlpha(COLORS.primary, 10) : "transparent" }}
           >
             {clearLabel}
           </button>
+          {canSelectNone && (
+            <button
+              onClick={() => {
+                onSelectNone?.();
+                setOpen(false);
+              }}
+              className="text-left rounded-lg"
+              style={{ padding: "7px 10px", fontSize: 12, fontWeight: 500, color: COLORS.inkSoft, background: explicitNone ? withAlpha(COLORS.primary, 10) : "transparent" }}
+            >
+              Nessuna (solo qui)
+            </button>
+          )}
           <div style={{ height: 1, background: COLORS.border, margin: "4px 2px" }} />
           {DRISHTI_ORDER.map((d) => (
             <button
