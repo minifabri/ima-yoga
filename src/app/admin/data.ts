@@ -1351,6 +1351,7 @@ type SequenceRow = {
   class_type_id: string;
   guest_name: string | null;
   name: string;
+  description: string | null;
   is_public: boolean;
   created_at: string;
   updated_at: string;
@@ -1396,6 +1397,7 @@ function mapSequence(row: SequenceRow): Sequence {
     clientIds: (row.sequence_clients || []).map((sc) => sc.client_id),
     guestName: row.guest_name || "",
     name: row.name,
+    description: row.description || "",
     isPublic: row.is_public,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -1472,6 +1474,7 @@ export async function saveSequence(
     clientIds: string[];
     guestName: string;
     name: string;
+    description: string;
     isPublic: boolean;
     sections: {
       kind: SectionKind;
@@ -1501,6 +1504,7 @@ export async function saveSequence(
     class_type_id: sequence.classTypeId,
     guest_name: sequence.guestName || null,
     name: sequence.name,
+    description: sequence.description || null,
     is_public: sequence.isPublic,
   };
 

@@ -63,7 +63,7 @@ export function SequenceReadView({
       <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
         <div className="flex items-center gap-2 flex-wrap">
           <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600, color: COLORS.heading }}>{title}</div>
-          {type && <Badge color={type.color}>{type.name}</Badge>}
+          <Badge color={type?.color ?? COLORS.inkSoft}>{type?.name ?? "Altro"}</Badge>
           {isAssigned ? <Badge color={COLORS.gold}>Assegnata</Badge> : isFavorite ? <Badge color={COLORS.primary}>Salvata</Badge> : null}
         </div>
         {!isAssigned && (
@@ -77,8 +77,13 @@ export function SequenceReadView({
           </button>
         )}
       </div>
-      <div className="mb-4" style={{ fontSize: 12.5, color: COLORS.inkSoft }}>
-        {totalActive} posizioni
+      <div className="mb-4">
+        <div style={{ fontSize: 12.5, color: COLORS.inkSoft }}>{totalActive} posizioni</div>
+        {sequence.description && (
+          <div className="mt-1" style={{ fontSize: 13, color: COLORS.ink, lineHeight: 1.5 }}>
+            {sequence.description}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 mb-5 flex-wrap">

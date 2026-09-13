@@ -379,6 +379,7 @@ export type Sequence = {
   clientIds: string[];
   guestName: string;
   name: string;
+  description: string;
   isPublic: boolean;
   sections: SequenceSection[];
   createdAt: string;
