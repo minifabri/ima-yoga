@@ -33,12 +33,40 @@ import type { ClassType, ClientItem, HoldUnit, PoseCatalogItem, PoseCategory, Po
 // Filigrana ripetuta e discreta sulla scheda stampata/PDF: le foto delle
 // posizioni sono materiale proprietario dello studio, quindi la scheda che
 // esce verso gli allievi porta un richiamo al marchio invece di restare
-// "pulita" e facilmente ricondivisibile senza contesto.
-const PRINT_WATERMARK_URL = `data:image/svg+xml,${encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260">
-    <text x="0" y="150" font-family="IBM Plex Sans, sans-serif" font-size="22" fill="#9C4FA0" fill-opacity="0.14" transform="rotate(-28 130 130)">ima yoga</text>
-  </svg>`
-)}`;
+// "pulita" e facilmente ricondivisibile senza contesto. Il tassello si ripete
+// ogni 200px e passa SOPRA a testo e foto, così anche ritagliando solo una
+// porzione della pagina (es. sopra/sotto) resta visibile un frammento del
+// marchio, senza però risultare invadente sulla lettura (opacità bassa). Il
+// testo è centrato nel tassello (text-anchor middle) prima della rotazione,
+// altrimenti finisce tagliato dal bordo del tassello. Il dominio è scritto
+// per esteso e fisso (non ricavato da window.location) per non mostrare mai
+// "localhost" o percorsi interni come "/admin" nell'export.
+//
+// SVG inline nel DOM (non un'immagine di sfondo in data URI): un'immagine
+// esterna gira in un contesto isolato che non vede i web font della pagina,
+// quindi il wordmark "ima yoga" veniva reso con il font di sistema invece del
+// Cormorant Garamond del logo vero (var(--font-display), vedi Logo.tsx).
+// Da inline invece eredita i font della pagina come qualunque altro testo.
+const WATERMARK_TILE_ID = "sequence-watermark-tile";
+function PrintWatermark() {
+  return (
+    <svg className="p-watermark" aria-hidden="true">
+      <defs>
+        <pattern id={WATERMARK_TILE_ID} width="200" height="200" patternUnits="userSpaceOnUse">
+          <g transform="rotate(-28 100 100)" textAnchor="middle">
+            <text x="100" y="96" fontSize={17} fontWeight={500} fill="#8E72C7" fillOpacity={0.18} style={{ fontFamily: "var(--font-display)" }}>
+              ima yoga
+            </text>
+            <text x="100" y="113" fontSize={10} letterSpacing="0.5" fill="#E3C481" fillOpacity={0.18} style={{ fontFamily: "var(--font-body)" }}>
+              imayoga.app
+            </text>
+          </g>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill={`url(#${WATERMARK_TILE_ID})`} />
+    </svg>
+  );
+}
 
 type EditItem = {
   uid: string;
@@ -969,8 +997,8 @@ export function SequenceEditor({
                   @media screen { #sequence-print-sheet { display: none; } }
                   @media print {
                     body > *:not(#sequence-print-sheet) { display: none !important; }
-                    #sequence-print-sheet { display: block !important; position: relative; padding: 24px; max-width: 680px; margin: 0 auto; font-family: 'IBM Plex Sans', sans-serif; color: #2A2440; }
-                    #sequence-print-sheet .p-watermark { display: block; position: fixed; inset: 0; z-index: 0; pointer-events: none; background-repeat: repeat; }
+                    #sequence-print-sheet { display: block !important; position: relative; padding: 24px; max-width: 680px; margin: 0 auto; font-family: 'IBM Plex Sans', sans-serif; color: #2A2440; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    #sequence-print-sheet .p-watermark { display: block; position: fixed; inset: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
                     #sequence-print-sheet > *:not(.p-watermark) { position: relative; z-index: 1; }
                     #sequence-print-sheet h1 { font-family: 'Fraunces', serif; font-size: 1.4rem; margin: 0 0 4px; }
                     #sequence-print-sheet .p-sub { color: #5C5470; font-size: 0.85rem; margin: 0 0 18px; }
@@ -985,9 +1013,10 @@ export function SequenceEditor({
                     #sequence-print-sheet .p-breath { color: #9C4FA0; font-size: 0.78rem; margin-top: 2px; }
                   }
                 `}</style>
-                {/* Contenuto proprietario (foto delle posizioni) che esce dallo studio: un
-                    filigrana ripetuta e discreta lo scoraggia dal girare fuori contesto. */}
-                <div className="p-watermark" style={{ backgroundImage: `url("${PRINT_WATERMARK_URL}")` }} />
+                {/* Contenuto proprietario (foto delle posizioni) che esce dallo studio: una
+                    filigrana ripetuta e discreta, sopra testo e foto, lo scoraggia dal girare
+                    fuori contesto anche se qualcuno ritaglia la pagina. */}
+                <PrintWatermark />
                 <h1>{personLabel ? `Sequenza per ${personLabel}` : "Sequenza"}</h1>
                 <p className="p-sub">{new Date().toLocaleDateString("it-IT")}</p>
                 {sheetSections.map((s, idx) => {
