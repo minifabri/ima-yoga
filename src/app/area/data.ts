@@ -93,6 +93,21 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
   );
 }
 
+// Usato solo per il pallino "nuova lezione" sulla sezione Calendario: la data
+// dell'ultima lezione pubblicata (tra quelle future), indipendentemente dal
+// mese che il cliente ha aperto nel calendario vero e proprio.
+export async function fetchLatestUpcomingClassCreatedAt(supabase: DB, from: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("classes")
+    .select("created_at")
+    .eq("published", true)
+    .gte("class_date", from)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return data && data.length > 0 ? data[0].created_at : null;
+}
+
 export async function fetchPublicEvents(supabase: DB, from: string, to: string): Promise<PublicEvent[]> {
   const { data, error } = await supabase.rpc("public_events", { p_from: from, p_to: to });
   if (error) throw error;
