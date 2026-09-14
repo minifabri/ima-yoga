@@ -4,11 +4,23 @@ import { sendClassReminderEmail } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
+const ROME_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }); // yyyy-mm-dd
+const ROME_TIME = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Rome",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+}); // HH:mm
+
 // Gira una volta al giorno (vedi vercel.json, 16:00 UTC = 17:00 CET / 18:00
-// CEST, mai prima delle 17 locali) e manda il promemoria per le lezioni di
-// domani a chi ha una prenotazione confermata (non in lista d'attesa) e un
-// account con email. reminder_sent_at su bookings evita i doppi invii se il
-// cron viene rilanciato.
+// CEST, mai prima delle 17 locali) e manda il promemoria a chi ha una
+// prenotazione confermata (non in lista d'attesa) e un account con email,
+// per le lezioni di domani. Include anche le lezioni di oggi non ancora
+// iniziate: è un recupero per il caso in cui l'esecuzione di ieri sia
+// saltata o fallita (è già successo: redeploy proprio nella finestra del
+// cron), così il promemoria arriva comunque invece di perdersi in
+// silenzio — reminder_sent_at su bookings evita i doppi invii sia per i
+// rilanci sia per questo recupero.
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
@@ -24,9 +36,11 @@ export async function GET(request: Request) {
   }
   const adminClient = createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
 
-  const tomorrow = new Date();
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  const tomorrowDate = tomorrow.toISOString().slice(0, 10);
+  const now = new Date();
+  const todayDate = ROME_DATE.format(now);
+  const nowLocalTime = ROME_TIME.format(now);
+  const [y, m, d] = todayDate.split("-").map(Number);
+  const tomorrowDate = ROME_DATE.format(new Date(Date.UTC(y, m - 1, d + 1)));
 
   const { data: bookings, error } = await adminClient
     .from("bookings")
@@ -35,9 +49,11 @@ export async function GET(request: Request) {
     )
     .eq("status", "booked")
     .is("reminder_sent_at", null)
-    .eq("classes.class_date", tomorrowDate);
+    .gte("classes.class_date", todayDate)
+    .lte("classes.class_date", tomorrowDate);
 
   if (error) {
+    console.error("[cron/class-reminders]", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -50,6 +66,14 @@ export async function GET(request: Request) {
     const classType = cls ? (Array.isArray(cls.class_types) ? cls.class_types[0] : cls.class_types) : null;
 
     if (!profile?.auth_user_id || !cls || !classType?.name) {
+      skipped++;
+      continue;
+    }
+
+    const isToday = cls.class_date === todayDate;
+    // Lezione di oggi già iniziata: il promemoria non serve più, e non va
+    // considerato un mancato invio da recuperare al prossimo giro.
+    if (isToday && cls.class_time.slice(0, 5) <= nowLocalTime) {
       skipped++;
       continue;
     }
@@ -68,6 +92,7 @@ export async function GET(request: Request) {
       className: classType.name,
       date: cls.class_date,
       time: cls.class_time.slice(0, 5),
+      isToday,
     });
 
     if (ok) {
@@ -78,5 +103,6 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ date: tomorrowDate, sent, skipped });
+  console.log(`[cron/class-reminders] today=${todayDate} tomorrow=${tomorrowDate} sent=${sent} skipped=${skipped}`);
+  return NextResponse.json({ today: todayDate, tomorrow: tomorrowDate, sent, skipped });
 }
