@@ -7,6 +7,7 @@ import type {
   ClassType,
   ClientItem,
   ClientNotice,
+  CronJobLog,
   Drishti,
   EventBookingItem,
   EventBudget,
@@ -921,6 +922,36 @@ function mapEventBudget(row: {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function mapCronJobLog(row: {
+  id: string;
+  job_name: string;
+  status: "ok" | "error";
+  started_at: string;
+  finished_at: string;
+  sent: number | null;
+  skipped: number | null;
+  error: string | null;
+  details: Record<string, unknown> | null;
+}): CronJobLog {
+  return {
+    id: row.id,
+    jobName: row.job_name,
+    status: row.status,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    sent: row.sent,
+    skipped: row.skipped,
+    error: row.error,
+    details: row.details,
+  };
+}
+
+export async function fetchCronJobLogs(supabase: DB, limit = 50): Promise<CronJobLog[]> {
+  const { data, error } = await supabase.from("cron_job_logs").select("*").order("started_at", { ascending: false }).limit(limit);
+  if (error) throw error;
+  return (data ?? []).map(mapCronJobLog);
 }
 
 export async function fetchEventBudgets(supabase: DB): Promise<EventBudget[]> {

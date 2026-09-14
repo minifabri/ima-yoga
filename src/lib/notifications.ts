@@ -11,10 +11,16 @@ export async function notifyClassFull(details: { className: string; date: string
   const to = process.env.ADMIN_NOTIFICATION_EMAIL;
   if (!apiKey || !to) return;
 
-  const dateLabel = new Date(`${details.date}T00:00:00`).toLocaleDateString("it-IT", {
+  // Parse e formattazione sullo stesso fuso esplicito (UTC): senza,
+  // new Date(...) usa il fuso locale del runtime per interpretare la
+  // stringa e toLocaleDateString può finire per usarne un altro, dando
+  // un giorno della settimana sbagliato per la data giusta — è già
+  // successo in produzione ("domenica 14" per un 14 che era lunedì).
+  const dateLabel = new Date(`${details.date}T00:00:00Z`).toLocaleDateString("it-IT", {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: "UTC",
   });
 
   try {
@@ -54,10 +60,16 @@ export async function sendEventBookingConfirmationEmail(details: {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !details.to) return false;
 
-  const dateLabel = new Date(`${details.date}T00:00:00`).toLocaleDateString("it-IT", {
+  // Parse e formattazione sullo stesso fuso esplicito (UTC): senza,
+  // new Date(...) usa il fuso locale del runtime per interpretare la
+  // stringa e toLocaleDateString può finire per usarne un altro, dando
+  // un giorno della settimana sbagliato per la data giusta — è già
+  // successo in produzione ("domenica 14" per un 14 che era lunedì).
+  const dateLabel = new Date(`${details.date}T00:00:00Z`).toLocaleDateString("it-IT", {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: "UTC",
   });
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ima-yoga.vercel.app";
   const isWaitlist = details.status === "waitlist";
@@ -208,10 +220,16 @@ export async function sendClassReminderEmail(details: {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return false;
 
-  const dateLabel = new Date(`${details.date}T00:00:00`).toLocaleDateString("it-IT", {
+  // Parse e formattazione sullo stesso fuso esplicito (UTC): senza,
+  // new Date(...) usa il fuso locale del runtime per interpretare la
+  // stringa e toLocaleDateString può finire per usarne un altro, dando
+  // un giorno della settimana sbagliato per la data giusta — è già
+  // successo in produzione ("domenica 14" per un 14 che era lunedì).
+  const dateLabel = new Date(`${details.date}T00:00:00Z`).toLocaleDateString("it-IT", {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: "UTC",
   });
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ima-yoga.vercel.app";
   const relativeDay = details.isToday ? "oggi" : "domani";

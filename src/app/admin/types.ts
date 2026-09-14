@@ -178,6 +178,18 @@ export type EventBookingItem = {
   createdAt: string;
 };
 
+export type CronJobLog = {
+  id: string;
+  jobName: string;
+  status: "ok" | "error";
+  startedAt: string;
+  finishedAt: string;
+  sent: number | null;
+  skipped: number | null;
+  error: string | null;
+  details: Record<string, unknown> | null;
+};
+
 export type BudgetLineItem = {
   id: string;
   name: string;

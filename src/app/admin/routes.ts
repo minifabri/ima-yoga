@@ -15,6 +15,7 @@ export const ADMIN_ROUTE_BY_KEY: Record<string, string> = {
   "pose-catalog": "/admin/catalogo",
   notices: "/admin/avvisi",
   worklog: "/admin/registro",
+  "automation-logs": "/admin/log-automazioni",
   stats: "/admin/statistiche",
   settings: "/admin/impostazioni",
 };
