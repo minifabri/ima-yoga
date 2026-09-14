@@ -194,12 +194,16 @@ export async function sendSequenceAssignedEmail(details: {
 // Promemoria al cliente ~24h prima della lezione (vedi cron in
 // app/api/cron/class-reminders). Ritorna true solo se l'invio è andato a
 // buon fine, così il chiamante marca reminder_sent_at solo in quel caso.
+// isToday copre il caso di recupero (il cron di ieri non è partito, o ha
+// fallito): in quel caso la lezione è oggi e non domani, e il testo deve
+// dirlo correttamente invece di continuare a parlare di "domani".
 export async function sendClassReminderEmail(details: {
   to: string;
   firstName: string;
   className: string;
   date: string; // yyyy-mm-dd
   time: string; // HH:mm
+  isToday?: boolean;
 }): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return false;
@@ -210,6 +214,7 @@ export async function sendClassReminderEmail(details: {
     month: "long",
   });
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ima-yoga.vercel.app";
+  const relativeDay = details.isToday ? "oggi" : "domani";
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -218,7 +223,7 @@ export async function sendClassReminderEmail(details: {
       body: JSON.stringify({
         from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
         to: details.to,
-        subject: `Ci vediamo domani per ${details.className} 🤍`,
+        subject: `Ci vediamo ${details.isToday ? "stasera" : "domani"} per ${details.className} 🤍`,
         html: `
           <div style="background-color:#FAF7F2; padding:40px 16px; font-family:Helvetica, Arial, sans-serif;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:420px; margin:0 auto; background:#FFFFFF; border-radius:18px; overflow:hidden; border:1px solid #E4DAF0;">
@@ -235,7 +240,7 @@ export async function sendClassReminderEmail(details: {
                     Ciao ${details.firstName}!
                   </p>
                   <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 20px 0; text-align:left;">
-                    Ti ricordo che domani, <strong>${dateLabel}</strong>, ti aspetto per <strong>${details.className}</strong> alle <strong>${details.time}</strong>.
+                    Ti ricordo che ${relativeDay}, <strong>${dateLabel}</strong>, ti aspetto per <strong>${details.className}</strong> alle <strong>${details.time}</strong>.
                   </p>
                   <p style="font-size:14px; line-height:1.6; color:#362D4A; margin:0 0 20px 0; text-align:left;">
                     Ricorda di portare il tuo tappetino e un asciugamano. Arriva con 5 minuti di anticipo, se arrivi prima, per favore aspetta senza suonare: potrebbero esserci altre lezioni o altre attività in corso.
