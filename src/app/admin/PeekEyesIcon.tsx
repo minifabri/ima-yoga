@@ -8,7 +8,7 @@ const MAX_OFFSET_Y = 1.7;
 
 // Un occhio a mandorla, leggermente all'insù agli angoli esterni, con l'iride
 // a sfumatura dorato-viola: più "terzo occhio che sbircia" che emoji da cartone.
-// Condiviso tra PeekCalendarLink (login) e il toggle anonimo dei sondaggi.
+// Usato dal toggle anonimo dei sondaggi.
 function Eye({ cx, offset, irisId }: { cx: number; offset: { x: number; y: number }; irisId: string }) {
   const cy = 10;
   return (
