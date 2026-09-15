@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Clock, MapPin, UserPlus, X, Users, EyeOff, Check, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { trackPageView } from "@/lib/track";
 import { sendEventBookingConfirmationEmail } from "@/lib/notifications";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { Field, inputStyle } from "@/app/admin/ui";
@@ -55,6 +56,10 @@ export function EventPublicView({
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    trackPageView(supabase, `/eventi/${event.slug}`);
+  }, [supabase, event.slug]);
 
   // L'errore (es. "indica il nome del tuo +1") altrimenti restava a schermo
   // finché non si riprovava a confermare — sparisce da solo dopo qualche secondo.

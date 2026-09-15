@@ -140,8 +140,7 @@ export type VisitorStats = {
   byPath: { path: string; views: number }[];
   daily: { day: string; pageviews: number; signups: number }[];
   uniqueVisitors: number;
-  calendarViewers: number;
-  calendarConversions: number;
+  bounceRate: number;
 };
 
 export type EventItem = {
