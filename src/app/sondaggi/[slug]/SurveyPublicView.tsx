@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { Check, AlertCircle, EyeOff, ArrowLeft, ArrowRight, ClipboardCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { trackPageView } from "@/lib/track";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { Field, inputStyle } from "@/app/admin/ui";
 import { ThemeToggle, useTheme } from "@/app/admin/ThemeToggle";
@@ -59,6 +60,10 @@ export function SurveyPublicView({
   const [stepError, setStepError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    trackPageView(supabase, `/sondaggi/${survey.slug}`);
+  }, [supabase, survey.slug]);
 
   const imageUrl = (theme === "dark" ? survey.coverImageDarkUrl : survey.coverImageLightUrl) || survey.coverImageLightUrl || survey.coverImageDarkUrl;
 

@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { trackPageView } from "@/lib/track";
 import { logout } from "@/app/actions";
 import { deleteOwnAccount, type DeleteAccountState } from "./actions";
 import { COLORS, withAlpha } from "@/app/admin/colors";
@@ -103,6 +104,14 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
   const isMine = pathname === "/area/prenotazioni";
   const isSequenze = pathname.startsWith("/area/sequenze");
   const isCalendario = pathname === "/area/calendario";
+
+  // Traccia la pagina vista per le statistiche visitatori admin. La pagina
+  // di dettaglio di una sequenza (/area/sequenze/<id>) viene accorpata alla
+  // sezione "/area/sequenze" per non frammentare il conteggio per singolo id.
+  const trackedPath = pathname.startsWith("/area/sequenze/") ? "/area/sequenze" : pathname;
+  useEffect(() => {
+    trackPageView(supabase, trackedPath);
+  }, [supabase, trackedPath]);
 
   const sequencesSeenKey = `ima-yoga-sequences-seen-${clientId}`;
   const calendarSeenKey = `ima-yoga-calendar-seen-${clientId}`;

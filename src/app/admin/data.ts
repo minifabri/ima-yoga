@@ -703,15 +703,13 @@ export async function fetchVisitorStats(supabase: DB, days: number): Promise<Vis
     by_path?: { path: string; views: number }[];
     daily?: { day: string; pageviews: number; signups: number }[];
     unique_visitors?: number;
-    calendar_viewers?: number;
-    calendar_conversions?: number;
+    bounce_rate?: number;
   };
   return {
     byPath: d.by_path ?? [],
     daily: d.daily ?? [],
     uniqueVisitors: d.unique_visitors ?? 0,
-    calendarViewers: d.calendar_viewers ?? 0,
-    calendarConversions: d.calendar_conversions ?? 0,
+    bounceRate: d.bounce_rate ?? 0,
   };
 }
 
