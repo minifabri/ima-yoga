@@ -1,5 +1,10 @@
-import { CalendarioVisitatore } from "./CalendarioVisitatore";
+import { redirect } from "next/navigation";
+import { getCurrentUserAndProfile } from "@/lib/supabase/profile";
 
-export default function CalendarioPubblicoPage() {
-  return <CalendarioVisitatore />;
+export default async function CalendarioPubblicoPage() {
+  const { user, profile } = await getCurrentUserAndProfile();
+
+  if (!user) redirect("/login?next=/calendario");
+
+  redirect(profile?.role === "admin" ? "/admin/calendario" : "/area/calendario");
 }
