@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import { logAdminAction } from "@/lib/supabase/audit";
 import { addPersonalNotices } from "./data";
-import { sendSequenceAssignedEmail, sendSurveyPublishedEmail } from "@/lib/notifications";
+import { sendEventReminderEmail, sendSequenceAssignedEmail, sendSurveyPublishedEmail, sendSurveyReminderEmail } from "@/lib/notifications";
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
@@ -251,4 +251,125 @@ export async function notifySequenceAssigned(
   );
 
   return { ok: true, emailsSent, noticesSent };
+}
+
+// Promemoria email on-demand per un sondaggio pubblicato, inviato solo ai
+// clienti scelti dall'admin nella UI (già filtrati lato client per escludere
+// chi ha già risposto). Chi ha già risposto viene ri-escluso anche qui,
+// per sicurezza contro una risposta arrivata tra l'apertura del pannello e
+// l'invio.
+export async function notifySurveyReminder(
+  surveyId: string,
+  surveySlug: string,
+  surveyTitle: string,
+  opts: { clientIds: string[] }
+): Promise<{ ok: boolean; emailsSent?: number; error?: string }> {
+  const { ctx, error } = await requireAdminContext();
+  if (!ctx) return { ok: false, error };
+  if (opts.clientIds.length === 0) return { ok: true, emailsSent: 0 };
+
+  const { data: responded, error: respondedErr } = await ctx.supabase
+    .from("survey_responses")
+    .select("client_id")
+    .eq("survey_id", surveyId)
+    .not("client_id", "is", null);
+  if (respondedErr) return { ok: false, error: respondedErr.message };
+  const respondedIds = new Set((responded ?? []).map((r) => r.client_id as string));
+
+  const { data: clientProfiles, error: clientsErr } = await ctx.supabase
+    .from("profiles")
+    .select("id, auth_user_id, full_name")
+    .in("id", opts.clientIds)
+    .eq("disabled", false);
+  if (clientsErr) return { ok: false, error: clientsErr.message };
+
+  const recipients = (clientProfiles ?? []).filter((c) => !respondedIds.has(c.id));
+
+  const origin = await getOrigin();
+  const surveyUrl = `${origin || "https://ima-yoga.vercel.app"}/sondaggi/${surveySlug}`;
+
+  let emailsSent = 0;
+  for (const profile of recipients) {
+    if (!profile.auth_user_id) continue;
+    const { data: userData } = await ctx.adminClient.auth.admin.getUserById(profile.auth_user_id);
+    const email = userData?.user?.email;
+    if (!email) continue;
+    const ok = await sendSurveyReminderEmail({ to: email, fullName: profile.full_name || "", surveyTitle, surveyUrl });
+    if (ok) emailsSent++;
+  }
+
+  await logAdminAction(
+    ctx.supabase,
+    "notify_survey_reminder",
+    "surveys",
+    surveyId,
+    `Promemoria sondaggio "${surveyTitle}" inviato — email: ${emailsSent}.`
+  );
+
+  return { ok: true, emailsSent };
+}
+
+// Promemoria email on-demand per un evento, inviato solo ai clienti scelti
+// dall'admin nella UI (già filtrati lato client per escludere chi si è già
+// prenotato). Chi si è già prenotato viene ri-escluso anche qui, per
+// sicurezza contro una prenotazione arrivata tra l'apertura del pannello e
+// l'invio.
+export async function notifyEventReminder(
+  eventId: string,
+  eventSlug: string,
+  eventName: string,
+  eventDate: string,
+  eventTime: string,
+  opts: { clientIds: string[] }
+): Promise<{ ok: boolean; emailsSent?: number; error?: string }> {
+  const { ctx, error } = await requireAdminContext();
+  if (!ctx) return { ok: false, error };
+  if (opts.clientIds.length === 0) return { ok: true, emailsSent: 0 };
+
+  const { data: bookings, error: bookingsErr } = await ctx.supabase
+    .from("event_bookings")
+    .select("client_id")
+    .eq("event_id", eventId)
+    .not("client_id", "is", null);
+  if (bookingsErr) return { ok: false, error: bookingsErr.message };
+  const bookedIds = new Set((bookings ?? []).map((b) => b.client_id as string));
+
+  const { data: clientProfiles, error: clientsErr } = await ctx.supabase
+    .from("profiles")
+    .select("id, auth_user_id, full_name")
+    .in("id", opts.clientIds)
+    .eq("disabled", false);
+  if (clientsErr) return { ok: false, error: clientsErr.message };
+
+  const recipients = (clientProfiles ?? []).filter((c) => !bookedIds.has(c.id));
+
+  const origin = await getOrigin();
+  const eventUrl = `${origin || "https://ima-yoga.vercel.app"}/eventi/${eventSlug}`;
+
+  let emailsSent = 0;
+  for (const profile of recipients) {
+    if (!profile.auth_user_id) continue;
+    const { data: userData } = await ctx.adminClient.auth.admin.getUserById(profile.auth_user_id);
+    const email = userData?.user?.email;
+    if (!email) continue;
+    const ok = await sendEventReminderEmail({
+      to: email,
+      fullName: profile.full_name || "",
+      eventName,
+      eventUrl,
+      date: eventDate,
+      time: eventTime,
+    });
+    if (ok) emailsSent++;
+  }
+
+  await logAdminAction(
+    ctx.supabase,
+    "notify_event_reminder",
+    "events",
+    eventId,
+    `Promemoria evento "${eventName}" inviato — email: ${emailsSent}.`
+  );
+
+  return { ok: true, emailsSent };
 }
