@@ -1,6 +1,6 @@
 "use server";
 
-import { sequenceAssignedEmailHtml, surveyPublishedEmailHtml } from "./emailTemplates";
+import { eventReminderEmailHtml, sequenceAssignedEmailHtml, surveyPublishedEmailHtml, surveyReminderEmailHtml } from "./emailTemplates";
 
 // Avvisa l'admin via email quando una classe raggiunge il numero massimo di
 // iscritti. Se RESEND_API_KEY o ADMIN_NOTIFICATION_EMAIL non sono configurate
@@ -166,6 +166,67 @@ export async function sendSurveyPublishedEmail(details: {
         to: details.to,
         subject: `Nuovo sondaggio — ${details.surveyTitle}`,
         html: surveyPublishedEmailHtml(details),
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Promemoria on-demand per chi non ha ancora risposto a un sondaggio —
+// inviato dall'admin quando vuole (vedi admin/actions.ts
+// notifySurveyReminder), a differenza di sendSurveyPublishedEmail che parte
+// una sola volta al momento della pubblicazione.
+export async function sendSurveyReminderEmail(details: {
+  to: string;
+  fullName: string;
+  surveyTitle: string;
+  surveyUrl: string;
+}): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !details.to) return false;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        to: details.to,
+        subject: `Promemoria sondaggio — ${details.surveyTitle}`,
+        html: surveyReminderEmailHtml(details),
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Promemoria on-demand per chi non si è ancora iscritto a un evento —
+// inviato dall'admin quando vuole (vedi admin/actions.ts
+// notifyEventReminder).
+export async function sendEventReminderEmail(details: {
+  to: string;
+  fullName: string;
+  eventName: string;
+  eventUrl: string;
+  date: string;
+  time: string;
+}): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !details.to) return false;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        to: details.to,
+        subject: `Promemoria iscrizione — ${details.eventName}`,
+        html: eventReminderEmailHtml(details),
       }),
     });
     return res.ok;

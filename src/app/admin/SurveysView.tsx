@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Plus, Pencil, ExternalLink, ClipboardList, AlertCircle, Check, Archive, ArchiveRestore, BarChart3, Trash2 } from "lucide-react";
+import { Plus, Pencil, ExternalLink, ClipboardList, AlertCircle, Bell, Check, Archive, ArchiveRestore, BarChart3, Trash2 } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { SurveyFormModal, type NotifyChoice, type SurveyQuestionPayload } from "./SurveyFormModal";
 import { SurveyResponsesPanel } from "./SurveyResponsesPanel";
+import { SurveyReminderModal } from "./SurveyReminderModal";
 import { deleteSurvey, fetchSurveys, saveSurvey, saveSurveyQuestions, setSurveyArchived } from "./data";
-import { notifySurveyPublished } from "./actions";
+import { notifySurveyPublished, notifySurveyReminder } from "./actions";
 import type { ClientItem, SurveyItem } from "./types";
 
 type ModalState = { mode: "new" } | { mode: "edit"; survey: SurveyItem } | null;
@@ -26,6 +27,7 @@ export function SurveysView({ supabase, clients }: { supabase: SupabaseClient; c
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<ModalState>(null);
   const [responsesFor, setResponsesFor] = useState<SurveyItem | null>(null);
+  const [reminderFor, setReminderFor] = useState<SurveyItem | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [toast, setToast] = useState("");
 
@@ -171,6 +173,16 @@ export function SurveysView({ supabase, clients }: { supabase: SupabaseClient; c
                   >
                     <BarChart3 size={14} /> Risposte
                   </button>
+                  {status.label === "Pubblicato" && (
+                    <button
+                      onClick={() => setReminderFor(s)}
+                      title="Invia promemoria a chi non ha ancora risposto"
+                      className="flex items-center justify-center rounded-lg"
+                      style={{ width: 34, height: 34, border: `1px solid ${COLORS.border}`, color: COLORS.gold }}
+                    >
+                      <Bell size={14} />
+                    </button>
+                  )}
                   <button
                     onClick={() => toggleArchived(s)}
                     title={s.archived ? "Riattiva sondaggio" : "Archivia sondaggio (resta lo storico, sparisce dalla pagina pubblica)"}
@@ -225,6 +237,20 @@ export function SurveysView({ supabase, clients }: { supabase: SupabaseClient; c
       )}
 
       {responsesFor && <SurveyResponsesPanel survey={responsesFor} onClose={() => setResponsesFor(null)} />}
+
+      {reminderFor && (
+        <SurveyReminderModal
+          survey={reminderFor}
+          clients={clients}
+          onClose={() => setReminderFor(null)}
+          onSend={async (clientIds) => {
+            const res = await notifySurveyReminder(reminderFor.id, reminderFor.slug, reminderFor.title, { clientIds });
+            if (res.ok) showToast(`Promemoria inviato — email: ${res.emailsSent ?? 0}.`);
+            else showToast(res.error || "Promemoria non riuscito.");
+            return res;
+          }}
+        />
+      )}
     </div>
   );
 }
