@@ -298,9 +298,7 @@ export function EventsView({ supabase, clients }: { supabase: SupabaseClient; cl
           clients={clients}
           onClose={() => setReminderFor(null)}
           onSend={async (clientIds) => {
-            const res = await notifyEventReminder(reminderFor.id, reminderFor.slug, reminderFor.name, reminderFor.date, reminderFor.time, {
-              clientIds,
-            });
+            const res = await notifyEventReminder(reminderFor.id, reminderFor.slug, reminderFor.name, { clientIds });
             if (res.ok) showToast(`Promemoria inviato — email: ${res.emailsSent ?? 0}.`);
             else showToast(res.error || "Promemoria non riuscito.");
             return res;

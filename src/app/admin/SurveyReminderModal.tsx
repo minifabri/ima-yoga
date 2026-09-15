@@ -145,7 +145,7 @@ export function SurveyReminderModal({
 
             {showPreview && (
               <EmailPreviewModal
-                subject={`Promemoria sondaggio — ${survey.title}`}
+                subject={`Il sondaggio "${survey.title}" aspetta ancora 🤍`}
                 html={surveyReminderEmailHtml({
                   fullName: "Nome Cognome",
                   surveyTitle: survey.title,

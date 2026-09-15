@@ -61,7 +61,7 @@ export function surveyReminderEmailHtml(details: { fullName: string; surveyTitle
               Ciao ${firstName}!
             </p>
             <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 28px 0; text-align:left;">
-              Non hai ancora risposto al sondaggio <strong>${details.surveyTitle}</strong>: ci vuole solo un minuto, mi aiuterebbe molto sapere cosa ne pensi.
+              Ti va di dedicare un minuto al sondaggio <strong>${details.surveyTitle}</strong>? Le tue risposte mi aiutano a capire come indirizzare meglio le energie su ima yoga.
             </p>
 
             <a href="${details.surveyUrl}"
@@ -84,17 +84,8 @@ export function surveyReminderEmailHtml(details: { fullName: string; surveyTitle
   `;
 }
 
-export function eventReminderEmailHtml(details: { fullName: string; eventName: string; eventUrl: string; date: string; time: string }): string {
+export function eventReminderEmailHtml(details: { fullName: string; eventName: string; eventUrl: string }): string {
   const firstName = details.fullName.split(" ")[0] || "!";
-  // Stesso motivo del fuso esplicito (UTC) usato altrove per le email di
-  // classe/evento: senza, il giorno della settimana può risultare sbagliato
-  // a seconda del fuso del runtime.
-  const dateLabel = new Date(`${details.date}T00:00:00Z`).toLocaleDateString("it-IT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "UTC",
-  });
   return `
     <div style="background-color:#FAF7F2; padding:40px 16px; font-family:Helvetica, Arial, sans-serif;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:420px; margin:0 auto; background:#FFFFFF; border-radius:18px; overflow:hidden; border:1px solid #E4DAF0;">
@@ -107,11 +98,8 @@ export function eventReminderEmailHtml(details: { fullName: string; eventName: s
               Promemoria iscrizione
             </div>
 
-            <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 8px 0; text-align:left;">
-              Ciao ${firstName}!
-            </p>
             <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 28px 0; text-align:left;">
-              Non ti sei ancora iscritto a <strong>${details.eventName}</strong>, ${dateLabel} alle ${details.time}. Se vuoi partecipare, iscriviti prima che i posti finiscano.
+              C'è ancora un posto per te, ${firstName}. Ti va di esserci?
             </p>
 
             <a href="${details.eventUrl}"

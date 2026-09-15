@@ -194,7 +194,7 @@ export async function sendSurveyReminderEmail(details: {
       body: JSON.stringify({
         from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
         to: details.to,
-        subject: `Promemoria sondaggio — ${details.surveyTitle}`,
+        subject: `Il sondaggio "${details.surveyTitle}" aspetta ancora 🤍`,
         html: surveyReminderEmailHtml(details),
       }),
     });
@@ -212,8 +212,6 @@ export async function sendEventReminderEmail(details: {
   fullName: string;
   eventName: string;
   eventUrl: string;
-  date: string;
-  time: string;
 }): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !details.to) return false;
@@ -225,7 +223,7 @@ export async function sendEventReminderEmail(details: {
       body: JSON.stringify({
         from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
         to: details.to,
-        subject: `Promemoria iscrizione — ${details.eventName}`,
+        subject: `${details.eventName} si avvicina e... 🤍`,
         html: eventReminderEmailHtml(details),
       }),
     });

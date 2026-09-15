@@ -318,8 +318,6 @@ export async function notifyEventReminder(
   eventId: string,
   eventSlug: string,
   eventName: string,
-  eventDate: string,
-  eventTime: string,
   opts: { clientIds: string[] }
 ): Promise<{ ok: boolean; emailsSent?: number; error?: string }> {
   const { ctx, error } = await requireAdminContext();
@@ -352,14 +350,7 @@ export async function notifyEventReminder(
     const { data: userData } = await ctx.adminClient.auth.admin.getUserById(profile.auth_user_id);
     const email = userData?.user?.email;
     if (!email) continue;
-    const ok = await sendEventReminderEmail({
-      to: email,
-      fullName: profile.full_name || "",
-      eventName,
-      eventUrl,
-      date: eventDate,
-      time: eventTime,
-    });
+    const ok = await sendEventReminderEmail({ to: email, fullName: profile.full_name || "", eventName, eventUrl });
     if (ok) emailsSent++;
   }
 
