@@ -145,13 +145,11 @@ export function EventReminderModal({
 
             {showPreview && (
               <EmailPreviewModal
-                subject={`Promemoria iscrizione — ${event.name}`}
+                subject={`${event.name} si avvicina e... 🤍`}
                 html={eventReminderEmailHtml({
                   fullName: "Nome Cognome",
                   eventName: event.name,
                   eventUrl: `https://imayoga.app/eventi/${event.slug}`,
-                  date: event.date,
-                  time: event.time,
                 })}
                 onClose={() => setShowPreview(false)}
               />
