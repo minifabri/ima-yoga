@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bookmark, Check, Copy, Download, Repeat, Share2 } from "lucide-react";
+import { Bookmark, Check, Copy, Download, Repeat, Share2, X } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { Badge } from "@/app/admin/ui";
 import { PrintSheet, SheetItemRow, buildSheetText, printSequenceSheet, sheetSectionsFromSequence } from "@/app/admin/sequenceSheet";
-import { isAshtangaClassType } from "@/app/admin/poseDisplay";
+import { DRISHTI_LABELS, isAshtangaClassType, poseDisplayDrishti, poseDisplayImage, poseDisplayName, poseDisplayNameEn, poseDisplayNameIt } from "@/app/admin/poseDisplay";
+import { DrishtiEyeIcon } from "@/app/admin/DrishtiEyeIcon";
 import type { PoseCatalogItem, Sequence } from "@/app/admin/types";
 import type { ClassType } from "./types";
 
@@ -30,6 +31,7 @@ export function SequenceReadView({
 }) {
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
+  const [selectedPoseId, setSelectedPoseId] = useState<string | null>(null);
 
   useEffect(() => {
     // Rilevamento della Web Share API: deve avvenire dopo il mount (non nel
@@ -39,6 +41,8 @@ export function SequenceReadView({
   }, []);
 
   const poseById = useMemo(() => Object.fromEntries(poseCatalog.map((p) => [p.id, p])), [poseCatalog]);
+  const selectedPose = selectedPoseId ? poseById[selectedPoseId] : undefined;
+  const selectedPoseParent = selectedPose?.parentPoseId ? poseById[selectedPose.parentPoseId] : undefined;
   const autoInheritDrishti = isAshtangaClassType(type?.name);
   const sheetSections = useMemo(() => sheetSectionsFromSequence(sequence, poseById, autoInheritDrishti), [sequence, poseById, autoInheritDrishti]);
   const title = sequence.name || "Sequenza senza nome";
@@ -116,7 +120,7 @@ export function SequenceReadView({
               <div className="flex flex-col gap-2">
                 {s.rows.map((r, rIdx) =>
                   r.kind === "item" ? (
-                    <SheetItemRow key={rIdx} item={r.item} />
+                    <SheetItemRow key={rIdx} item={r.item} onClick={r.item.poseId ? () => setSelectedPoseId(r.item.poseId) : undefined} />
                   ) : r.items.length === 0 ? null : (
                     <div key={rIdx} className="pl-2.5" style={{ borderLeft: `2px solid ${withAlpha(COLORS.gold, 50)}` }}>
                       <div style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.primaryDark }} className="mb-1.5 flex items-center gap-1">
@@ -124,7 +128,7 @@ export function SequenceReadView({
                       </div>
                       <div className="flex flex-col gap-2">
                         {r.items.map((it, i2) => (
-                          <SheetItemRow key={i2} item={it} />
+                          <SheetItemRow key={i2} item={it} onClick={it.poseId ? () => setSelectedPoseId(it.poseId) : undefined} />
                         ))}
                       </div>
                     </div>
@@ -137,6 +141,55 @@ export function SequenceReadView({
       )}
 
       <PrintSheet title={title} sheetSections={sheetSections} />
+      {selectedPose && <PoseDetailModal pose={selectedPose} parent={selectedPoseParent} onClose={() => setSelectedPoseId(null)} />}
+    </div>
+  );
+}
+
+// Dettaglio di sola lettura per l'allievo: a differenza della modale di
+// modifica in admin (PoseEditModal), qui non ci sono campi editabili, solo i
+// dati utili a chi pratica (nomi, drishti, descrizione) e la thumbnail un
+// po' più grande di quella in elenco.
+function PoseDetailModal({ pose, parent, onClose }: { pose: PoseCatalogItem; parent: PoseCatalogItem | undefined; onClose: () => void }) {
+  const image = poseDisplayImage(pose, parent);
+  const names = [poseDisplayNameIt(pose, parent), poseDisplayNameEn(pose, parent)].filter(Boolean).join(" · ");
+  const drishti = poseDisplayDrishti(pose, parent);
+
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ background: "rgba(74,58,115,0.35)", zIndex: 50 }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="relative w-full p-5"
+        style={{ maxWidth: 340, maxHeight: "85vh", overflowY: "auto", background: COLORS.card, borderRadius: 18, boxShadow: "0 16px 44px rgba(74,58,115,0.16)" }}
+      >
+        <button onClick={onClose} className="absolute" style={{ top: 14, right: 14, color: COLORS.inkSoft }}>
+          <X size={18} />
+        </button>
+        {image && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={image} alt="" width={56} height={56} style={{ borderRadius: 10, objectFit: "cover", background: COLORS.subtle, marginBottom: 12, display: "block" }} />
+        )}
+        {pose.parentPoseId && parent && (
+          <div style={{ fontSize: 12, color: COLORS.inkSoft, marginBottom: 3 }}>
+            Variante di <span style={{ color: COLORS.ink, fontWeight: 600 }}>{poseDisplayName(parent, undefined)}</span>
+          </div>
+        )}
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 600, color: COLORS.heading, lineHeight: 1.2 }}>
+          {poseDisplayName(pose, parent)}
+        </div>
+        {names && <div style={{ fontSize: 12.5, color: COLORS.inkSoft, marginTop: 3 }}>{names}</div>}
+        {drishti && (
+          <div className="flex items-center gap-1.5" style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.primaryDark, marginTop: 8 }}>
+            <DrishtiEyeIcon size={12} /> {DRISHTI_LABELS[drishti].name} · {DRISHTI_LABELS[drishti].detail}
+          </div>
+        )}
+        {pose.description && <div style={{ fontSize: 13, lineHeight: 1.55, color: COLORS.ink, marginTop: 12 }}>{pose.description}</div>}
+      </div>
     </div>
   );
 }

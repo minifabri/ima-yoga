@@ -28,7 +28,7 @@ type SheetSourceItem = {
   repeatOtherSide: boolean;
 };
 
-export type SheetItem = { text: string; meta: string; note: string; breath: string; imageUrl: string | null; drishti: Drishti | null };
+export type SheetItem = { text: string; meta: string; note: string; breath: string; imageUrl: string | null; drishti: Drishti | null; poseId: string | null };
 export type SheetRow = { kind: "item"; item: SheetItem } | { kind: "block"; reps: number | null; items: SheetItem[] };
 export type SheetSection = { label: string; rows: SheetRow[] };
 
@@ -59,6 +59,7 @@ export function toSheetItem(it: SheetSourceItem, poseById: Record<string, PoseCa
     breath: formatBreathText(it.onInhale, it.onExhale),
     imageUrl: pose ? poseDisplayImage(pose, parent) : null,
     drishti: it.drishtiOverride === "none" ? null : (it.drishtiOverride ?? (autoInheritDrishti && pose ? poseDisplayDrishti(pose, parent) : null)),
+    poseId: it.poseId,
   };
 }
 
@@ -206,9 +207,18 @@ export function PrintWatermark() {
   );
 }
 
-export function SheetItemRow({ item }: { item: SheetItem }) {
+// `onClick` è opzionale e pensato per la vista di sola lettura lato allievo
+// (apre il dettaglio della posizione): l'editor admin e la scheda stampabile
+// continuano a passare solo `item`, quindi restano invariati.
+export function SheetItemRow({ item, onClick }: { item: SheetItem; onClick?: () => void }) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="flex items-center gap-2.5" style={{ fontSize: 13, borderBottom: `1px dashed ${COLORS.border}`, paddingBottom: 6 }}>
+    <Tag
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className="flex items-center gap-2.5 w-full text-left"
+      style={{ fontSize: 13, borderBottom: `1px dashed ${COLORS.border}`, paddingBottom: 6, cursor: onClick ? "pointer" : "default", font: "inherit", color: "inherit" }}
+    >
       {item.imageUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={item.imageUrl} alt="" width={32} height={32} style={{ borderRadius: 6, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
@@ -228,7 +238,7 @@ export function SheetItemRow({ item }: { item: SheetItem }) {
         </div>
         {item.breath && <div style={{ color: COLORS.primaryDark, fontSize: 11.5, marginTop: 2 }}>{item.breath}</div>}
       </div>
-    </div>
+    </Tag>
   );
 }
 
