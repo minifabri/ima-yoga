@@ -123,7 +123,7 @@ export type WorkLogEntry = {
   userAgent: string | null;
 };
 
-export type NotificationType = "registration" | "enrollment" | "cancellation" | "issue_report" | "interest";
+export type NotificationType = "registration" | "enrollment" | "cancellation" | "issue_report" | "interest" | "survey_response";
 
 export type NotificationItem = {
   id: string;
