@@ -37,6 +37,7 @@ export type PublicClass = {
   bookedCount: number;
   waitlistCount: number;
   myStatus: "booked" | "waitlist" | null;
+  isPersonal: boolean;
 };
 
 export type PublicEvent = {
@@ -59,6 +60,7 @@ export type MyBooking = {
   paymentStatus: "unpaid" | "paid" | "partial" | "package";
   paymentAmount: number;
   price: number;
+  isPersonal: boolean;
 };
 
 export type MyPackage = {

@@ -23,6 +23,12 @@ export type ClassItem = {
   clientIds: string[];
   waitlistIds: string[];
   payments: Record<string, Payment>;
+  // Se valorizzato, la classe è una lezione individuale (one-to-one) riservata
+  // a questo cliente: vedi PersonalClassFormModal. Una volta pubblicata la
+  // vede (ed è già iscritto) solo lui/lei — non compare nel calendario degli
+  // altri clienti (filtro applicato da public_classes() e dalla RLS di
+  // classes lato database).
+  personalClientId: string | null;
 };
 
 export type ClientItem = {

@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, ClipboardPaste, LayoutGrid, List, Lock, EyeOff, GripVertical, CalendarClock, Download, Gift } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, UserPlus, User, ClipboardPaste, LayoutGrid, List, Lock, EyeOff, GripVertical, CalendarClock, Download, Gift } from "lucide-react";
 import { IconButton, CapacityBar } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "./utils";
 import { downloadIcsFile } from "@/lib/ics";
-import type { ClassItem, ClassType, EventItem, Level } from "./types";
+import type { ClassItem, ClassType, ClientItem, EventItem, Level } from "./types";
 
 type ClassClipboard = {
   typeId: string;
@@ -30,6 +30,10 @@ function formatEventDate(dateStr: string): string {
 }
 
 function availabilityDot(c: ClassItem): string {
+  // Per le lezioni individuali "piena" (1/1) è lo stato normale, non un
+  // allarme da segnalare in rosso come per una classe di gruppo: qui il
+  // pallino indica solo se un cliente è assegnato o meno.
+  if (c.personalClientId) return c.clientIds.length > 0 ? COLORS.primary : COLORS.gold;
   const booked = c.clientIds.length;
   const capNum = c.capacity;
   const full = capNum > 0 && booked >= capNum;
@@ -43,9 +47,11 @@ export function CalendarView({
   classesByDay,
   typeById,
   levelById,
+  clientById,
   clipboard,
   monthEvents = [],
   onAddClass,
+  onAddPersonalClass,
   onOpenClass,
   onMoveClass,
   onPasteClass,
@@ -57,9 +63,11 @@ export function CalendarView({
   classesByDay: Record<string, ClassItem[]>;
   typeById: Record<string, ClassType>;
   levelById: Record<string, Level>;
+  clientById: Record<string, ClientItem>;
   clipboard: ClassClipboard | null;
   monthEvents?: EventItem[];
   onAddClass: (date: Date) => void;
+  onAddPersonalClass: (date: Date) => void;
   onOpenClass: (classItem: ClassItem) => void;
   onMoveClass: (id: string, targetDate: string) => void;
   onPasteClass: (dateStr: string) => void;
@@ -163,13 +171,22 @@ export function CalendarView({
             <Download size={13} /> <span className="hidden sm:inline">Scarica mese</span>
           </button>
           {mode === "list" && (
-            <button
-              onClick={() => onAddClass(new Date())}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
-              style={{ background: COLORS.primary }}
-            >
-              <Plus size={13} /> Nuova classe
-            </button>
+            <>
+              <button
+                onClick={() => onAddPersonalClass(new Date())}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style={{ border: `1px solid ${COLORS.primary}`, color: COLORS.primaryDark }}
+              >
+                <UserPlus size={13} /> Individuale
+              </button>
+              <button
+                onClick={() => onAddClass(new Date())}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                style={{ background: COLORS.primary }}
+              >
+                <Plus size={13} /> Nuova classe
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -260,6 +277,14 @@ export function CalendarView({
                           >
                             <Plus size={11} />
                           </button>
+                          <button
+                            onClick={() => onAddPersonalClass(d)}
+                            className="opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
+                            style={{ width: 16, height: 16, borderRadius: 5, background: COLORS.subtle, color: COLORS.primaryDark }}
+                            title="Aggiungi lezione individuale"
+                          >
+                            <UserPlus size={10} />
+                          </button>
                         </div>
                       )}
                     </div>
@@ -267,7 +292,7 @@ export function CalendarView({
                     <div className="flex flex-col gap-0.5">
                       {dayClasses.map((c) => {
                         const type = typeById[c.typeId];
-                        const color = type?.color || COLORS.primary;
+                        const color = c.personalClientId ? COLORS.primary : type?.color || COLORS.primary;
                         const dot = availabilityDot(c);
                         return (
                           <button
@@ -291,12 +316,13 @@ export function CalendarView({
                               gap: 2,
                               opacity: c.published ? 1 : 0.6,
                             }}
-                            title={`${c.time || "—"}${c.published ? "" : " · Bozza"} · Trascina per spostare in un altro giorno`}
+                            title={`${c.time || "—"}${c.published ? "" : " · Bozza"}${c.personalClientId ? " · Individuale" : ""} · Trascina per spostare in un altro giorno`}
                           >
                             <span className="flex items-center gap-0.5" style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>
                               {!c.published && <EyeOff size={8} color={COLORS.inkSoft} />}
-                              {!c.bookingsOpen && <Lock size={8} color={COLORS.inkSoft} />}
+                              {!c.bookingsOpen && !c.personalClientId && <Lock size={8} color={COLORS.inkSoft} />}
                               {c.isFree && <Gift size={8} color={COLORS.gold} />}
+                              {c.personalClientId && <User size={8} color={COLORS.primary} />}
                               {typeInitials(type?.name)}
                             </span>
                             <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
@@ -345,6 +371,14 @@ export function CalendarView({
                           >
                             <Plus size={12} />
                           </button>
+                          <button
+                            onClick={() => onAddPersonalClass(d)}
+                            className="opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
+                            style={{ width: 18, height: 18, borderRadius: 6, background: COLORS.subtle, color: COLORS.primaryDark }}
+                            title="Aggiungi lezione individuale"
+                          >
+                            <UserPlus size={11} />
+                          </button>
                         </div>
                       )}
                     </div>
@@ -357,6 +391,7 @@ export function CalendarView({
                             classItem={c}
                             type={typeById[c.typeId]}
                             level={levelById[c.levelId]}
+                            client={c.personalClientId ? clientById[c.personalClientId] : undefined}
                             compact={isMulti}
                             onOpen={() => onOpenClass(c)}
                             onDragStart={(e) => {
@@ -376,6 +411,13 @@ export function CalendarView({
                           style={{ fontSize: 10.5, color: COLORS.inkSoft, paddingLeft: 2 }}
                         >
                           + aggiungi classe
+                        </button>
+                        <button
+                          onClick={() => onAddPersonalClass(d)}
+                          className="opacity-0 group-hover:opacity-100 transition text-left"
+                          style={{ fontSize: 10.5, color: COLORS.inkSoft, paddingLeft: 2 }}
+                        >
+                          + individuale
                         </button>
                         {clipboard && (
                           <button
@@ -419,10 +461,11 @@ export function CalendarView({
                   {dayClasses.map((c) => {
                     const type = typeById[c.typeId];
                     const level = levelById[c.levelId];
-                    const color = type?.color || COLORS.primary;
+                    const color = c.personalClientId ? COLORS.primary : type?.color || COLORS.primary;
                     const booked = c.clientIds.length;
                     const waiting = c.waitlistIds.length;
                     const dot = availabilityDot(c);
+                    const assignedClient = c.personalClientId ? clientById[c.personalClientId] : undefined;
                     return (
                       <button
                         key={c.id}
@@ -433,6 +476,14 @@ export function CalendarView({
                         <div>
                           <div style={{ fontSize: 12.5, fontWeight: 700 }} className="flex items-center gap-1.5">
                             {c.time || "—"} · {type?.name || "Classe"}
+                            {c.personalClientId && (
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded-full"
+                                style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 14), padding: "1px 6px" }}
+                              >
+                                <User size={9} /> Individuale
+                              </span>
+                            )}
                             {!c.published && (
                               <span
                                 className="inline-flex items-center gap-0.5 rounded-full"
@@ -441,14 +492,16 @@ export function CalendarView({
                                 <EyeOff size={9} /> Bozza
                               </span>
                             )}
-                            {!c.bookingsOpen && <Lock size={11} color={COLORS.inkSoft} />}
+                            {!c.bookingsOpen && !c.personalClientId && <Lock size={11} color={COLORS.inkSoft} />}
                             {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
                           </div>
-                          <div style={{ fontSize: 11, color: COLORS.inkSoft }}>{level?.name}</div>
+                          <div style={{ fontSize: 11, color: COLORS.inkSoft }}>
+                            {assignedClient ? assignedClient.name : level?.name}
+                          </div>
                         </div>
                         <span className="flex items-center gap-1.5" style={{ fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
                           <span style={{ width: 7, height: 7, borderRadius: 999, background: dot }} />
-                          {booked}/{c.capacity || "—"}
+                          {c.personalClientId ? (assignedClient ? "assegnata" : "da assegnare") : `${booked}/${c.capacity || "—"}`}
                           {waiting > 0 && <span style={{ color: COLORS.gold }}> · {waiting} attesa</span>}
                         </span>
                       </button>
@@ -488,6 +541,7 @@ function ClassCard({
   classItem,
   type,
   level,
+  client,
   compact = false,
   onOpen,
   onDragStart,
@@ -496,13 +550,15 @@ function ClassCard({
   classItem: ClassItem;
   type?: ClassType;
   level?: Level;
+  client?: ClientItem;
   compact?: boolean;
   onOpen: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
 }) {
   const c = classItem;
-  const color = type?.color || COLORS.primary;
+  const isPersonal = !!c.personalClientId;
+  const color = isPersonal ? COLORS.primary : type?.color || COLORS.primary;
   const booked = c.clientIds.length;
   const waiting = c.waitlistIds.length;
 
@@ -523,16 +579,17 @@ function ClassCard({
           borderLeft: `2.5px solid ${color}`,
           opacity: c.published ? 1 : 0.7,
         }}
-        title={`${c.time || "—"} · ${type?.name || "Classe"}${c.published ? "" : " · Bozza"} · Trascina per spostare in un altro giorno`}
+        title={`${c.time || "—"} · ${type?.name || "Classe"}${isPersonal ? " · Individuale" : ""}${c.published ? "" : " · Bozza"} · Trascina per spostare in un altro giorno`}
       >
         <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
         <span style={{ fontSize: 10.5, fontWeight: 700, color: COLORS.ink, flexShrink: 0 }}>{c.time || "—"}</span>
         <span className="truncate" style={{ fontSize: 10.5, fontWeight: 600, color: COLORS.ink, flex: 1, minWidth: 0 }}>
-          {type?.name || "Classe"}
+          {isPersonal && client ? client.name : type?.name || "Classe"}
         </span>
         {!c.published && <EyeOff size={9} color={COLORS.inkSoft} />}
-        {!c.bookingsOpen && <Lock size={9} color={COLORS.inkSoft} />}
+        {!c.bookingsOpen && !isPersonal && <Lock size={9} color={COLORS.inkSoft} />}
         {c.isFree && <Gift size={9} color={COLORS.gold} />}
+        {isPersonal && <User size={9} color={COLORS.primary} />}
       </button>
     );
   }
@@ -561,11 +618,19 @@ function ClassCard({
           {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
         </span>
         <span className="flex items-center gap-1">
-          {!c.bookingsOpen && <Lock size={11} color={COLORS.inkSoft} />}
+          {!c.bookingsOpen && !isPersonal && <Lock size={11} color={COLORS.inkSoft} />}
           <GripVertical size={12} color={COLORS.inkSoft} style={{ opacity: 0.6 }} />
         </span>
       </div>
       <div style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.ink, lineHeight: 1.2 }}>{type?.name || "Classe"}</div>
+      {isPersonal && (
+        <span
+          className="self-start inline-flex items-center gap-0.5 rounded-full"
+          style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 14), padding: "1px 6px" }}
+        >
+          <User size={9} /> Individuale{client ? ` · ${client.name}` : ""}
+        </span>
+      )}
       {!c.published && (
         <span
           className="self-start inline-flex items-center gap-0.5 rounded-full"
@@ -574,7 +639,7 @@ function ClassCard({
           <EyeOff size={9} /> Bozza
         </span>
       )}
-      {level && (
+      {level && !isPersonal && (
         <span
           className="self-start"
           style={{
@@ -590,9 +655,11 @@ function ClassCard({
           {level.name}
         </span>
       )}
-      <div className="mt-auto pt-1.5">
-        <CapacityBar booked={booked} capacity={c.capacity} waiting={waiting} />
-      </div>
+      {!isPersonal && (
+        <div className="mt-auto pt-1.5">
+          <CapacityBar booked={booked} capacity={c.capacity} waiting={waiting} />
+        </div>
+      )}
     </button>
   );
 }

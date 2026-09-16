@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarClock, CheckSquare, ChevronLeft, ChevronRight, Gift, LayoutGrid, List, Lock, Sparkles, Square } from "lucide-react";
+import { CalendarClock, CheckSquare, ChevronLeft, ChevronRight, Gift, LayoutGrid, List, Lock, Sparkles, Square, User } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay } from "@/app/admin/utils";
 import { availabilityLabel, formatEventDate, isPastClass, typeInitials } from "./helpers";
@@ -186,6 +186,7 @@ export function CalendarContent() {
                           >
                             <span className="flex items-center gap-0.5" style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>
                               {c.isFree && <Gift size={8} color={COLORS.gold} />}
+                              {c.isPersonal && <User size={8} color={COLORS.primary} />}
                               {typeInitials(type?.name)}
                             </span>
                             <span style={{ width: 5, height: 5, borderRadius: 999, background: avail.color, flexShrink: 0 }} />
@@ -238,6 +239,7 @@ export function CalendarContent() {
                             <div className="flex items-center gap-1" style={{ fontWeight: 700 }}>
                               {c.time}
                               {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={10} color={COLORS.gold} /></span>}
+                              {c.isPersonal && <span title="Lezione individuale" className="inline-flex"><User size={10} color={COLORS.primary} /></span>}
                             </div>
                             <div>{type?.name || "Classe"}</div>
                             <div style={{ color: avail.color, fontWeight: 600 }}>{avail.text}</div>
@@ -288,6 +290,7 @@ export function CalendarContent() {
                           <div className="flex items-center gap-1" style={{ fontSize: 12.5, fontWeight: 700 }}>
                             {c.time} · {type?.name || "Classe"}
                             {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
+                            {c.isPersonal && <span title="Lezione individuale" className="inline-flex"><User size={11} color={COLORS.primary} /></span>}
                           </div>
                           <div style={{ fontSize: 11, color: COLORS.inkSoft }}>{levelById[c.levelId]?.name}</div>
                         </div>

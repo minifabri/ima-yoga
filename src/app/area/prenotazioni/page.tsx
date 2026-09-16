@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Clock, Download, Gift, History, Moon, PackagePlus, Sparkles, X } from "lucide-react";
+import { ChevronDown, Clock, Download, Gift, History, Moon, PackagePlus, Sparkles, User, X } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { dateKey } from "@/app/admin/utils";
 import { downloadIcsFile } from "@/lib/ics";
@@ -45,6 +45,7 @@ export default function AreaPrenotazioniPage() {
                     <div className="flex items-center gap-1" style={{ fontSize: 13.5, fontWeight: 600 }}>
                       {b.date} · {b.time} — {type?.name || "Classe"}
                       {b.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
+                      {b.isPersonal && <span title="Lezione individuale" className="inline-flex"><User size={11} color={COLORS.primary} /></span>}
                     </div>
                     <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
                       {level?.name} {b.status === "waitlist" && <span style={{ color: COLORS.gold, fontWeight: 700 }}>· In lista d&apos;attesa</span>}
