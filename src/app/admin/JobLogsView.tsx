@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, Play, XCircle } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { fetchCronJobLogs } from "./data";
+import { runClassRemindersNow } from "./actions";
 import type { CronJobLog } from "./types";
 
 const fmtDateTime = new Intl.DateTimeFormat("it-IT", {
@@ -23,12 +24,20 @@ const fmtTime = new Intl.DateTimeFormat("it-IT", {
 
 const ROME_DATE_KEY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }); // yyyy-mm-dd
 
-// Rispecchia la config cron di vercel.json: l'unico job schedulato è
-// class-reminders, alle 16:00 UTC (17:00 o 18:00 locali secondo l'ora
-// legale). Se in futuro si aggiungono altri cron in vercel.json, vanno
-// replicati qui.
-const SCHEDULED_JOBS: { jobName: string; label: string; utcHour: number; utcMinute: number }[] = [
-  { jobName: "class-reminders", label: "Promemoria lezioni", utcHour: 16, utcMinute: 0 },
+// Rispecchia la config cron di vercel.json: class-reminders alle 16:00 UTC
+// (17:00 o 18:00 locali secondo l'ora legale, lezioni di domani + oggi come
+// recupero) e class-reminders-same-day alle 9:00 UTC (10:00 o 11:00 locali,
+// solo lezioni di oggi per chi si iscrive dopo il giro serale di ieri). Se
+// in futuro si aggiungono altri cron in vercel.json, vanno replicati qui.
+const SCHEDULED_JOBS: { jobName: string; label: string; utcHour: number; utcMinute: number; onlyToday: boolean }[] = [
+  { jobName: "class-reminders", label: "Promemoria lezioni", utcHour: 16, utcMinute: 0, onlyToday: false },
+  {
+    jobName: "class-reminders-same-day",
+    label: "Promemoria lezioni (stesso giorno)",
+    utcHour: 9,
+    utcMinute: 0,
+    onlyToday: true,
+  },
 ];
 
 function nextRun(utcHour: number, utcMinute: number, from: Date): Date {
@@ -44,18 +53,31 @@ function dayLabel(date: Date, from: Date): string {
   return "domani";
 }
 
+type RunState = { running: boolean; result?: { ok: boolean; sent?: number; skipped?: number; error?: string } };
+
 export function JobLogsView({ supabase }: { supabase: SupabaseClient }) {
   const [logs, setLogs] = useState<CronJobLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [runStates, setRunStates] = useState<Record<string, RunState>>({});
+
+  function refreshLogs() {
+    return fetchCronJobLogs(supabase)
+      .then(setLogs)
+      .catch(() => setLoadError(true));
+  }
 
   useEffect(() => {
-    fetchCronJobLogs(supabase)
-      .then(setLogs)
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
+    refreshLogs().finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function handleRunNow(job: (typeof SCHEDULED_JOBS)[number]) {
+    setRunStates((cur) => ({ ...cur, [job.jobName]: { running: true } }));
+    const result = await runClassRemindersNow(job.onlyToday);
+    setRunStates((cur) => ({ ...cur, [job.jobName]: { running: false, result } }));
+    await refreshLogs();
+  }
 
   return (
     <div>
@@ -72,6 +94,7 @@ export function JobLogsView({ supabase }: { supabase: SupabaseClient }) {
         {SCHEDULED_JOBS.map((job) => {
           const now = new Date();
           const next = nextRun(job.utcHour, job.utcMinute, now);
+          const runState = runStates[job.jobName];
           return (
             <div
               key={job.jobName}
@@ -84,7 +107,27 @@ export function JobLogsView({ supabase }: { supabase: SupabaseClient }) {
                 <div style={{ fontSize: 12, color: COLORS.inkSoft }}>
                   Prossima esecuzione: {dayLabel(next, now)} alle {fmtTime.format(next)} · {job.jobName}
                 </div>
+                {runState?.result &&
+                  (runState.result.ok ? (
+                    <div className="mt-1" style={{ fontSize: 11.5, color: COLORS.success }}>
+                      Fatto: {runState.result.sent ?? 0} inviat{(runState.result.sent ?? 0) === 1 ? "o" : "i"} ·{" "}
+                      {runState.result.skipped ?? 0} saltat{(runState.result.skipped ?? 0) === 1 ? "o" : "i"}.
+                    </div>
+                  ) : (
+                    <div className="mt-1" style={{ fontSize: 11.5, color: COLORS.danger }}>
+                      {runState.result.error || "Esecuzione non riuscita."}
+                    </div>
+                  ))}
               </div>
+              <button
+                type="button"
+                onClick={() => handleRunNow(job)}
+                disabled={runState?.running}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex-shrink-0 disabled:opacity-50"
+                style={{ background: COLORS.primary, color: "#FFF" }}
+              >
+                <Play size={12} /> {runState?.running ? "Invio…" : "Esegui ora"}
+              </button>
             </div>
           );
         })}

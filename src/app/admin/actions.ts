@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { logAdminAction } from "@/lib/supabase/audit";
 import { addPersonalNotices } from "./data";
 import { sendEventReminderEmail, sendSequenceAssignedEmail, sendSurveyPublishedEmail, sendSurveyReminderEmail } from "@/lib/notifications";
+import { runClassRemindersJob } from "@/lib/classRemindersJob";
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
@@ -363,4 +364,30 @@ export async function notifyEventReminder(
   );
 
   return { ok: true, emailsSent };
+}
+
+// Esegui-ora per il promemoria lezioni, dalla pagina Log automazioni: usa
+// la stessa logica dei due cron (dedup via reminder_sent_at su bookings),
+// utile per non aspettare il prossimo giro schedulato dopo un errore o
+// un'iscrizione dell'ultimo minuto.
+export async function runClassRemindersNow(
+  onlyToday: boolean
+): Promise<{ ok: boolean; sent?: number; skipped?: number; error?: string }> {
+  const { ctx, error } = await requireAdminContext();
+  if (!ctx) return { ok: false, error };
+
+  const jobName = onlyToday ? "class-reminders-same-day" : "class-reminders";
+  const result = await runClassRemindersJob(ctx.adminClient, { jobName, onlyToday });
+
+  if (result.ok) {
+    await logAdminAction(
+      ctx.supabase,
+      "run_class_reminders",
+      "cron_job_logs",
+      null,
+      `Promemoria lezioni eseguito manualmente (${onlyToday ? "solo oggi" : "oggi e domani"}) — email: ${result.sent}.`
+    );
+  }
+
+  return result;
 }
