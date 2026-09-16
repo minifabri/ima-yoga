@@ -227,7 +227,10 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
       return exists ? cur.map((c) => (c.id === item.id ? item : c)) : [...cur, item];
     });
     db.saveClass(supabase, item).catch(() => showToast("Il salvataggio della classe non è riuscito."));
-    if (isFull && !wasFull) {
+    // Per una lezione individuale "piena" (1/1) è lo stato atteso appena la
+    // assegni, non un evento da segnalarti via email come per una classe di
+    // gruppo che si riempie inaspettatamente.
+    if (isFull && !wasFull && !item.personalClientId) {
       notifyClassFull({
         className: typeById[item.typeId]?.name || "Classe",
         date: item.date,

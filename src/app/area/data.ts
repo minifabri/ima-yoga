@@ -76,6 +76,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       booked_count: number;
       waitlist_count: number;
       my_status: "booked" | "waitlist" | null;
+      is_personal: boolean;
     }) => ({
       id: r.id,
       date: r.class_date,
@@ -89,6 +90,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       bookedCount: Number(r.booked_count),
       waitlistCount: Number(r.waitlist_count),
       myStatus: r.my_status,
+      isPersonal: r.is_personal,
     })
   );
 }
@@ -128,13 +130,22 @@ type BookingRow = {
   payment_amount: number;
   price: number;
   package_id: string | null;
-  classes: { class_date: string; class_time: string; type_id: string; level_id: string; is_free: boolean } | null;
+  classes: {
+    class_date: string;
+    class_time: string;
+    type_id: string;
+    level_id: string;
+    is_free: boolean;
+    personal_client_id: string | null;
+  } | null;
 };
 
 export async function fetchMyBookings(supabase: DB): Promise<MyBooking[]> {
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, class_id, status, payment_status, payment_amount, price, package_id, classes(class_date, class_time, type_id, level_id, is_free)")
+    .select(
+      "id, class_id, status, payment_status, payment_amount, price, package_id, classes(class_date, class_time, type_id, level_id, is_free, personal_client_id)"
+    )
     .order("class_date", { foreignTable: "classes" });
   if (error) throw error;
   return ((data ?? []) as unknown as BookingRow[])
@@ -151,6 +162,7 @@ export async function fetchMyBookings(supabase: DB): Promise<MyBooking[]> {
       paymentStatus: b.payment_status,
       paymentAmount: Number(b.payment_amount),
       price: Number(b.price),
+      isPersonal: b.classes!.personal_client_id != null,
     }));
 }
 

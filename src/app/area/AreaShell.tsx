@@ -793,6 +793,14 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                 <span style={{ fontSize: 13, color: COLORS.inkSoft }}>
                   {selected.date} · {selected.time}
                 </span>
+                {selected.isPersonal && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full"
+                    style={{ fontSize: 10.5, fontWeight: 700, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 14), padding: "1px 8px" }}
+                  >
+                    <User size={10} /> Lezione individuale
+                  </span>
+                )}
                 {selected.isFree && (
                   <span
                     className="inline-flex items-center gap-1 rounded-full"

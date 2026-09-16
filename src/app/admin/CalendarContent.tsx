@@ -7,6 +7,7 @@ import { dateKey, genId } from "./utils";
 import { Modal } from "./ui";
 import { CalendarView } from "./CalendarView";
 import { ClassFormModal } from "./ClassFormModal";
+import { PersonalClassFormModal } from "./PersonalClassFormModal";
 import * as db from "./data";
 import { useAdmin } from "./AdminShell";
 import type { ClassItem, EventItem } from "./types";
@@ -23,6 +24,7 @@ type ClassClipboard = {
   isFree: boolean;
 };
 type ClassModalState = { mode: "new"; date: Date } | { mode: "edit"; classItem: ClassItem } | null;
+type PersonalClassModalState = { mode: "new"; date: Date } | { mode: "edit"; classItem: ClassItem } | null;
 
 function parseDateParam(value: string | null): Date | null {
   if (!value) return null;
@@ -54,10 +56,12 @@ export function CalendarContent() {
     showToast,
   } = useAdmin();
 
+  const clientById = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c])), [clients]);
   const [viewDate, setViewDate] = useState<Date>(() => parseDateParam(searchParams.get("data")) || new Date());
   const [events, setEvents] = useState<EventItem[]>([]);
   const [clipboard, setClipboard] = useState<ClassClipboard | null>(null);
   const [classModal, setClassModal] = useState<ClassModalState>(null);
+  const [personalClassModal, setPersonalClassModal] = useState<PersonalClassModalState>(null);
   const [confirmDeleteClass, setConfirmDeleteClass] = useState<string | null>(null);
 
   useEffect(() => {
@@ -100,9 +104,13 @@ export function CalendarContent() {
   }
   function pasteClass(dateStr: string) {
     if (!clipboard) return;
-    const item: ClassItem = { id: genId(), date: dateStr, ...clipboard, published: false, clientIds: [], waitlistIds: [], payments: {} };
+    const item: ClassItem = { id: genId(), date: dateStr, ...clipboard, published: false, clientIds: [], waitlistIds: [], payments: {}, personalClientId: null };
     saveClassItem(item);
     showToast("Classe incollata.");
+  }
+  function openClass(classItem: ClassItem) {
+    if (classItem.personalClientId != null) setPersonalClassModal({ mode: "edit", classItem });
+    else setClassModal({ mode: "edit", classItem });
   }
 
   return (
@@ -113,11 +121,13 @@ export function CalendarContent() {
         classesByDay={classesByDay}
         typeById={typeById}
         levelById={levelById}
+        clientById={clientById}
         clipboard={clipboard}
         monthEvents={monthEvents}
         onGoToNextClass={goToNextClass}
         onAddClass={(date) => setClassModal({ mode: "new", date })}
-        onOpenClass={(classItem) => setClassModal({ mode: "edit", classItem })}
+        onAddPersonalClass={(date) => setPersonalClassModal({ mode: "new", date })}
+        onOpenClass={openClass}
         onMoveClass={moveClass}
         onPasteClass={pasteClass}
         onOpenEvents={() => router.push("/admin/eventi")}
@@ -149,6 +159,29 @@ export function CalendarContent() {
         />
       )}
 
+      {personalClassModal && (
+        <PersonalClassFormModal
+          data={personalClassModal}
+          classTypes={classTypes}
+          levels={levels}
+          clients={clients}
+          packages={packagesWithUsage}
+          defaultTime={settings.time}
+          singleClassPrice={settings.singleClassPrice}
+          onClose={() => setPersonalClassModal(null)}
+          onSave={(item) => {
+            saveClassItem(item);
+            setPersonalClassModal(null);
+          }}
+          onDelete={(id) => setConfirmDeleteClass(id)}
+          onAddClient={upsertClient}
+          onOpenSettings={() => {
+            setPersonalClassModal(null);
+            router.push("/admin/impostazioni");
+          }}
+        />
+      )}
+
       {confirmDeleteClass && (
         <Modal onClose={() => setConfirmDeleteClass(null)} width={360}>
           <div className="p-5">
@@ -164,6 +197,7 @@ export function CalendarContent() {
                 onClick={() => {
                   deleteClassItem(confirmDeleteClass);
                   setClassModal(null);
+                  setPersonalClassModal(null);
                   setConfirmDeleteClass(null);
                 }}
                 className="px-3 py-2 rounded-lg text-sm font-medium text-white"
