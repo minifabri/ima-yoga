@@ -299,6 +299,12 @@ body {
   height: 72px;
   flex-shrink: 0;
 }
+@media (min-width: 480px) {
+  .cover-header .cover-logo-mark {
+    width: 96px;
+    height: 96px;
+  }
+}
 .cover-logo-word {
   font-family: var(--font-display);
   font-size: 34px;
