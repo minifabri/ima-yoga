@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X, Trash2, Eye, EyeOff, ExternalLink, Lock, LockOpen } from "lucide-react";
+import { X, Trash2, Eye, EyeOff, ExternalLink, Lock, LockOpen, Ban, Undo2 } from "lucide-react";
 import { Modal, Field, Switch, inputStyle, ImageUploadField } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { slugify } from "./utils";
@@ -41,6 +41,7 @@ export function EventFormModal({
   const [price, setPrice] = useState<number | string>(base?.price ?? 0);
   const [allowPlusOne, setAllowPlusOne] = useState(base?.allowPlusOne ?? true);
   const [bookingsOpen, setBookingsOpen] = useState(base?.bookingsOpen ?? true);
+  const [cancellationDisabled, setCancellationDisabled] = useState(base?.cancellationDisabled ?? false);
   const [published, setPublished] = useState(base?.published ?? false);
   const [uploadingLight, setUploadingLight] = useState(false);
   const [uploadingDark, setUploadingDark] = useState(false);
@@ -101,6 +102,7 @@ export function EventFormModal({
         price: Number(price) || 0,
         allowPlusOne,
         bookingsOpen,
+        cancellationDisabled,
         published,
         archived: base?.archived ?? false,
       });
@@ -208,7 +210,7 @@ export function EventFormModal({
           <Switch checked={allowPlusOne} onChange={setAllowPlusOne} label="Consenti ai partecipanti di aggiungere un +1" />
         </div>
 
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
           <button
             type="button"
             onClick={() => setBookingsOpen((v) => !v)}
@@ -221,6 +223,20 @@ export function EventFormModal({
           >
             {bookingsOpen ? <LockOpen size={13} /> : <Lock size={13} />}
             {bookingsOpen ? "Iscrizioni aperte" : "Iscrizioni chiuse"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCancellationDisabled((v) => !v)}
+            title="Se disabilitata, chi ha già prenotato non potrà più cancellare da solo la propria prenotazione"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+            style={{
+              border: `1px solid ${withAlpha(cancellationDisabled ? COLORS.danger : COLORS.success, 33)}`,
+              color: cancellationDisabled ? COLORS.danger : COLORS.success,
+              background: withAlpha(cancellationDisabled ? COLORS.danger : COLORS.success, 8),
+            }}
+          >
+            {cancellationDisabled ? <Ban size={13} /> : <Undo2 size={13} />}
+            {cancellationDisabled ? "Cancellazione disabilitata" : "Cancellazione consentita"}
           </button>
         </div>
 

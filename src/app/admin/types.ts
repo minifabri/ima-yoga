@@ -166,6 +166,7 @@ export type EventItem = {
   bookingsOpen: boolean;
   published: boolean;
   archived: boolean;
+  cancellationDisabled: boolean;
 };
 
 export type EventBookingItem = {

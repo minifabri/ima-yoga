@@ -736,6 +736,7 @@ function mapEvent(row: {
   bookings_open: boolean;
   published: boolean;
   archived: boolean;
+  cancellation_disabled: boolean;
 }): EventItem {
   return {
     id: row.id,
@@ -754,6 +755,7 @@ function mapEvent(row: {
     bookingsOpen: row.bookings_open,
     published: row.published,
     archived: row.archived,
+    cancellationDisabled: row.cancellation_disabled,
   };
 }
 
@@ -782,6 +784,7 @@ export async function saveEvent(
     allow_plus_one: event.allowPlusOne,
     bookings_open: event.bookingsOpen,
     published: event.published,
+    cancellation_disabled: event.cancellationDisabled,
   };
   const query = event.id
     ? supabase.from("events").update(payload).eq("id", event.id).select().single()
@@ -798,6 +801,11 @@ export async function deleteEvent(supabase: DB, id: string) {
 
 export async function setEventBookingsOpen(supabase: DB, id: string, bookingsOpen: boolean) {
   const { error } = await supabase.from("events").update({ bookings_open: bookingsOpen }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function setEventCancellationDisabled(supabase: DB, id: string, cancellationDisabled: boolean) {
+  const { error } = await supabase.from("events").update({ cancellation_disabled: cancellationDisabled }).eq("id", id);
   if (error) throw error;
 }
 
