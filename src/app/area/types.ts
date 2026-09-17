@@ -93,4 +93,5 @@ export type MyEventBooking = {
   price: number;
   plusOne: boolean;
   plusOneName: string | null;
+  cancellationDisabled: boolean;
 };

@@ -173,13 +173,13 @@ type EventBookingRow = {
   price: number;
   plus_one: boolean;
   plus_one_name: string | null;
-  events: { id: string; name: string; slug: string; event_date: string; event_time: string } | null;
+  events: { id: string; name: string; slug: string; event_date: string; event_time: string; cancellation_disabled: boolean } | null;
 };
 
 export async function fetchMyEventBookings(supabase: DB): Promise<MyEventBooking[]> {
   const { data, error } = await supabase
     .from("event_bookings")
-    .select("id, status, payment_status, price, plus_one, plus_one_name, events(id, name, slug, event_date, event_time)")
+    .select("id, status, payment_status, price, plus_one, plus_one_name, events(id, name, slug, event_date, event_time, cancellation_disabled)")
     .order("event_date", { foreignTable: "events" });
   if (error) throw error;
   return ((data ?? []) as unknown as EventBookingRow[])
@@ -196,6 +196,7 @@ export async function fetchMyEventBookings(supabase: DB): Promise<MyEventBooking
       price: Number(b.price),
       plusOne: b.plus_one,
       plusOneName: b.plus_one_name,
+      cancellationDisabled: b.events!.cancellation_disabled,
     }));
 }
 

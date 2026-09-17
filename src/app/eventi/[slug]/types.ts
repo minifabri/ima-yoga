@@ -14,6 +14,7 @@ export type PublicEventData = {
   allowPlusOne: boolean;
   bookingsOpen: boolean;
   published: boolean;
+  cancellationDisabled: boolean;
   bookedSeats: number;
   waitlistCount: number;
   myStatus: "booked" | "waitlist" | null;
