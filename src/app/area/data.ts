@@ -26,10 +26,10 @@ export async function fetchActiveAnnouncements(supabase: DB): Promise<Announceme
 export async function fetchMyNotices(supabase: DB): Promise<ClientNotice[]> {
   const { data } = await supabase
     .from("client_notices")
-    .select("id, message, kind, created_at, read")
+    .select("id, message, kind, link_path, created_at, read")
     .order("created_at", { ascending: false })
     .limit(30);
-  return (data ?? []).map((n) => ({ id: n.id, message: n.message, kind: n.kind, createdAt: n.created_at, read: n.read }));
+  return (data ?? []).map((n) => ({ id: n.id, message: n.message, kind: n.kind, linkPath: n.link_path, createdAt: n.created_at, read: n.read }));
 }
 
 export async function markNoticeRead(supabase: DB, id: string): Promise<void> {
@@ -42,6 +42,21 @@ export async function markAllNoticesRead(supabase: DB): Promise<void> {
 
 export async function deleteMyNotice(supabase: DB, id: string): Promise<void> {
   await supabase.from("client_notices").delete().eq("id", id);
+}
+
+export async function fetchMyFavoriteSequenceIds(supabase: DB): Promise<string[]> {
+  const { data } = await supabase.from("sequence_favorites").select("sequence_id");
+  return (data ?? []).map((r) => r.sequence_id);
+}
+
+export async function addFavoriteSequence(supabase: DB, clientId: string, sequenceId: string): Promise<void> {
+  const { error } = await supabase.from("sequence_favorites").insert({ client_id: clientId, sequence_id: sequenceId });
+  if (error) throw error;
+}
+
+export async function removeFavoriteSequence(supabase: DB, clientId: string, sequenceId: string): Promise<void> {
+  const { error } = await supabase.from("sequence_favorites").delete().eq("client_id", clientId).eq("sequence_id", sequenceId);
+  if (error) throw error;
 }
 
 export async function fetchPublicClasses(supabase: DB, from: string, to: string): Promise<PublicClass[]> {
@@ -61,6 +76,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       booked_count: number;
       waitlist_count: number;
       my_status: "booked" | "waitlist" | null;
+      is_personal: boolean;
     }) => ({
       id: r.id,
       date: r.class_date,
@@ -74,8 +90,24 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       bookedCount: Number(r.booked_count),
       waitlistCount: Number(r.waitlist_count),
       myStatus: r.my_status,
+      isPersonal: r.is_personal,
     })
   );
+}
+
+// Usato solo per il pallino "nuova lezione" sulla sezione Calendario: la data
+// dell'ultima lezione pubblicata (tra quelle future), indipendentemente dal
+// mese che il cliente ha aperto nel calendario vero e proprio.
+export async function fetchLatestUpcomingClassCreatedAt(supabase: DB, from: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("classes")
+    .select("created_at")
+    .eq("published", true)
+    .gte("class_date", from)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return data && data.length > 0 ? data[0].created_at : null;
 }
 
 export async function fetchPublicEvents(supabase: DB, from: string, to: string): Promise<PublicEvent[]> {
@@ -98,13 +130,22 @@ type BookingRow = {
   payment_amount: number;
   price: number;
   package_id: string | null;
-  classes: { class_date: string; class_time: string; type_id: string; level_id: string; is_free: boolean } | null;
+  classes: {
+    class_date: string;
+    class_time: string;
+    type_id: string;
+    level_id: string;
+    is_free: boolean;
+    personal_client_id: string | null;
+  } | null;
 };
 
 export async function fetchMyBookings(supabase: DB): Promise<MyBooking[]> {
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, class_id, status, payment_status, payment_amount, price, package_id, classes(class_date, class_time, type_id, level_id, is_free)")
+    .select(
+      "id, class_id, status, payment_status, payment_amount, price, package_id, classes(class_date, class_time, type_id, level_id, is_free, personal_client_id)"
+    )
     .order("class_date", { foreignTable: "classes" });
   if (error) throw error;
   return ((data ?? []) as unknown as BookingRow[])
@@ -121,6 +162,7 @@ export async function fetchMyBookings(supabase: DB): Promise<MyBooking[]> {
       paymentStatus: b.payment_status,
       paymentAmount: Number(b.payment_amount),
       price: Number(b.price),
+      isPersonal: b.classes!.personal_client_id != null,
     }));
 }
 

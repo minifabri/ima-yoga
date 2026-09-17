@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import { login, type ActionState } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import { trackPageView } from "@/lib/track";
-import { PeekCalendarLink } from "./PeekCalendarLink";
 
 const initialState: ActionState = { error: null };
 
@@ -23,18 +22,6 @@ function SignupLink() {
     <Link href={next ? `/signup?next=${encodeURIComponent(next)}` : "/signup"} style={{ color: "var(--primary-dark)", fontWeight: 600 }}>
       Registrati
     </Link>
-  );
-}
-
-function PeekCalendarSection() {
-  const searchParams = useSearchParams();
-  // Non ha senso proporre di "sbirciare senza accedere" a chi sta accedendo
-  // per tornare a fare qualcosa di specifico (es. prenotare un evento).
-  if (searchParams.get("next")) return null;
-  return (
-    <div className="mt-3 pt-3 text-center" style={{ borderTop: "1px solid var(--border)" }}>
-      <PeekCalendarLink />
-    </div>
   );
 }
 
@@ -115,10 +102,6 @@ export default function LoginPage() {
             <SignupLink />
           </Suspense>
         </div>
-
-        <Suspense fallback={null}>
-          <PeekCalendarSection />
-        </Suspense>
       </div>
     </main>
   );

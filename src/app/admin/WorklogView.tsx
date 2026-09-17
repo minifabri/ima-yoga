@@ -16,13 +16,28 @@ const FILTERS: { key: ActorFilter; label: string }[] = [
   { key: "client", label: "Clienti" },
 ];
 
-type ActionFilter = "all" | "bookings" | "cancellations" | "registrations";
+type ActionFilter = "all" | "bookings" | "cancellations" | "registrations" | "security";
 
 const ACTION_FILTERS: { key: ActionFilter; label: string; actions?: string[] }[] = [
   { key: "all", label: "Tutte le azioni" },
   { key: "bookings", label: "Prenotazioni", actions: ["booking_created", "booking_waitlisted", "admin_booking_added", "booking_promoted"] },
   { key: "cancellations", label: "Cancellazioni", actions: ["booking_cancelled", "admin_booking_removed"] },
   { key: "registrations", label: "Registrazioni", actions: ["client_registered", "client_created"] },
+  {
+    key: "security",
+    label: "Accessi e sicurezza",
+    actions: [
+      "login_success",
+      "login_failed",
+      "logout",
+      "signup_failed",
+      "password_reset_requested",
+      "password_reset_completed",
+      "admin_reset_client_password",
+      "admin_resend_activation_email",
+      "admin_resend_password_reset",
+    ],
+  },
 ];
 
 function formatDateTime(iso: string): { date: string; time: string } {
@@ -189,10 +204,22 @@ export function WorklogView({ supabase }: { supabase: SupabaseClient }) {
                       </span>
                       <div className="flex-1 min-w-0">
                         <div style={{ fontSize: 13, color: COLORS.ink }}>{entry.description}</div>
-                        <div className="flex items-center gap-1.5 mt-0.5" style={{ fontSize: 11, color: COLORS.inkSoft }}>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap" style={{ fontSize: 11, color: COLORS.inkSoft }}>
                           <span>{time}</span>
                           <span>·</span>
                           <span style={{ fontWeight: 600, color: meta.color }}>{meta.label}</span>
+                          {entry.actorEmail && (
+                            <>
+                              <span>·</span>
+                              <span>{entry.actorEmail}</span>
+                            </>
+                          )}
+                          {entry.ipAddress && (
+                            <>
+                              <span>·</span>
+                              <span>{entry.ipAddress}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                       <button onClick={() => deleteEntry(entry.id)} title="Elimina" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>

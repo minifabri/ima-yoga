@@ -18,7 +18,8 @@ export type Announcement = {
 export type ClientNotice = {
   id: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted";
+  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published" | "sequence_assigned";
+  linkPath: string | null;
   createdAt: string;
   read: boolean;
 };
@@ -36,6 +37,7 @@ export type PublicClass = {
   bookedCount: number;
   waitlistCount: number;
   myStatus: "booked" | "waitlist" | null;
+  isPersonal: boolean;
 };
 
 export type PublicEvent = {
@@ -58,6 +60,7 @@ export type MyBooking = {
   paymentStatus: "unpaid" | "paid" | "partial" | "package";
   paymentAmount: number;
   price: number;
+  isPersonal: boolean;
 };
 
 export type MyPackage = {

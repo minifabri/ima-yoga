@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { logAuthEvent } from "@/lib/supabase/audit";
 
 export type ActionState = { error: string | null };
 export type ForgotPasswordState = { error: string | null; sent: boolean };
@@ -25,8 +26,11 @@ export async function login(_prevState: ActionState, formData: FormData): Promis
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
+    await logAuthEvent(supabase, "login_failed", email, `Tentativo di accesso fallito per ${email}.`);
     return { error: "Email o password non corretti." };
   }
+
+  await logAuthEvent(supabase, "login_success", email, `${email} ha effettuato l'accesso.`);
 
   redirect(safeNext(formData));
 }
@@ -54,6 +58,7 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   });
 
   if (error) {
+    await logAuthEvent(supabase, "signup_failed", email, `Tentativo di registrazione fallito per ${email}: ${error.message}`);
     return { error: error.message, needsConfirmation: false };
   }
 
@@ -76,6 +81,7 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
     // riuscita, e per questo il sistema sembrava "non accorgersi" che
     // l'account esisteva già.
     if (data.user && data.user.identities?.length === 0) {
+      await logAuthEvent(supabase, "signup_failed", email, `Tentativo di registrazione con email già esistente: ${email}`);
       return { error: "Questo indirizzo email è già registrato. Prova ad accedere, oppure recupera la password se non la ricordi.", needsConfirmation: false };
     }
     return { error: null, needsConfirmation: true };
@@ -100,12 +106,22 @@ export async function requestPasswordReset(_prevState: ForgotPasswordState, form
     redirectTo: origin ? `${origin}/reset-password` : undefined,
   });
 
+  await logAuthEvent(supabase, "password_reset_requested", email, `Richiesto reset password per ${email}.`);
+
   // Risposta sempre uguale, indipendentemente dal fatto che l'email esista o meno.
   return { error: null, sent: true };
 }
 
 export async function logout() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user?.email) {
+    await logAuthEvent(supabase, "logout", user.email, `${user.email} ha effettuato il logout.`);
+  }
+
   await supabase.auth.signOut();
   redirect("/login");
 }

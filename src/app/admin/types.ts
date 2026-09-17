@@ -23,6 +23,12 @@ export type ClassItem = {
   clientIds: string[];
   waitlistIds: string[];
   payments: Record<string, Payment>;
+  // Se valorizzato, la classe è una lezione individuale (one-to-one) riservata
+  // a questo cliente: vedi PersonalClassFormModal. Una volta pubblicata la
+  // vede (ed è già iscritto) solo lui/lei — non compare nel calendario degli
+  // altri clienti (filtro applicato da public_classes() e dalla RLS di
+  // classes lato database).
+  personalClientId: string | null;
 };
 
 export type ClientItem = {
@@ -100,7 +106,8 @@ export type ClientNotice = {
   clientId: string;
   clientName: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted";
+  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published" | "sequence_assigned";
+  linkPath: string | null;
   read: boolean;
   createdAt: string;
 };
@@ -113,13 +120,16 @@ export type WorkLogEntry = {
   actorRole: WorkLogActorRole;
   actorId: string | null;
   actorName: string;
+  actorEmail: string | null;
   action: string;
   entityTable: string;
   entityId: string | null;
   description: string;
+  ipAddress: string | null;
+  userAgent: string | null;
 };
 
-export type NotificationType = "registration" | "enrollment" | "cancellation" | "issue_report" | "interest";
+export type NotificationType = "registration" | "enrollment" | "cancellation" | "issue_report" | "interest" | "survey_response";
 
 export type NotificationItem = {
   id: string;
@@ -136,8 +146,7 @@ export type VisitorStats = {
   byPath: { path: string; views: number }[];
   daily: { day: string; pageviews: number; signups: number }[];
   uniqueVisitors: number;
-  calendarViewers: number;
-  calendarConversions: number;
+  bounceRate: number;
 };
 
 export type EventItem = {
@@ -174,6 +183,18 @@ export type EventBookingItem = {
   createdAt: string;
 };
 
+export type CronJobLog = {
+  id: string;
+  jobName: string;
+  status: "ok" | "error";
+  startedAt: string;
+  finishedAt: string;
+  sent: number | null;
+  skipped: number | null;
+  error: string | null;
+  details: Record<string, unknown> | null;
+};
+
 export type BudgetLineItem = {
   id: string;
   name: string;
@@ -190,6 +211,196 @@ export type EventBudget = {
   ticketPrice: number;
   participants: number;
   items: BudgetLineItem[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SurveyQuestionOption = {
+  id: string;
+  position: number;
+  label: string;
+};
+
+export type SurveyQuestion = {
+  id: string;
+  position: number;
+  questionText: string;
+  questionType: "choice" | "text";
+  required: boolean;
+  allowMultiple: boolean;
+  allowOther: boolean;
+  options: SurveyQuestionOption[];
+};
+
+export type SurveyItem = {
+  id: string;
+  slug: string;
+  title: string;
+  descriptionHtml: string;
+  coverImageLightUrl: string | null;
+  coverImageDarkUrl: string | null;
+  coverImageFit: "contain" | "cover";
+  published: boolean;
+  startsAt: string | null; // ISO
+  endsAt: string | null; // ISO
+  archived: boolean;
+  createdAt: string;
+  questions: SurveyQuestion[];
+  responseCount: number;
+};
+
+export type SurveyAnswerItem = {
+  questionId: string;
+  optionIds: string[];
+  otherText: string | null;
+};
+
+export type SurveyResponseItem = {
+  id: string;
+  surveyId: string;
+  clientId: string | null;
+  clientName: string | null;
+  guestName: string | null;
+  isAnonymous: boolean;
+  submittedAt: string;
+  answers: SurveyAnswerItem[];
+};
+
+export type PoseMacro = "asana" | "pranayama";
+
+export type PoseCategory = {
+  id: string;
+  macro: PoseMacro;
+  name: string;
+  position: number;
+};
+
+// Le nove drishti (punti di sguardo) tradizionali: elenco fisso, non
+// modificabile dall'utente — vedi DRISHTI_LABELS in poseDisplay.ts per le
+// etichette in italiano.
+export type Drishti =
+  | "nasagrai"
+  | "ajna_chakra"
+  | "nabi_chakra"
+  | "hastagrai"
+  | "padhayoragrai"
+  | "parsva_destra"
+  | "parsva_sinistra"
+  | "angustha_ma_dyai"
+  | "urdhva_antara";
+
+// Una variante (parentPoseId non nullo) può lasciare name/nameIt/nameEn
+// vuoti: in quel caso il nome mostrato si ottiene concatenando il nome del
+// padre con variantLabel (vedi poseDisplay.ts). Se invece li compila,
+// sovrascrivono del tutto il calcolo automatico — utile quando la variante
+// ha un nome comune diverso da quello del padre.
+export type PoseCatalogItem = {
+  id: string;
+  macro: PoseMacro;
+  name: string;
+  nameIt: string;
+  nameEn: string;
+  description: string;
+  categoryId: string | null;
+  tags: string[];
+  imageUrl: string | null;
+  parentPoseId: string | null;
+  variantLabel: string;
+  drishti: Drishti | null;
+};
+
+export type SectionKind =
+  | "pranayama"
+  | "preparazione"
+  | "saluto_al_sole"
+  | "pre_sequenza"
+  | "sequenza"
+  | "chiusura"
+  | "custom";
+
+export type SequenceTemplateSection = {
+  id: string;
+  templateId: string;
+  kind: SectionKind;
+  label: string;
+  position: number;
+  enabled: boolean;
+};
+
+export type SequenceTemplate = {
+  id: string;
+  classTypeId: string;
+  sections: SequenceTemplateSection[];
+};
+
+export type HoldUnit = "seconds" | "minutes" | "breaths";
+
+export type SequenceItem = {
+  id: string;
+  sectionId: string;
+  blockId: string | null;
+  poseId: string | null;
+  customLabel: string;
+  note: string;
+  position: number;
+  reps: number | null;
+  holdValue: number | null;
+  holdUnit: HoldUnit | null;
+  // Tag opzionale legato al respiro: null = non impostato. Una stringa
+  // vuota significa "posizione taggata su questo respiro, nessun dettaglio";
+  // una stringa valorizzata descrive l'azione specifica (utile per le
+  // transizioni, es. bicicletta: espiro = ginocchio alla fronte,
+  // inspiro = gamba distesa).
+  onInhale: string | null;
+  onExhale: string | null;
+  needsReview: boolean;
+  // null = eredita la drishti della posa collegata (o nessuna, se la posa
+  // non ne ha una impostata); "none" = nessuna drishti per questa istanza
+  // anche se la posa collegata ne ha una impostata; un valore Drishti la
+  // sovrascrive con una scelta specifica. In entrambi i casi espliciti,
+  // solo per questa istanza in sequenza, senza toccare il catalogo.
+  drishtiOverride: Drishti | "none" | null;
+  // Se true, in scheda/lettura la voce viene mostrata anche nella sua
+  // versione speculare (dx/sx scambiati in testo/note/respiro) subito dopo,
+  // senza duplicare fisicamente la riga salvata — vedi expandSheetItem.
+  repeatOtherSide: boolean;
+};
+
+// Un blocco raggruppa alcune posizioni consecutive di una sezione per
+// ripeterle insieme un certo numero di volte (es. "ripeti x3" un gruppetto
+// di asana di preparazione) — solo ripetizioni, nessuna durata: la durata
+// resta una proprietà della singola posizione.
+export type SequenceItemBlock = {
+  id: string;
+  sectionId: string;
+  reps: number | null;
+  position: number;
+  // Come SequenceItem.repeatOtherSide, ma per l'intero blocco: in
+  // scheda/lettura il blocco viene mostrato una seconda volta con tutti gli
+  // item specchiati (dx/sx scambiati).
+  repeatOtherSide: boolean;
+};
+
+export type SequenceSection = {
+  id: string;
+  sequenceId: string;
+  kind: SectionKind;
+  label: string;
+  position: number;
+  enabled: boolean;
+  items: SequenceItem[];
+  blocks: SequenceItemBlock[];
+};
+
+export type Sequence = {
+  id: string;
+  classTypeId: string;
+  clientIds: string[];
+  guestName: string;
+  name: string;
+  description: string;
+  isPublic: boolean;
+  sections: SequenceSection[];
   createdAt: string;
   updatedAt: string;
 };

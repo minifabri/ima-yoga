@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Eye, Users, ArrowRightLeft, UserPlus, RefreshCw } from "lucide-react";
+import { Eye, Users, UserPlus, RefreshCw, LogOut } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { fetchVisitorStats } from "./data";
 import type { VisitorStats } from "./types";
@@ -16,11 +16,17 @@ const RANGE_OPTIONS = [
 const PATH_LABELS: Record<string, string> = {
   "/login": "Accesso",
   "/signup": "Registrazione",
-  "/calendario": "Calendario visitatore",
+  "/area": "Area riservata",
+  "/area/prenotazioni": "Le mie prenotazioni",
+  "/area/calendario": "Calendario (area riservata)",
+  "/area/sequenze": "Sequenze",
 };
 
 function pathLabel(path: string): string {
-  return PATH_LABELS[path] || path;
+  if (PATH_LABELS[path]) return PATH_LABELS[path];
+  if (path.startsWith("/eventi/")) return `Evento pubblico: ${path.slice("/eventi/".length)}`;
+  if (path.startsWith("/sondaggi/")) return `Sondaggio pubblico: ${path.slice("/sondaggi/".length)}`;
+  return path;
 }
 
 function formatDay(iso: string): string {
@@ -89,7 +95,6 @@ export function StatsView({ supabase }: { supabase: SupabaseClient }) {
 
   const totalPageviews = useMemo(() => (stats?.byPath ?? []).reduce((sum, p) => sum + p.views, 0), [stats]);
   const totalSignups = useMemo(() => (stats?.daily ?? []).reduce((sum, d) => sum + d.signups, 0), [stats]);
-  const conversionRate = stats && stats.calendarViewers > 0 ? Math.round((stats.calendarConversions / stats.calendarViewers) * 1000) / 10 : 0;
   const maxByPath = useMemo(() => Math.max(1, ...((stats?.byPath ?? []).map((p) => p.views))), [stats]);
   const maxDaily = useMemo(() => Math.max(1, ...((stats?.daily ?? []).map((d) => d.pageviews))), [stats]);
 
@@ -131,7 +136,7 @@ export function StatsView({ supabase }: { supabase: SupabaseClient }) {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-6">
             <StatCard icon={Eye} label="Visualizzazioni totali" value={String(totalPageviews)} color={COLORS.primary} />
             <StatCard icon={Users} label="Visitatori unici" value={String(stats?.uniqueVisitors ?? 0)} color={COLORS.primary} />
-            <StatCard icon={ArrowRightLeft} label="Conversione calendario → iscrizione" value={`${conversionRate}%`} color={COLORS.gold} />
+            <StatCard icon={LogOut} label="Frequenza di rimbalzo" value={`${stats?.bounceRate ?? 0}%`} color={COLORS.gold} />
             <StatCard icon={UserPlus} label="Nuove registrazioni" value={String(totalSignups)} color={COLORS.success} />
           </div>
 

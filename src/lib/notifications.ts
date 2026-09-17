@@ -1,5 +1,7 @@
 "use server";
 
+import { eventReminderEmailHtml, sequenceAssignedEmailHtml, surveyPublishedEmailHtml, surveyReminderEmailHtml } from "./emailTemplates";
+
 // Avvisa l'admin via email quando una classe raggiunge il numero massimo di
 // iscritti. Se RESEND_API_KEY o ADMIN_NOTIFICATION_EMAIL non sono configurate
 // (vedi .env.local.example), non fa nulla — non deve mai bloccare una
@@ -9,10 +11,16 @@ export async function notifyClassFull(details: { className: string; date: string
   const to = process.env.ADMIN_NOTIFICATION_EMAIL;
   if (!apiKey || !to) return;
 
-  const dateLabel = new Date(`${details.date}T00:00:00`).toLocaleDateString("it-IT", {
+  // Parse e formattazione sullo stesso fuso esplicito (UTC): senza,
+  // new Date(...) usa il fuso locale del runtime per interpretare la
+  // stringa e toLocaleDateString può finire per usarne un altro, dando
+  // un giorno della settimana sbagliato per la data giusta — è già
+  // successo in produzione ("domenica 14" per un 14 che era lunedì).
+  const dateLabel = new Date(`${details.date}T00:00:00Z`).toLocaleDateString("it-IT", {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: "UTC",
   });
 
   try {
@@ -52,10 +60,16 @@ export async function sendEventBookingConfirmationEmail(details: {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !details.to) return false;
 
-  const dateLabel = new Date(`${details.date}T00:00:00`).toLocaleDateString("it-IT", {
+  // Parse e formattazione sullo stesso fuso esplicito (UTC): senza,
+  // new Date(...) usa il fuso locale del runtime per interpretare la
+  // stringa e toLocaleDateString può finire per usarne un altro, dando
+  // un giorno della settimana sbagliato per la data giusta — è già
+  // successo in produzione ("domenica 14" per un 14 che era lunedì).
+  const dateLabel = new Date(`${details.date}T00:00:00Z`).toLocaleDateString("it-IT", {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: "UTC",
   });
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ima-yoga.vercel.app";
   const isWaitlist = details.status === "waitlist";
@@ -130,25 +144,18 @@ export async function sendEventBookingConfirmationEmail(details: {
   }
 }
 
-// Promemoria al cliente ~24h prima della lezione (vedi cron in
-// app/api/cron/class-reminders). Ritorna true solo se l'invio è andato a
-// buon fine, così il chiamante marca reminder_sent_at solo in quel caso.
-export async function sendClassReminderEmail(details: {
+// Avviso al cliente che un nuovo sondaggio è stato pubblicato — inviato in
+// blocco dall'admin al momento della pubblicazione (vedi admin/actions.ts
+// notifySurveyPublished), non è transazionale come le altre email di questo
+// file.
+export async function sendSurveyPublishedEmail(details: {
   to: string;
-  firstName: string;
-  className: string;
-  date: string; // yyyy-mm-dd
-  time: string; // HH:mm
+  fullName: string;
+  surveyTitle: string;
+  surveyUrl: string;
 }): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return false;
-
-  const dateLabel = new Date(`${details.date}T00:00:00`).toLocaleDateString("it-IT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ima-yoga.vercel.app";
+  if (!apiKey || !details.to) return false;
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -157,7 +164,143 @@ export async function sendClassReminderEmail(details: {
       body: JSON.stringify({
         from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
         to: details.to,
-        subject: `Ci vediamo domani per ${details.className} 🤍`,
+        subject: `Nuovo sondaggio — ${details.surveyTitle}`,
+        html: surveyPublishedEmailHtml(details),
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Promemoria on-demand per chi non ha ancora risposto a un sondaggio —
+// inviato dall'admin quando vuole (vedi admin/actions.ts
+// notifySurveyReminder), a differenza di sendSurveyPublishedEmail che parte
+// una sola volta al momento della pubblicazione.
+export async function sendSurveyReminderEmail(details: {
+  to: string;
+  fullName: string;
+  surveyTitle: string;
+  surveyUrl: string;
+}): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !details.to) return false;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        to: details.to,
+        subject: `Il sondaggio "${details.surveyTitle}" aspetta ancora 🤍`,
+        html: surveyReminderEmailHtml(details),
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Promemoria on-demand per chi non si è ancora iscritto a un evento —
+// inviato dall'admin quando vuole (vedi admin/actions.ts
+// notifyEventReminder).
+export async function sendEventReminderEmail(details: {
+  to: string;
+  fullName: string;
+  eventName: string;
+  eventUrl: string;
+}): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !details.to) return false;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        to: details.to,
+        subject: `${details.eventName} si avvicina e... 🤍`,
+        html: eventReminderEmailHtml(details),
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Avviso al cliente che l'insegnante gli ha assegnato una nuova sequenza —
+// inviato dall'admin al salvataggio (vedi admin/actions.ts
+// notifySequenceAssigned), solo ai clienti appena aggiunti all'assegnazione.
+export async function sendSequenceAssignedEmail(details: {
+  to: string;
+  fullName: string;
+  sequenceName: string;
+  sequenceUrl: string;
+}): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !details.to) return false;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        to: details.to,
+        subject: `Nuova sequenza — ${details.sequenceName}`,
+        html: sequenceAssignedEmailHtml(details),
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Promemoria al cliente ~24h prima della lezione (vedi cron in
+// app/api/cron/class-reminders). Ritorna true solo se l'invio è andato a
+// buon fine, così il chiamante marca reminder_sent_at solo in quel caso.
+// isToday copre il caso di recupero (il cron di ieri non è partito, o ha
+// fallito): in quel caso la lezione è oggi e non domani, e il testo deve
+// dirlo correttamente invece di continuare a parlare di "domani".
+export async function sendClassReminderEmail(details: {
+  to: string;
+  firstName: string;
+  className: string;
+  date: string; // yyyy-mm-dd
+  time: string; // HH:mm
+  isToday?: boolean;
+}): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return false;
+
+  // Parse e formattazione sullo stesso fuso esplicito (UTC): senza,
+  // new Date(...) usa il fuso locale del runtime per interpretare la
+  // stringa e toLocaleDateString può finire per usarne un altro, dando
+  // un giorno della settimana sbagliato per la data giusta — è già
+  // successo in produzione ("domenica 14" per un 14 che era lunedì).
+  const dateLabel = new Date(`${details.date}T00:00:00Z`).toLocaleDateString("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  });
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ima-yoga.vercel.app";
+  const relativeDay = details.isToday ? "oggi" : "domani";
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        to: details.to,
+        subject: `Ci vediamo ${details.isToday ? "stasera" : "domani"} per ${details.className} 🤍`,
         html: `
           <div style="background-color:#FAF7F2; padding:40px 16px; font-family:Helvetica, Arial, sans-serif;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:420px; margin:0 auto; background:#FFFFFF; border-radius:18px; overflow:hidden; border:1px solid #E4DAF0;">
@@ -174,7 +317,7 @@ export async function sendClassReminderEmail(details: {
                     Ciao ${details.firstName}!
                   </p>
                   <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 20px 0; text-align:left;">
-                    Ti ricordo che domani, <strong>${dateLabel}</strong>, ti aspetto per <strong>${details.className}</strong> alle <strong>${details.time}</strong>.
+                    Ti ricordo che ${relativeDay}, <strong>${dateLabel}</strong>, ti aspetto per <strong>${details.className}</strong> alle <strong>${details.time}</strong>.
                   </p>
                   <p style="font-size:14px; line-height:1.6; color:#362D4A; margin:0 0 20px 0; text-align:left;">
                     Ricorda di portare il tuo tappetino e un asciugamano. Arriva con 5 minuti di anticipo, se arrivi prima, per favore aspetta senza suonare: potrebbero esserci altre lezioni o altre attività in corso.

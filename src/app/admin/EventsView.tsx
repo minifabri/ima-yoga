@@ -2,25 +2,28 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Check, Lock, LockOpen, Archive, ArchiveRestore, Calculator, ArrowLeft } from "lucide-react";
+import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Bell, Check, Lock, LockOpen, Archive, ArchiveRestore, Calculator, ArrowLeft } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { EventFormModal } from "./EventFormModal";
 import { EventBookingsPanel } from "./EventBookingsPanel";
+import { EventReminderModal } from "./EventReminderModal";
 import { EventBudgetCalculator, computeTotals } from "./EventBudgetCalculator";
 import { deleteEvent, fetchEventBudgets, fetchEvents, saveEvent, setEventArchived, setEventBookingsOpen } from "./data";
-import type { EventBudget, EventItem } from "./types";
+import { notifyEventReminder } from "./actions";
+import type { ClientItem, EventBudget, EventItem } from "./types";
 
 type ModalState = { mode: "new" } | { mode: "edit"; event: EventItem } | null;
 
 const fmtEUR = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
-export function EventsView({ supabase }: { supabase: SupabaseClient }) {
+export function EventsView({ supabase, clients }: { supabase: SupabaseClient; clients: ClientItem[] }) {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [budgets, setBudgets] = useState<EventBudget[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<ModalState>(null);
   const [bookingsFor, setBookingsFor] = useState<EventItem | null>(null);
   const [budgetFor, setBudgetFor] = useState<EventItem | null>(null);
+  const [reminderFor, setReminderFor] = useState<EventItem | null>(null);
   const [toast, setToast] = useState("");
 
   function showToast(msg: string) {
@@ -240,6 +243,16 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
                 >
                   <Users size={14} /> Prenotazioni
                 </button>
+                {!ev.archived && ev.published && ev.bookingsOpen && (
+                  <button
+                    onClick={() => setReminderFor(ev)}
+                    title="Invia promemoria a chi non si è ancora prenotato"
+                    className="flex items-center justify-center rounded-lg"
+                    style={{ width: 34, height: 34, border: `1px solid ${COLORS.border}`, color: COLORS.gold }}
+                  >
+                    <Bell size={14} />
+                  </button>
+                )}
                 <button
                   onClick={() => toggleArchived(ev)}
                   title={ev.archived ? "Riattiva evento" : "Archivia evento (resta lo storico, sparisce dalla pagina pubblica)"}
@@ -278,6 +291,20 @@ export function EventsView({ supabase }: { supabase: SupabaseClient }) {
       )}
 
       {bookingsFor && <EventBookingsPanel event={bookingsFor} onClose={() => setBookingsFor(null)} />}
+
+      {reminderFor && (
+        <EventReminderModal
+          event={reminderFor}
+          clients={clients}
+          onClose={() => setReminderFor(null)}
+          onSend={async (clientIds) => {
+            const res = await notifyEventReminder(reminderFor.id, reminderFor.slug, reminderFor.name, { clientIds });
+            if (res.ok) showToast(`Promemoria inviato — email: ${res.emailsSent ?? 0}.`);
+            else showToast(res.error || "Promemoria non riuscito.");
+            return res;
+          }}
+        />
+      )}
     </div>
   );
 }

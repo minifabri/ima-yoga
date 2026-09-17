@@ -7,16 +7,30 @@ import type {
   ClassType,
   ClientItem,
   ClientNotice,
+  CronJobLog,
+  Drishti,
   EventBookingItem,
   EventBudget,
   EventItem,
   Expense,
+  HoldUnit,
   LedgerEntry,
   Level,
   NotificationItem,
   NotificationType,
   PackageItem,
+  PoseCatalogItem,
+  PoseCategory,
+  PoseMacro,
+  Sequence,
+  SequenceTemplate,
+  SequenceTemplateSection,
+  SectionKind,
   Settings,
+  SurveyAnswerItem,
+  SurveyItem,
+  SurveyQuestion,
+  SurveyResponseItem,
   VisitorStats,
   WorkLogActorRole,
   WorkLogEntry,
@@ -92,7 +106,8 @@ function mapClientNotice(row: {
   id: string;
   client_id: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted";
+  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published" | "sequence_assigned";
+  link_path: string | null;
   read: boolean;
   created_at: string;
   profiles: { full_name: string } | null;
@@ -103,6 +118,7 @@ function mapClientNotice(row: {
     clientName: row.profiles?.full_name ?? "",
     message: row.message,
     kind: row.kind,
+    linkPath: row.link_path,
     read: row.read,
     createdAt: row.created_at,
   };
@@ -162,6 +178,7 @@ function mapClass(row: {
   price_override: number | null;
   is_free: boolean;
   published: boolean;
+  personal_client_id: string | null;
   bookings: BookingRow[];
 }): ClassItem {
   const bookings = row.bookings ?? [];
@@ -192,6 +209,7 @@ function mapClass(row: {
     clientIds: booked.map((b) => b.client_id),
     waitlistIds: waitlist.map((b) => b.client_id),
     payments,
+    personalClientId: row.personal_client_id,
   };
 }
 
@@ -272,6 +290,7 @@ export async function saveClass(supabase: DB, item: ClassItem) {
     price_override: item.priceOverride,
     is_free: item.isFree,
     published: item.published,
+    personal_client_id: item.personalClientId,
   });
   if (classErr) throw classErr;
 
@@ -570,10 +589,22 @@ export async function deleteAnnouncement(supabase: DB, id: string) {
 // ---------------------------------------------------------
 // Avvisi personali ai clienti
 // ---------------------------------------------------------
-export async function addPersonalNotices(supabase: DB, clientIds: string[], message: string): Promise<ClientNotice[]> {
+export async function addPersonalNotices(
+  supabase: DB,
+  clientIds: string[],
+  message: string,
+  opts?: { kind?: ClientNotice["kind"]; linkPath?: string }
+): Promise<ClientNotice[]> {
   const { data, error } = await supabase
     .from("client_notices")
-    .insert(clientIds.map((clientId) => ({ client_id: clientId, message, kind: "custom" as const })))
+    .insert(
+      clientIds.map((clientId) => ({
+        client_id: clientId,
+        message,
+        kind: opts?.kind ?? ("custom" as const),
+        link_path: opts?.linkPath ?? null,
+      }))
+    )
     .select("*, profiles(full_name)");
   if (error) throw error;
   return (data ?? []).map(mapClientNotice);
@@ -599,10 +630,13 @@ function mapWorkLogEntry(row: {
   actor_role: WorkLogActorRole;
   actor_id: string | null;
   actor_name: string;
+  actor_email: string | null;
   action: string;
   entity_table: string;
   entity_id: string | null;
   description: string;
+  ip_address: string | null;
+  user_agent: string | null;
 }): WorkLogEntry {
   return {
     id: row.id,
@@ -610,10 +644,13 @@ function mapWorkLogEntry(row: {
     actorRole: row.actor_role,
     actorId: row.actor_id,
     actorName: row.actor_name,
+    actorEmail: row.actor_email,
     action: row.action,
     entityTable: row.entity_table,
     entityId: row.entity_id,
     description: row.description,
+    ipAddress: row.ip_address,
+    userAgent: row.user_agent,
   };
 }
 
@@ -628,7 +665,10 @@ export async function fetchWorkLog(
   if (opts.actorRole) query = query.eq("actor_role", opts.actorRole);
   if (opts.actions && opts.actions.length > 0) query = query.in("action", opts.actions);
   const term = opts.search?.trim();
-  if (term) query = query.ilike("description", `%${term.replace(/[%_]/g, "")}%`);
+  if (term) {
+    const escaped = term.replace(/[%_]/g, "");
+    query = query.or(`description.ilike.%${escaped}%,actor_email.ilike.%${escaped}%,actor_name.ilike.%${escaped}%`);
+  }
   query = query.range(offset, offset + WORKLOG_PAGE_SIZE);
 
   const { data, error } = await query;
@@ -666,15 +706,13 @@ export async function fetchVisitorStats(supabase: DB, days: number): Promise<Vis
     by_path?: { path: string; views: number }[];
     daily?: { day: string; pageviews: number; signups: number }[];
     unique_visitors?: number;
-    calendar_viewers?: number;
-    calendar_conversions?: number;
+    bounce_rate?: number;
   };
   return {
     byPath: d.by_path ?? [],
     daily: d.daily ?? [],
     uniqueVisitors: d.unique_visitors ?? 0,
-    calendarViewers: d.calendar_viewers ?? 0,
-    calendarConversions: d.calendar_conversions ?? 0,
+    bounceRate: d.bounce_rate ?? 0,
   };
 }
 
@@ -839,6 +877,30 @@ export async function uploadEventImage(supabase: DB, eventSlug: string, variant:
   return data.publicUrl;
 }
 
+// Carica la thumbnail generata (silhouette) su Supabase Storage (bucket
+// pubblico "pose-thumbnails", scrittura riservata all'admin via RLS).
+export async function uploadPoseThumbnail(supabase: DB, poseSlug: string, blob: Blob): Promise<string> {
+  const path = `${poseSlug}-${Date.now()}.png`;
+  const { error } = await supabase.storage.from("pose-thumbnails").upload(path, blob, { upsert: true, cacheControl: "3600", contentType: "image/png" });
+  if (error) throw error;
+  const { data } = supabase.storage.from("pose-thumbnails").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// Rimuove un file dal bucket "pose-thumbnails" dato il suo URL pubblico
+// (chiamare SOLO quando l'immagine è quella caricata dalla posizione stessa,
+// mai per un'immagine ereditata da un padre — quel file resta suo). Se l'URL
+// non appartiene a questo bucket (es. percorso/URL esterno inserito a mano)
+// non fa nulla.
+export async function deletePoseThumbnail(supabase: DB, url: string): Promise<void> {
+  const marker = "/pose-thumbnails/";
+  const idx = url.indexOf(marker);
+  if (idx === -1) return;
+  const path = url.slice(idx + marker.length);
+  const { error } = await supabase.storage.from("pose-thumbnails").remove([path]);
+  if (error) throw error;
+}
+
 function mapEventBudget(row: {
   id: string;
   event_id: string | null;
@@ -861,6 +923,36 @@ function mapEventBudget(row: {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function mapCronJobLog(row: {
+  id: string;
+  job_name: string;
+  status: "ok" | "error";
+  started_at: string;
+  finished_at: string;
+  sent: number | null;
+  skipped: number | null;
+  error: string | null;
+  details: Record<string, unknown> | null;
+}): CronJobLog {
+  return {
+    id: row.id,
+    jobName: row.job_name,
+    status: row.status,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    sent: row.sent,
+    skipped: row.skipped,
+    error: row.error,
+    details: row.details,
+  };
+}
+
+export async function fetchCronJobLogs(supabase: DB, limit = 50): Promise<CronJobLog[]> {
+  const { data, error } = await supabase.from("cron_job_logs").select("*").order("started_at", { ascending: false }).limit(limit);
+  if (error) throw error;
+  return (data ?? []).map(mapCronJobLog);
 }
 
 export async function fetchEventBudgets(supabase: DB): Promise<EventBudget[]> {
@@ -901,5 +993,670 @@ export async function saveEventBudget(
 
 export async function deleteEventBudget(supabase: DB, id: string) {
   const { error } = await supabase.from("event_budgets").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------
+// Sondaggi
+// ---------------------------------------------------------
+type SurveyRow = {
+  id: string;
+  slug: string;
+  title: string;
+  description_html: string;
+  cover_image_light_url: string | null;
+  cover_image_dark_url: string | null;
+  cover_image_fit: "contain" | "cover";
+  published: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  archived: boolean;
+  created_at: string;
+  survey_questions: {
+    id: string;
+    position: number;
+    question_text: string;
+    question_type: "choice" | "text";
+    required: boolean;
+    allow_multiple: boolean;
+    allow_other: boolean;
+    survey_question_options: { id: string; position: number; label: string }[];
+  }[];
+  survey_responses: { count: number }[];
+};
+
+function mapSurvey(row: SurveyRow): SurveyItem {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    descriptionHtml: row.description_html,
+    coverImageLightUrl: row.cover_image_light_url,
+    coverImageDarkUrl: row.cover_image_dark_url,
+    coverImageFit: row.cover_image_fit,
+    published: row.published,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    archived: row.archived,
+    createdAt: row.created_at,
+    questions: (row.survey_questions || [])
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map((q) => ({
+        id: q.id,
+        position: q.position,
+        questionText: q.question_text,
+        questionType: q.question_type,
+        required: q.required,
+        allowMultiple: q.allow_multiple,
+        allowOther: q.allow_other,
+        options: (q.survey_question_options || [])
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .map((o) => ({ id: o.id, position: o.position, label: o.label })),
+      })),
+    responseCount: row.survey_responses?.[0]?.count ?? 0,
+  };
+}
+
+const SURVEY_SELECT = "*, survey_questions(*, survey_question_options(*)), survey_responses(count)";
+
+export async function fetchSurveys(supabase: DB): Promise<SurveyItem[]> {
+  const { data, error } = await supabase.from("surveys").select(SURVEY_SELECT).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapSurvey);
+}
+
+export async function saveSurvey(
+  supabase: DB,
+  survey: Omit<SurveyItem, "id" | "questions" | "responseCount" | "createdAt"> & { id?: string }
+): Promise<SurveyItem> {
+  const payload = {
+    slug: survey.slug,
+    title: survey.title,
+    description_html: survey.descriptionHtml,
+    cover_image_light_url: survey.coverImageLightUrl,
+    cover_image_dark_url: survey.coverImageDarkUrl,
+    cover_image_fit: survey.coverImageFit,
+    published: survey.published,
+    starts_at: survey.startsAt,
+    ends_at: survey.endsAt,
+    archived: survey.archived,
+  };
+  const query = survey.id
+    ? supabase.from("surveys").update(payload).eq("id", survey.id).select(SURVEY_SELECT).single()
+    : supabase.from("surveys").insert(payload).select(SURVEY_SELECT).single();
+  const { data, error } = await query;
+  if (error) throw error;
+  return mapSurvey(data);
+}
+
+export async function deleteSurvey(supabase: DB, id: string) {
+  const { error } = await supabase.from("surveys").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function setSurveyArchived(supabase: DB, id: string, archived: boolean) {
+  const { error } = await supabase.from("surveys").update({ archived }).eq("id", id);
+  if (error) throw error;
+}
+
+// Sostituisce sempre domande e opzioni con lo stato corrente dell'editor,
+// come saveSequence per le sezioni di una sequenza — più semplice e sicuro
+// di un diff incrementale, dato il volume ridotto di righe coinvolte.
+export async function saveSurveyQuestions(
+  supabase: DB,
+  surveyId: string,
+  questions: {
+    questionText: string;
+    questionType: "choice" | "text";
+    required: boolean;
+    allowMultiple: boolean;
+    allowOther: boolean;
+    position: number;
+    options: { label: string; position: number }[];
+  }[]
+): Promise<SurveyQuestion[]> {
+  const { error: delError } = await supabase.from("survey_questions").delete().eq("survey_id", surveyId);
+  if (delError) throw delError;
+  if (questions.length === 0) return [];
+
+  const { data: insertedQuestions, error: qError } = await supabase
+    .from("survey_questions")
+    .insert(
+      questions.map((q) => ({
+        survey_id: surveyId,
+        position: q.position,
+        question_text: q.questionText,
+        question_type: q.questionType,
+        required: q.required,
+        allow_multiple: q.allowMultiple,
+        allow_other: q.allowOther,
+      }))
+    )
+    .select();
+  if (qError) throw qError;
+
+  const optionsPayload = (insertedQuestions ?? []).flatMap((row, i) =>
+    questions[i].options.map((o) => ({ question_id: row.id, position: o.position, label: o.label }))
+  );
+  const { data: insertedOptions, error: oError } = optionsPayload.length
+    ? await supabase.from("survey_question_options").insert(optionsPayload).select()
+    : { data: [] as { id: string; question_id: string; position: number; label: string }[], error: null };
+  if (oError) throw oError;
+
+  return (insertedQuestions ?? []).map((row) => ({
+    id: row.id,
+    position: row.position,
+    questionText: row.question_text,
+    questionType: row.question_type,
+    required: row.required,
+    allowMultiple: row.allow_multiple,
+    allowOther: row.allow_other,
+    options: (insertedOptions ?? [])
+      .filter((o) => o.question_id === row.id)
+      .sort((a, b) => a.position - b.position)
+      .map((o) => ({ id: o.id, position: o.position, label: o.label })),
+  }));
+}
+
+// Carica la copertina su Supabase Storage (bucket pubblico "survey-images",
+// scrittura riservata all'admin via RLS) e restituisce l'URL pubblico.
+export async function uploadSurveyImage(supabase: DB, surveySlug: string, variant: "light" | "dark", file: File): Promise<string> {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${surveySlug}/${variant}-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("survey-images").upload(path, file, { upsert: true, cacheControl: "3600" });
+  if (error) throw error;
+  const { data } = supabase.storage.from("survey-images").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+type SurveyResponseRow = {
+  id: string;
+  survey_id: string;
+  client_id: string | null;
+  guest_name: string | null;
+  is_anonymous: boolean;
+  submitted_at: string;
+  profiles: { full_name: string } | null;
+  survey_answers: {
+    question_id: string;
+    other_text: string | null;
+    survey_answer_options: { option_id: string }[];
+  }[];
+};
+
+function mapSurveyResponse(row: SurveyResponseRow): SurveyResponseItem {
+  const answers: SurveyAnswerItem[] = (row.survey_answers || []).map((a) => ({
+    questionId: a.question_id,
+    otherText: a.other_text,
+    optionIds: (a.survey_answer_options || []).map((o) => o.option_id),
+  }));
+  return {
+    id: row.id,
+    surveyId: row.survey_id,
+    clientId: row.client_id,
+    clientName: row.profiles?.full_name ?? null,
+    guestName: row.guest_name,
+    isAnonymous: row.is_anonymous,
+    submittedAt: row.submitted_at,
+    answers,
+  };
+}
+
+export async function fetchSurveyResponses(supabase: DB, surveyId: string): Promise<SurveyResponseItem[]> {
+  const { data, error } = await supabase
+    .from("survey_responses")
+    .select("*, profiles(full_name), survey_answers(question_id, other_text, survey_answer_options(option_id))")
+    .eq("survey_id", surveyId)
+    .order("submitted_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapSurveyResponse);
+}
+
+// ---- catalogo posizioni ----
+function mapPoseCategory(row: { id: string; macro: PoseMacro; name: string; position: number }): PoseCategory {
+  return { id: row.id, macro: row.macro, name: row.name, position: row.position };
+}
+
+export async function fetchPoseCategories(supabase: DB): Promise<PoseCategory[]> {
+  const { data, error } = await supabase.from("pose_categories").select("*").order("macro").order("position");
+  if (error) throw error;
+  return (data ?? []).map(mapPoseCategory);
+}
+
+export async function savePoseCategory(
+  supabase: DB,
+  category: Omit<PoseCategory, "id"> & { id?: string }
+): Promise<PoseCategory> {
+  const payload = { macro: category.macro, name: category.name, position: category.position };
+  const query = category.id
+    ? supabase.from("pose_categories").update(payload).eq("id", category.id).select().single()
+    : supabase.from("pose_categories").insert(payload).select().single();
+  const { data, error } = await query;
+  if (error) throw error;
+  return mapPoseCategory(data);
+}
+
+export async function deletePoseCategory(supabase: DB, id: string) {
+  const { error } = await supabase.from("pose_categories").delete().eq("id", id);
+  if (error) throw error;
+}
+
+function mapPoseCatalogItem(row: {
+  id: string;
+  macro: PoseMacro;
+  name: string | null;
+  name_it: string | null;
+  name_en: string | null;
+  description: string | null;
+  category_id: string | null;
+  tags: string[] | null;
+  image_url: string | null;
+  parent_pose_id: string | null;
+  variant_label: string | null;
+  drishti: Drishti | null;
+}): PoseCatalogItem {
+  return {
+    id: row.id,
+    macro: row.macro,
+    name: row.name || "",
+    nameIt: row.name_it || "",
+    nameEn: row.name_en || "",
+    description: row.description || "",
+    categoryId: row.category_id,
+    tags: row.tags || [],
+    imageUrl: row.image_url,
+    parentPoseId: row.parent_pose_id,
+    variantLabel: row.variant_label || "",
+    drishti: row.drishti,
+  };
+}
+
+export async function fetchPoseCatalog(supabase: DB): Promise<PoseCatalogItem[]> {
+  const { data, error } = await supabase.from("poses").select("*").order("name");
+  if (error) throw error;
+  return (data ?? []).map(mapPoseCatalogItem);
+}
+
+export async function savePose(
+  supabase: DB,
+  pose: Omit<PoseCatalogItem, "id"> & { id?: string }
+): Promise<PoseCatalogItem> {
+  const payload = {
+    macro: pose.macro,
+    name: pose.name || null,
+    name_it: pose.nameIt || null,
+    name_en: pose.nameEn || null,
+    description: pose.description || null,
+    category_id: pose.categoryId,
+    tags: pose.tags,
+    image_url: pose.imageUrl,
+    parent_pose_id: pose.parentPoseId,
+    variant_label: pose.variantLabel || "",
+    drishti: pose.drishti,
+  };
+  const query = pose.id
+    ? supabase.from("poses").update(payload).eq("id", pose.id).select().single()
+    : supabase.from("poses").insert(payload).select().single();
+  const { data, error } = await query;
+  if (error) throw error;
+  return mapPoseCatalogItem(data);
+}
+
+export async function deletePose(supabase: DB, id: string) {
+  const { error } = await supabase.from("poses").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// Inserimento massivo (import CSV): una singola insert con più righe.
+export async function bulkInsertPoses(
+  supabase: DB,
+  poses: Omit<PoseCatalogItem, "id">[]
+): Promise<PoseCatalogItem[]> {
+  const payload = poses.map((p) => ({
+    macro: p.macro,
+    name: p.name || null,
+    name_it: p.nameIt || null,
+    name_en: p.nameEn || null,
+    description: p.description || null,
+    category_id: p.categoryId,
+    tags: p.tags,
+    image_url: p.imageUrl,
+    parent_pose_id: p.parentPoseId,
+    variant_label: p.variantLabel || "",
+    drishti: p.drishti,
+  }));
+  const { data, error } = await supabase.from("poses").insert(payload).select();
+  if (error) throw error;
+  return (data ?? []).map(mapPoseCatalogItem);
+}
+
+// ---- template di sezioni per tipo di classe ----
+type TemplateSectionRow = {
+  id: string;
+  template_id: string;
+  kind: SectionKind;
+  label: string;
+  position: number;
+  enabled: boolean;
+};
+
+function mapTemplateSection(s: TemplateSectionRow): SequenceTemplateSection {
+  return { id: s.id, templateId: s.template_id, kind: s.kind, label: s.label, position: s.position, enabled: s.enabled };
+}
+
+function mapSequenceTemplate(row: { id: string; class_type_id: string; sequence_template_sections: TemplateSectionRow[] }): SequenceTemplate {
+  return {
+    id: row.id,
+    classTypeId: row.class_type_id,
+    sections: (row.sequence_template_sections || []).slice().sort((a, b) => a.position - b.position).map(mapTemplateSection),
+  };
+}
+
+export async function fetchSequenceTemplate(supabase: DB, classTypeId: string): Promise<SequenceTemplate | null> {
+  const { data, error } = await supabase
+    .from("sequence_templates")
+    .select("*, sequence_template_sections(*)")
+    .eq("class_type_id", classTypeId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapSequenceTemplate(data) : null;
+}
+
+export async function saveSequenceTemplateSections(
+  supabase: DB,
+  templateId: string,
+  sections: { kind: SectionKind; label: string; position: number; enabled: boolean }[]
+): Promise<SequenceTemplateSection[]> {
+  const { error: delError } = await supabase.from("sequence_template_sections").delete().eq("template_id", templateId);
+  if (delError) throw delError;
+  const payload = sections.map((s) => ({ template_id: templateId, kind: s.kind, label: s.label, position: s.position, enabled: s.enabled }));
+  const { data, error } = await supabase.from("sequence_template_sections").insert(payload).select();
+  if (error) throw error;
+  return (data ?? []).slice().sort((a, b) => a.position - b.position).map(mapTemplateSection);
+}
+
+// ---- sequenze ----
+type SequenceRow = {
+  id: string;
+  class_type_id: string;
+  guest_name: string | null;
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+  sequence_clients: { client_id: string }[];
+  sequence_sections: {
+    id: string;
+    sequence_id: string;
+    kind: SectionKind;
+    label: string;
+    position: number;
+    enabled: boolean;
+    sequence_items: {
+      id: string;
+      section_id: string;
+      block_id: string | null;
+      pose_id: string | null;
+      custom_label: string | null;
+      note: string | null;
+      position: number;
+      reps: number | null;
+      hold_value: number | null;
+      hold_unit: HoldUnit | null;
+      on_inhale: string | null;
+      on_exhale: string | null;
+      needs_review: boolean;
+      drishti_override: Drishti | "none" | null;
+      repeat_other_side: boolean;
+    }[];
+    sequence_item_blocks: {
+      id: string;
+      section_id: string;
+      reps: number | null;
+      position: number;
+      repeat_other_side: boolean;
+    }[];
+  }[];
+};
+
+function mapSequence(row: SequenceRow): Sequence {
+  return {
+    id: row.id,
+    classTypeId: row.class_type_id,
+    clientIds: (row.sequence_clients || []).map((sc) => sc.client_id),
+    guestName: row.guest_name || "",
+    name: row.name,
+    description: row.description || "",
+    isPublic: row.is_public,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    sections: (row.sequence_sections || [])
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map((s) => ({
+        id: s.id,
+        sequenceId: s.sequence_id,
+        kind: s.kind,
+        label: s.label,
+        position: s.position,
+        enabled: s.enabled,
+        items: (s.sequence_items || [])
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .map((it) => ({
+            id: it.id,
+            sectionId: it.section_id,
+            blockId: it.block_id,
+            poseId: it.pose_id,
+            customLabel: it.custom_label || "",
+            note: it.note || "",
+            position: it.position,
+            reps: it.reps,
+            holdValue: it.hold_value,
+            holdUnit: it.hold_unit,
+            onInhale: it.on_inhale,
+            onExhale: it.on_exhale,
+            needsReview: it.needs_review,
+            drishtiOverride: it.drishti_override,
+            repeatOtherSide: it.repeat_other_side,
+          })),
+        blocks: (s.sequence_item_blocks || [])
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .map((b) => ({ id: b.id, sectionId: b.section_id, reps: b.reps, position: b.position, repeatOtherSide: b.repeat_other_side })),
+      })),
+  };
+}
+
+const SEQUENCE_SELECT = "*, sequence_clients(client_id), sequence_sections(*, sequence_items(*), sequence_item_blocks(*))";
+
+export async function fetchSequences(supabase: DB): Promise<Sequence[]> {
+  const { data, error } = await supabase.from("sequences").select(SEQUENCE_SELECT).order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapSequence);
+}
+
+// Sequenze visibili all'allievo loggato: assegnate a lui/lei o rese
+// pubbliche nel catalogo. Il filtro effettivo è demandato alla RLS
+// (sequences_select_visible) — qui si legge semplicemente tutto ciò che
+// la query può vedere.
+export async function fetchVisibleSequences(supabase: DB): Promise<Sequence[]> {
+  const { data, error } = await supabase.from("sequences").select(SEQUENCE_SELECT).order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapSequence);
+}
+
+export async function fetchSequence(supabase: DB, id: string): Promise<Sequence> {
+  const { data, error } = await supabase.from("sequences").select(SEQUENCE_SELECT).eq("id", id).single();
+  if (error) throw error;
+  return mapSequence(data);
+}
+
+// Salva l'intera sequenza sostituendo sempre sezioni e items con lo stato
+// corrente dell'editor: più semplice e sicuro di un diff incrementale, dato
+// il volume ridotto di righe coinvolte in una sequenza.
+export async function saveSequence(
+  supabase: DB,
+  sequence: {
+    id?: string;
+    classTypeId: string;
+    clientIds: string[];
+    guestName: string;
+    name: string;
+    description: string;
+    isPublic: boolean;
+    sections: {
+      kind: SectionKind;
+      label: string;
+      position: number;
+      enabled: boolean;
+      blocks: { tempId: string; reps: number | null; position: number; repeatOtherSide: boolean }[];
+      items: {
+        blockTempId: string | null;
+        poseId: string | null;
+        customLabel: string;
+        note: string;
+        position: number;
+        reps: number | null;
+        holdValue: number | null;
+        holdUnit: HoldUnit | null;
+        onInhale: string | null;
+        onExhale: string | null;
+        needsReview: boolean;
+        drishtiOverride: Drishti | "none" | null;
+        repeatOtherSide: boolean;
+      }[];
+    }[];
+  }
+): Promise<Sequence> {
+  const payload = {
+    class_type_id: sequence.classTypeId,
+    guest_name: sequence.guestName || null,
+    name: sequence.name,
+    description: sequence.description || null,
+    is_public: sequence.isPublic,
+  };
+
+  // Le relazioni con gli allievi vanno sincronizzate prima della query di
+  // insert/update sulla riga `sequences`: il trigger di audit che logga la
+  // modifica legge sequence_clients per il nome, quindi deve già riflettere
+  // lo stato nuovo quando quel trigger scatta.
+  if (sequence.id) {
+    const { error: delSectionsError } = await supabase.from("sequence_sections").delete().eq("sequence_id", sequence.id);
+    if (delSectionsError) throw delSectionsError;
+    const { error: delClientsError } = await supabase.from("sequence_clients").delete().eq("sequence_id", sequence.id);
+    if (delClientsError) throw delClientsError;
+    if (sequence.clientIds.length > 0) {
+      const { error: clientsError } = await supabase
+        .from("sequence_clients")
+        .insert(sequence.clientIds.map((clientId) => ({ sequence_id: sequence.id, client_id: clientId })));
+      if (clientsError) throw clientsError;
+    }
+  }
+
+  const query = sequence.id
+    ? supabase.from("sequences").update(payload).eq("id", sequence.id).select().single()
+    : supabase.from("sequences").insert(payload).select().single();
+  const { data: seqRow, error: seqError } = await query;
+  if (seqError) throw seqError;
+
+  if (!sequence.id && sequence.clientIds.length > 0) {
+    const { error: clientsError } = await supabase
+      .from("sequence_clients")
+      .insert(sequence.clientIds.map((clientId) => ({ sequence_id: seqRow.id, client_id: clientId })));
+    if (clientsError) throw clientsError;
+  }
+
+  for (const section of sequence.sections) {
+    const { data: sectionRow, error: sectionError } = await supabase
+      .from("sequence_sections")
+      .insert({ sequence_id: seqRow.id, kind: section.kind, label: section.label, position: section.position, enabled: section.enabled })
+      .select()
+      .single();
+    if (sectionError) throw sectionError;
+
+    const blockIdByTemp = new Map<string, string>();
+    for (const b of section.blocks) {
+      const { data: blockRow, error: blockError } = await supabase
+        .from("sequence_item_blocks")
+        .insert({ section_id: sectionRow.id, reps: b.reps, position: b.position, repeat_other_side: b.repeatOtherSide })
+        .select()
+        .single();
+      if (blockError) throw blockError;
+      blockIdByTemp.set(b.tempId, blockRow.id);
+    }
+
+    if (section.items.length > 0) {
+      const { error: itemsError } = await supabase.from("sequence_items").insert(
+        section.items.map((it) => ({
+          section_id: sectionRow.id,
+          block_id: it.blockTempId ? (blockIdByTemp.get(it.blockTempId) ?? null) : null,
+          pose_id: it.poseId,
+          custom_label: it.customLabel || null,
+          note: it.note || "",
+          position: it.position,
+          reps: it.reps,
+          hold_value: it.holdValue,
+          hold_unit: it.holdUnit,
+          on_inhale: it.onInhale,
+          on_exhale: it.onExhale,
+          needs_review: it.needsReview,
+          drishti_override: it.drishtiOverride,
+          repeat_other_side: it.repeatOtherSide,
+        }))
+      );
+      if (itemsError) throw itemsError;
+    }
+  }
+
+  return fetchSequence(supabase, seqRow.id);
+}
+
+// Duplica un'intera sequenza salvata (tutte le sezioni, blocchi e item) come
+// bozza indipendente: nome con suffisso "(copia)", nessun allievo assegnato
+// (per non ritrovarsi due sequenze uguali già visibili allo stesso allievo) e
+// non pubblica, anche se l'originale lo era.
+export async function duplicateSequence(supabase: DB, sequence: Sequence): Promise<Sequence> {
+  const sections = sequence.sections.map((section) => {
+    const blockTempIdByDbId = new Map<string, string>();
+    const blocks = section.blocks.map((b) => {
+      const tempId = `dup-${b.id}`;
+      blockTempIdByDbId.set(b.id, tempId);
+      return { tempId, reps: b.reps, position: b.position, repeatOtherSide: b.repeatOtherSide };
+    });
+    const items = section.items.map((it) => ({
+      blockTempId: it.blockId ? (blockTempIdByDbId.get(it.blockId) ?? null) : null,
+      poseId: it.poseId,
+      customLabel: it.customLabel,
+      note: it.note,
+      position: it.position,
+      reps: it.reps,
+      holdValue: it.holdValue,
+      holdUnit: it.holdUnit,
+      onInhale: it.onInhale,
+      onExhale: it.onExhale,
+      needsReview: it.needsReview,
+      drishtiOverride: it.drishtiOverride,
+      repeatOtherSide: it.repeatOtherSide,
+    }));
+    return { kind: section.kind, label: section.label, position: section.position, enabled: section.enabled, blocks, items };
+  });
+
+  return saveSequence(supabase, {
+    classTypeId: sequence.classTypeId,
+    clientIds: [],
+    guestName: "",
+    name: `${sequence.name || "Sequenza"} (copia)`,
+    description: sequence.description,
+    isPublic: false,
+    sections,
+  });
+}
+
+export async function deleteSequence(supabase: DB, id: string) {
+  const { error } = await supabase.from("sequences").delete().eq("id", id);
   if (error) throw error;
 }

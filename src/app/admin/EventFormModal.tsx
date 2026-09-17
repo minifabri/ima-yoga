@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X, Trash2, Eye, EyeOff, ExternalLink, Lock, LockOpen, Image as ImageIcon } from "lucide-react";
-import { Modal, Field, Switch, inputStyle } from "./ui";
+import { X, Trash2, Eye, EyeOff, ExternalLink, Lock, LockOpen } from "lucide-react";
+import { Modal, Field, Switch, inputStyle, ImageUploadField } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { slugify } from "./utils";
 import { RichTextEditor } from "./RichTextEditor";
@@ -11,57 +11,6 @@ import { createClient } from "@/lib/supabase/client";
 import type { EventItem } from "./types";
 
 type ModalData = { mode: "new" } | { mode: "edit"; event: EventItem };
-
-function ImageUploadField({
-  label,
-  url,
-  pending,
-  onUpload,
-}: {
-  label: string;
-  url: string | null;
-  pending: boolean;
-  onUpload: (file: File) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  return (
-    <Field label={label}>
-      <div className="flex items-center gap-2">
-        <div
-          className="flex items-center justify-center rounded-lg flex-shrink-0 overflow-hidden"
-          style={{ width: 56, height: 56, border: `1px solid ${COLORS.border}`, background: COLORS.subtle }}
-        >
-          {url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          ) : (
-            <ImageIcon size={18} color={COLORS.inkSoft} />
-          )}
-        </div>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => inputRef.current?.click()}
-          className="px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-60"
-          style={{ border: `1px solid ${COLORS.border}`, color: COLORS.primaryDark }}
-        >
-          {pending ? "Carico…" : url ? "Cambia" : "Carica"}
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onUpload(file);
-            e.target.value = "";
-          }}
-        />
-      </div>
-    </Field>
-  );
-}
 
 export function EventFormModal({
   data,

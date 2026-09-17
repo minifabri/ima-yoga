@@ -35,6 +35,17 @@ export default function ResetPasswordPage() {
       return;
     }
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user?.email) {
+      await supabase.rpc("log_auth_event", {
+        p_action: "password_reset_completed",
+        p_email: user.email,
+        p_description: `${user.email} ha completato il reset della password.`,
+      });
+    }
+
     setDone(true);
     setTimeout(() => router.replace("/"), 1500);
   }

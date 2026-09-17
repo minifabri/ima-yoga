@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Calendar, Clock, MapPin, UserPlus, X, Users, EyeOff, Check, AlertCircle } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, UserPlus, X, Users, EyeOff, Check, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { trackPageView } from "@/lib/track";
 import { sendEventBookingConfirmationEmail } from "@/lib/notifications";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { Field, inputStyle } from "@/app/admin/ui";
@@ -15,6 +16,11 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 function formatDateLabel(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00`);
   return d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+
+function isPastEvent(dateStr: string, timeStr: string): boolean {
+  const dt = new Date(`${dateStr}T${(timeStr || "00:00").padEnd(5, "0")}:00`);
+  return dt.getTime() < Date.now();
 }
 
 export function EventPublicView({
@@ -51,6 +57,10 @@ export function EventPublicView({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    trackPageView(supabase, `/eventi/${event.slug}`);
+  }, [supabase, event.slug]);
+
   // L'errore (es. "indica il nome del tuo +1") altrimenti restava a schermo
   // finché non si riprovava a confermare — sparisce da solo dopo qualche secondo.
   useEffect(() => {
@@ -74,6 +84,7 @@ export function EventPublicView({
     ? `Ultimi ${remaining} posti`
     : "Posti liberi";
   const availabilityColor = isFull ? COLORS.gold : lowSeats ? COLORS.gold : COLORS.success;
+  const past = isPastEvent(event.date, event.time);
 
   async function handleBookRegistered() {
     setError("");
@@ -164,11 +175,19 @@ export function EventPublicView({
   }
 
   const nextParam = `?next=${encodeURIComponent(`/eventi/${event.slug}`)}`;
+  const backHref = isAdminProfile ? "/admin/eventi" : isClientProfile ? "/area" : null;
 
   return (
     <main className="flex-1 flex flex-col p-5" style={{ background: COLORS.bg, minHeight: "100vh" }}>
       <div className="w-full mx-auto" style={{ maxWidth: 620 }}>
-        <div className="flex items-center justify-end mb-4">
+        <div className="flex items-center justify-between mb-4">
+          {backHref ? (
+            <Link href={backHref} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: COLORS.inkSoft }}>
+              <ArrowLeft size={15} /> Indietro
+            </Link>
+          ) : (
+            <span />
+          )}
           <ThemeToggle size={34} />
         </div>
 
@@ -217,13 +236,22 @@ export function EventPublicView({
         </div>
 
         <div className="flex items-center justify-center mb-6">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full"
-            style={{ fontSize: 11.5, fontWeight: 700, color: availabilityColor, background: withAlpha(availabilityColor, 14), padding: "5px 12px" }}
-          >
-            <Users size={13} /> {availabilityLabel}
-            {waitlistCount > 0 && <span style={{ opacity: 0.85 }}>· {waitlistCount} in lista d&apos;attesa</span>}
-          </span>
+          {past ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full"
+              style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.inkSoft, background: COLORS.subtle, padding: "5px 12px" }}
+            >
+              Evento passato
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full"
+              style={{ fontSize: 11.5, fontWeight: 700, color: availabilityColor, background: withAlpha(availabilityColor, 14), padding: "5px 12px" }}
+            >
+              <Users size={13} /> {availabilityLabel}
+              {waitlistCount > 0 && <span style={{ opacity: 0.85 }}>· {waitlistCount} in lista d&apos;attesa</span>}
+            </span>
+          )}
         </div>
 
         {event.descriptionHtml && (
@@ -262,14 +290,18 @@ export function EventPublicView({
             <div style={{ fontSize: 12, color: COLORS.inkSoft }} className="mb-3">
               Riceverai anche una mail di conferma.
             </div>
-            <button
-              disabled={submitting}
-              onClick={() => setConfirmCancel(true)}
-              className="flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg disabled:opacity-60"
-              style={{ color: COLORS.danger, border: `1px solid ${withAlpha(COLORS.danger, 33)}` }}
-            >
-              <X size={14} /> Cancella prenotazione
-            </button>
+            {past ? (
+              <div style={{ fontSize: 12.5, color: COLORS.inkSoft, fontStyle: "italic" }}>Questo evento è già passato.</div>
+            ) : (
+              <button
+                disabled={submitting}
+                onClick={() => setConfirmCancel(true)}
+                className="flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg disabled:opacity-60"
+                style={{ color: COLORS.danger, border: `1px solid ${withAlpha(COLORS.danger, 33)}` }}
+              >
+                <X size={14} /> Cancella prenotazione
+              </button>
+            )}
           </div>
         ) : guestResult ? (
           <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
@@ -279,6 +311,10 @@ export function EventPublicView({
             <div style={{ fontSize: 12.5, color: COLORS.inkSoft }}>
               Ti abbiamo inviato un&apos;email di conferma a {guestEmail}. Per modificare o cancellare, scrivici direttamente rispondendo a quell&apos;email.
             </div>
+          </div>
+        ) : past ? (
+          <div className="p-4 rounded-2xl text-center" style={{ background: COLORS.subtle, fontSize: 13.5, color: COLORS.inkSoft }}>
+            Questo evento è già passato, non è più possibile prenotare.
           </div>
         ) : loggedIn && isClientProfile ? (
           <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>

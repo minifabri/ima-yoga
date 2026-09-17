@@ -279,6 +279,7 @@ export function ClassFormModal({
       clientIds,
       waitlistIds,
       payments,
+      personalClientId: null,
     });
   }
   function handleCopy() {
