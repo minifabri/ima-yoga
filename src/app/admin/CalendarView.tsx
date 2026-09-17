@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, UserPlus, User, ClipboardPaste, LayoutGrid, List, Lock, EyeOff, GripVertical, CalendarClock, Download, Gift } from "lucide-react";
 import { IconButton, CapacityBar } from "./ui";
 import { COLORS, withAlpha } from "./colors";
-import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "./utils";
+import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays, isPastClass } from "./utils";
 import { downloadIcsFile } from "@/lib/ics";
 import type { ClassItem, ClassType, ClientItem, EventItem, Level } from "./types";
 
@@ -294,6 +294,7 @@ export function CalendarView({
                         const type = typeById[c.typeId];
                         const color = c.personalClientId ? COLORS.primary : type?.color || COLORS.primary;
                         const dot = availabilityDot(c);
+                        const past = isPastClass(c.date, c.time);
                         return (
                           <button
                             key={c.id}
@@ -311,10 +312,10 @@ export function CalendarView({
                               minHeight: 26,
                               padding: "3px 2px",
                               borderRadius: 5,
-                              background: withAlpha(color, 12),
+                              background: withAlpha(color, past ? 6 : 12),
                               borderLeft: `2.5px solid ${color}`,
                               gap: 2,
-                              opacity: c.published ? 1 : 0.6,
+                              opacity: (c.published ? 1 : 0.6) * (past ? 0.6 : 1),
                             }}
                             title={`${c.time || "—"}${c.published ? "" : " · Bozza"}${c.personalClientId ? " · Individuale" : ""} · Trascina per spostare in un altro giorno`}
                           >
@@ -466,12 +467,18 @@ export function CalendarView({
                     const waiting = c.waitlistIds.length;
                     const dot = availabilityDot(c);
                     const assignedClient = c.personalClientId ? clientById[c.personalClientId] : undefined;
+                    const past = isPastClass(c.date, c.time);
                     return (
                       <button
                         key={c.id}
                         onClick={() => onOpenClass(c)}
                         className="flex items-center justify-between text-left p-2.5 rounded-lg w-full gap-2"
-                        style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderLeft: `3px solid ${color}`, opacity: c.published ? 1 : 0.65 }}
+                        style={{
+                          background: COLORS.card,
+                          border: `1px solid ${COLORS.border}`,
+                          borderLeft: `3px solid ${color}`,
+                          opacity: (c.published ? 1 : 0.65) * (past ? 0.6 : 1),
+                        }}
                       >
                         <div>
                           <div style={{ fontSize: 12.5, fontWeight: 700 }} className="flex items-center gap-1.5">
@@ -561,6 +568,7 @@ function ClassCard({
   const color = isPersonal ? COLORS.primary : type?.color || COLORS.primary;
   const booked = c.clientIds.length;
   const waiting = c.waitlistIds.length;
+  const past = isPastClass(c.date, c.time);
 
   if (compact) {
     const dot = availabilityDot(c);
@@ -575,9 +583,9 @@ function ClassCard({
           cursor: "grab",
           borderRadius: 7,
           padding: "4px 7px",
-          background: withAlpha(color, 9),
+          background: withAlpha(color, past ? 5 : 9),
           borderLeft: `2.5px solid ${color}`,
-          opacity: c.published ? 1 : 0.7,
+          opacity: (c.published ? 1 : 0.7) * (past ? 0.6 : 1),
         }}
         title={`${c.time || "—"} · ${type?.name || "Classe"}${isPersonal ? " · Individuale" : ""}${c.published ? "" : " · Bozza"} · Trascina per spostare in un altro giorno`}
       >
@@ -605,10 +613,10 @@ function ClassCard({
         cursor: "grab",
         borderRadius: 10,
         padding: "8px 9px",
-        background: withAlpha(color, 9),
+        background: withAlpha(color, past ? 5 : 9),
         borderLeft: `3px solid ${color}`,
         gap: 4,
-        opacity: c.published ? 1 : 0.7,
+        opacity: (c.published ? 1 : 0.7) * (past ? 0.6 : 1),
       }}
       title={`Trascina per spostare in un altro giorno${c.published ? "" : " · Bozza, non visibile ai clienti"}`}
     >

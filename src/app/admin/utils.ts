@@ -82,6 +82,14 @@ export function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+// Una classe è "passata" quando data+ora sono già trascorse rispetto ad
+// adesso: usato per attenuarne la visualizzazione nei calendari, senza
+// impedirne la modifica.
+export function isPastClass(dateStr: string, timeStr: string): boolean {
+  const dt = new Date(`${dateStr}T${(timeStr || "00:00").padEnd(5, "0")}:00`);
+  return dt.getTime() < Date.now();
+}
+
 export function getCalendarDays(viewDate: Date): Date[] {
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
