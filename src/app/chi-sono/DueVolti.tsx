@@ -15,17 +15,17 @@ export function DueVolti() {
         <div className="due-volti-reveal">
           <p className="cover-overlay-intro">Due mondi, la stessa persona.</p>
           <p className="cover-overlay-paragraph">
-            Insegno yoga, ma sono anche un&apos;ingegnera software. Due mondi che possono sembrare molto lontani: da
-            una parte il corpo, il respiro, la percezione; dall&apos;altra logica, sistemi e tecnologia.
+            Insegno yoga e sono un&apos;ingegnera software. Corpo e tecnologia, percezione e logica: mondi
+            apparentemente lontani che, nel mio modo di essere, finiscono spesso per incontrarsi.
           </p>
           <p className="cover-overlay-paragraph">
-            Ho scelto due volti per raccontare proprio questa convivenza. Non tanto una dualità, quanto due modi
-            diversi di osservare, capire e costruire.
+            I due volti raccontano proprio questo: non una dualità, ma due modi diversi di osservare, capire e
+            costruire.
           </p>
           <p className="cover-overlay-paragraph">
-            In fondo, anche il mio modo di insegnare nasce un po&apos; da qui: mi piace scomporre, capire come
-            funzionano le cose e poi rimetterle insieme. Succede con il codice, ma anche quando costruiamo
-            un&apos;asana, una sequenza o una pratica.
+            Forse anche il mio modo di insegnare nasce da qui. Mi piace scomporre, capire come funzionano le cose e
+            poi rimetterle insieme. Succede con il codice, ma anche quando costruiamo un&apos;asana, una sequenza o
+            un&apos;intera pratica.
           </p>
           <p className="cover-overlay-paragraph">E forse non è poi così strano che yoga significhi proprio unione.</p>
         </div>

@@ -48,19 +48,16 @@ export default function ChiSonoPage() {
         <p className="cover-overlay-paragraph">
           Le mie lezioni sono principalmente ispirate al Vinyasa Flow. Mi piace costruire sequenze con
           un&apos;intenzione precisa e spesso lavorare nel tempo intorno a un&apos;asana, non tanto come traguardo da
-          raggiungere, quanto come occasione per capire quali strumenti servono per arrivarci: forza, mobilità,
-          coordinazione, equilibrio, respiro.
-        </p>
-        <p className="cover-overlay-paragraph">Ma per me la pratica non finisce nella parte fisica.</p>
-        <p className="cover-overlay-paragraph">
-          Respiro, meditazione, attenzione e consapevolezza del corpo fanno parte dello stesso percorso. Per questo
-          cerco di creare pratiche che tengano insieme questi aspetti: abbastanza fisiche da permetterci di esplorare
-          ciò che il corpo può fare, abbastanza lente da permetterci di accorgerci di ciò che sta succedendo mentre lo
-          facciamo.
+          raggiungere, quanto come occasione per capire quali strumenti servono per arrivarci.
         </p>
         <p className="cover-overlay-paragraph">
-          Lo yoga che insegno nasce proprio da questo incontro: movimento e ascolto, forza e morbidezza, ricerca e
-          presenza.
+          In questo lavoro il respiro e l&apos;attenzione restano sempre il punto di riferimento. Anche quando la
+          pratica diventa intensa, quello che mi interessa non è semplicemente riuscire a fare qualcosa, ma osservare
+          come ci muoviamo, dove troviamo resistenza e cosa cambia quando impariamo a usare il corpo in modo diverso.
+        </p>
+        <p className="cover-overlay-paragraph">
+          È questo il tipo di pratica che cerco di costruire nelle mie lezioni: un luogo in cui sperimentare,
+          sviluppare forza e mobilità, ma anche imparare ad ascoltare quello che succede mentre ci muoviamo.
         </p>
 
         <DueVolti />
