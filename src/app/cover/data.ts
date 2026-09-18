@@ -119,7 +119,7 @@ export const CARD_SECTIONS: CardSection[] = [
     imageLightWidth: 214,
     imageLightHeight: 410,
     intro: "Hai domande o vuoi collaborare con me?",
-    paragraphs: ["Sono qui per te. Scrivimi per informazioni su orari, prezzi o per prenotare la tua prima lezione di prova."],
+    paragraphs: ["Scrivimi per informazioni su orari e lezioni, o per qualsiasi altra domanda."],
     cta: { label: "Scrivimi", href: "#contatti-form" },
   },
   {

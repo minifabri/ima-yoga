@@ -1007,7 +1007,7 @@ body {
   border-color: var(--gold);
 }
 
-/* ---- form contatti (minimale, senza backend) ---- */
+/* ---- form contatti ---- */
 
 .cover-contact-form {
   display: flex;
@@ -1039,6 +1039,31 @@ body {
 .cover-contact-field input:focus-visible,
 .cover-contact-field textarea:focus-visible {
   border-color: var(--gold);
+}
+.cover-contact-field-honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.cover-cta-ghost:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+.cover-contact-success {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  max-width: 420px;
+  margin-top: 18px;
+}
+.cover-contact-error {
+  font-size: 12.5px;
+  color: var(--danger);
+  margin: -2px 0 0;
 }
 
 /* ---- footer ---- */
