@@ -106,9 +106,48 @@ export type ClientNotice = {
   clientId: string;
   clientName: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published" | "sequence_assigned";
+  kind:
+    | "custom"
+    | "package_assigned"
+    | "welcome"
+    | "waitlist_promoted"
+    | "survey_published"
+    | "sequence_assigned"
+    | "individual_class_accepted"
+    | "individual_class_rejected";
   linkPath: string | null;
   read: boolean;
+  createdAt: string;
+};
+
+// Uno slot che l'admin rende disponibile per un'eventuale lezione individuale
+// (vedi PersonalClassFormModal per come diventa una vera lezione). Bozza
+// finché non pubblicato; una volta pubblicato non compare nel calendario del
+// cliente, solo nell'elenco di date proposte quando richiede una lezione
+// individuale (RLS di individual_class_slots).
+export type IndividualClassSlot = {
+  id: string;
+  date: string; // yyyy-mm-dd
+  time: string; // HH:mm
+  notes: string;
+  published: boolean;
+  bookedClassId: string | null;
+  createdAt: string;
+};
+
+export type IndividualClassRequestStatus = "pending" | "accepted" | "rejected" | "cancelled";
+
+export type IndividualClassRequest = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  notes: string;
+  status: IndividualClassRequestStatus;
+  proposedSlotIds: string[];
+  chosenSlotId: string | null;
+  resultingClassId: string | null;
+  decisionNote: string | null;
+  decidedAt: string | null;
   createdAt: string;
 };
 
@@ -129,7 +168,14 @@ export type WorkLogEntry = {
   userAgent: string | null;
 };
 
-export type NotificationType = "registration" | "enrollment" | "cancellation" | "issue_report" | "interest" | "survey_response";
+export type NotificationType =
+  | "registration"
+  | "enrollment"
+  | "cancellation"
+  | "issue_report"
+  | "interest"
+  | "survey_response"
+  | "individual_class_request";
 
 export type NotificationItem = {
   id: string;

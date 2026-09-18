@@ -5,6 +5,7 @@
 export const ADMIN_ROUTE_BY_KEY: Record<string, string> = {
   home: "/admin",
   calendar: "/admin/calendario",
+  "individual-requests": "/admin/lezioni-individuali",
   clients: "/admin/clienti",
   payments: "/admin/pagamenti",
   events: "/admin/eventi",

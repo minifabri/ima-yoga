@@ -8,7 +8,12 @@ import { COLORS, withAlpha } from "./colors";
 import { genId, dateKey } from "./utils";
 import type { ClassItem, ClassType, ClientItem, Level, PackageWithUsage, Payment, PaymentStatus } from "./types";
 
-type ModalData = { mode: "new"; date: Date } | { mode: "edit"; classItem: ClassItem };
+// prefill: usato dal flusso di accettazione di una richiesta di lezione
+// individuale (src/app/admin/lezioni-individuali/page.tsx) per aprire il
+// modale già con cliente e orario dello slot scelto, così l'admin lo rivede
+// e lo salva come farebbe creando una 1:1 a mano — nessuna logica di
+// prezzo/pacchetto duplicata altrove.
+type ModalData = { mode: "new"; date: Date; prefill?: { clientId: string; time: string } } | { mode: "edit"; classItem: ClassItem };
 
 function paymentMeta(status: PaymentStatus) {
   switch (status) {
@@ -21,6 +26,23 @@ function paymentMeta(status: PaymentStatus) {
     default:
       return { label: "Da pagare", color: COLORS.danger };
   }
+}
+
+// Pagamento iniziale di un cliente appena assegnato: gratuita → pagata, altrimenti
+// pacchetto se ne ha uno utilizzabile (e la tipologia lo ammette), altrimenti da
+// pagare. Funzione pura, condivisa tra assignClient (scelta manuale) e lo stato
+// iniziale (cliente pre-assegnato da una richiesta accettata).
+function assignedPayment(
+  clientId: string,
+  opts: { isFree: boolean; price: number; packageEligible: boolean; packages: PackageWithUsage[]; date: string }
+): Payment {
+  if (opts.isFree) return { status: "paid", amount: 0, price: 0 };
+  const pkg = opts.packageEligible
+    ? opts.packages.filter((p) => p.clientId === clientId && p.date <= opts.date && p.remaining > 0).sort((a, b) => a.date.localeCompare(b.date))[0]
+    : undefined;
+  return pkg
+    ? { status: "package", amount: opts.price, price: opts.price, packageId: pkg.id }
+    : { status: "unpaid", amount: 0, price: opts.price };
 }
 
 // Flusso dedicato per le lezioni individuali (one-to-one): a differenza del
@@ -61,7 +83,7 @@ export function PersonalClassFormModal({
   const base = editing ? data.classItem : null;
 
   const [date, setDate] = useState(editing ? base!.date : dateKey(data.date));
-  const [time, setTime] = useState(editing ? base!.time || "" : defaultTime);
+  const [time, setTime] = useState(editing ? base!.time || "" : data.mode === "new" && data.prefill ? data.prefill.time : defaultTime);
   const [typeId, setTypeId] = useState(editing ? base!.typeId : classTypes[0]?.id || "");
   const [levelId, setLevelId] = useState(editing ? base!.levelId : levels[0]?.id || "");
   const [notes, setNotes] = useState(editing ? base!.notes || "" : "");
@@ -69,8 +91,19 @@ export function PersonalClassFormModal({
   const [priceOverride, setPriceOverride] = useState<number | string>(editing ? base!.priceOverride ?? "" : "");
   const [isFree, setIsFree] = useState(editing ? base!.isFree : false);
   const [published, setPublished] = useState(editing ? base!.published : false);
-  const [clientId, setClientId] = useState<string | null>(editing ? base!.personalClientId : null);
-  const [payment, setPayment] = useState<Payment | null>(editing && base!.personalClientId ? base!.payments[base!.personalClientId] || null : null);
+  const prefill = data.mode === "new" ? data.prefill : undefined;
+  const [clientId, setClientId] = useState<string | null>(editing ? base!.personalClientId : prefill?.clientId ?? null);
+  const [payment, setPayment] = useState<Payment | null>(() => {
+    if (editing) return base!.personalClientId ? base!.payments[base!.personalClientId] || null : null;
+    if (!prefill) return null;
+    return assignedPayment(prefill.clientId, {
+      isFree: false,
+      price: Number(singleClassPrice) || 0,
+      packageEligible: !!classTypes[0]?.packageEligible,
+      packages,
+      date: dateKey(data.date),
+    });
+  });
   const [query, setQuery] = useState("");
   const [showPublishWarning, setShowPublishWarning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -96,19 +129,11 @@ export function PersonalClassFormModal({
 
   function assignClient(id: string) {
     const price = isFree ? 0 : effectivePrice();
-    const pkg = typeObj?.packageEligible
-      ? packages.filter((p) => p.clientId === id && p.date <= date && p.remaining > 0).sort((a, b) => a.date.localeCompare(b.date))[0]
-      : undefined;
     setClientId(id);
-    setPayment(
-      isFree
-        ? { status: "paid", amount: 0, price: 0 }
-        : pkg
-          ? { status: "package", amount: price, price, packageId: pkg.id }
-          : { status: "unpaid", amount: 0, price }
-    );
+    setPayment(assignedPayment(id, { isFree, price, packageEligible: !!typeObj?.packageEligible, packages, date }));
     setQuery("");
   }
+
   function addNewClient() {
     const name = query.trim();
     if (!name) return;
