@@ -67,39 +67,16 @@ function SunMark({ size }: { size: number }) {
 }
 
 // Riutilizzabile ovunque si voglia scatenare il cambio tema (es. click sulla
-// figura centrale), con la stessa transizione "a cerchio" centrata sulla
-// figura usata dal pulsante in header.
-export function toggleTheme(event?: { clientX: number; clientY: number }) {
+// figura centrale oltre al pulsante in header). Il cambio si affida solo alle
+// transizioni CSS (colori, .theme-crossfade-img): la view transition nativa
+// del browser è stata tolta perché la sua "nuova" schermata è una foto
+// statica catturata a dissolvenza appena iniziata — per tutta la sua durata
+// mostra ancora il tema vecchio, e quando finisce "scatta" di colpo su quello
+// già cambiato sotto, dando l'impressione di un flash del tema precedente.
+export function toggleTheme() {
   const theme = getSnapshot();
   const next = theme === "dark" ? "light" : "dark";
-  type ViewTransition = { ready: Promise<void>; finished: Promise<void>; updateCallbackDone: Promise<void> };
-  const startViewTransition = (document as { startViewTransition?: (cb: () => void) => ViewTransition }).startViewTransition;
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  if (!startViewTransition || reducedMotion) {
-    applyTheme(next);
-    return;
-  }
-
-  const figure = document.querySelector(".cover-figure-img");
-  const figureRect = figure?.getBoundingClientRect();
-  const x = figureRect ? figureRect.left + figureRect.width / 2 : (event?.clientX ?? window.innerWidth / 2);
-  const y = figureRect ? figureRect.top + figureRect.height / 2 : (event?.clientY ?? window.innerHeight / 2);
-  const pageWidth = Math.max(document.documentElement.scrollWidth, window.innerWidth);
-  const pageHeight = Math.max(document.documentElement.scrollHeight, window.innerHeight);
-  const radius = Math.hypot(Math.max(x, pageWidth - x), Math.max(y, pageHeight - y));
-  const root = document.documentElement.style;
-  root.setProperty("--theme-reveal-x", `${x}px`);
-  root.setProperty("--theme-reveal-y", `${y}px`);
-  root.setProperty("--theme-reveal-r", `${radius}px`);
-
-  const transition = startViewTransition.call(document, () => applyTheme(next));
-  // Il cerchio è un bonus estetico sopra il fallback CSS (colori e immagini
-  // hanno le loro transizioni comunque, vedi .theme-crossfade-img): se il
-  // browser annulla la transizione (capita con molte animazioni sempre attive
-  // sullo sfondo cosmico), non deve diventare un errore non gestito.
-  transition.ready.catch(() => {});
-  transition.finished.catch(() => {});
+  applyTheme(next);
 }
 
 export function ThemeToggle({ size = 36 }: { size?: number }) {
