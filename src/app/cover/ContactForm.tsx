@@ -1,20 +1,52 @@
 "use client";
 
 import { useState } from "react";
-import { CONTACT } from "./data";
 
-// Form minimale, senza backend: apre il client email del visitatore con i
-// campi già compilati. Nessun dato viene inviato da qui.
+type Status = "idle" | "sending" | "sent" | "error";
+
+// Invia il messaggio all'API route /api/contact, che lo spedisce via email
+// (Resend) all'indirizzo dell'insegnante — vedi src/app/api/contact/route.ts.
 export function ContactForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  // Honeypot anti-spam: campo tenuto fuori dallo schermo, invisibile a chi
+  // naviga normalmente ma spesso compilato dai bot.
+  const [azienda, setAzienda] = useState("");
+  const [status, setStatus] = useState<Status>("idle");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const subject = encodeURIComponent(`Messaggio da ${name || "il sito"} — ima yoga`);
-    const body = encodeURIComponent(`${message}\n\n— ${name}${email ? ` (${email})` : ""}`);
-    window.location.href = `mailto:${CONTACT.email}?subject=${subject}&body=${body}`;
+    setStatus("sending");
+    setErrorMessage("");
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, message, azienda }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus("error");
+        setErrorMessage(data.error || "Invio non riuscito, riprova più tardi.");
+        return;
+      }
+
+      setStatus("sent");
+      setName("");
+      setEmail("");
+      setMessage("");
+    } catch {
+      setStatus("error");
+      setErrorMessage("Invio non riuscito, controlla la connessione e riprova.");
+    }
+  }
+
+  if (status === "sent") {
+    return <p className="cover-contact-success">Messaggio inviato, grazie! Ti risponderò appena possibile 🤍</p>;
   }
 
   return (
@@ -31,8 +63,19 @@ export function ContactForm() {
         <span>Messaggio</span>
         <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} required />
       </label>
-      <button type="submit" className="cover-cta-ghost">
-        Scrivimi <span aria-hidden="true">✦</span>
+      <label className="cover-contact-field-honeypot" aria-hidden="true">
+        <span>Azienda</span>
+        <input
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={azienda}
+          onChange={(e) => setAzienda(e.target.value)}
+        />
+      </label>
+      {status === "error" && <p className="cover-contact-error">{errorMessage}</p>}
+      <button type="submit" className="cover-cta-ghost" disabled={status === "sending"}>
+        {status === "sending" ? "Invio…" : "Scrivimi"} <span aria-hidden="true">✦</span>
       </button>
     </form>
   );
