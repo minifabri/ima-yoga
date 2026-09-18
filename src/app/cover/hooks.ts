@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { useTheme } from "../admin/ThemeToggle";
 
 function subscribeReducedMotion(callback: () => void) {
   const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -18,23 +19,11 @@ export function useReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, getReducedMotionSnapshot, getReducedMotionServerSnapshot);
 }
 
-// Tema corrente (letto dall'attributo data-theme su <html>, cambiato dal
-// ThemeToggle): usato per scegliere la variante chiara delle carte.
-function subscribeTheme(callback: () => void) {
-  const observer = new MutationObserver(callback);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-  return () => observer.disconnect();
-}
-function getThemeSnapshot(): "light" | "dark" {
-  return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
-}
-function getThemeServerSnapshot(): "light" | "dark" {
-  return "dark";
-}
-
-export function useTheme(): "light" | "dark" {
-  return useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeServerSnapshot);
-}
+// Stessa sottoscrizione di ThemeToggle (non una MutationObserver separata):
+// la notifica è sincrona all'attributo data-theme, invece del microtask in
+// più che una MutationObserver aggiungerebbe prima che carte e figura si
+// aggiornino.
+export { useTheme };
 
 // Avanzamento (0..1) dello scroll attraverso l'elemento indicato: 0 quando il
 // suo bordo superiore raggiunge la cima del viewport, 1 quando il suo bordo

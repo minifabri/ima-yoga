@@ -25,7 +25,6 @@ export function SectionOverlay({
   const dialogRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
   const isLight = theme === "light";
-  const image = isLight ? (section.imageLight ?? section.image) : section.image;
   const imageWidth = isLight ? (section.imageLightWidth ?? section.imageWidth) : section.imageWidth;
   const imageHeight = isLight ? (section.imageLightHeight ?? section.imageHeight) : section.imageHeight;
 
@@ -81,7 +80,28 @@ export function SectionOverlay({
         <div className="cover-overlay-grid">
           <div className="cover-overlay-visual">
             <div className="cover-overlay-image-wrap" style={{ aspectRatio: `${imageWidth} / ${imageHeight}` }}>
-              <Image src={image} alt="" fill quality={95} unoptimized sizes="(min-width: 900px) 40vw, 90vw" className="cover-overlay-image" />
+              <Image
+                src={section.image}
+                alt=""
+                fill
+                quality={95}
+                unoptimized
+                sizes="(min-width: 900px) 40vw, 90vw"
+                className="cover-overlay-image theme-crossfade-img"
+                style={{ opacity: isLight ? 0 : 1 }}
+              />
+              {section.imageLight && (
+                <Image
+                  src={section.imageLight}
+                  alt=""
+                  fill
+                  quality={95}
+                  unoptimized
+                  sizes="(min-width: 900px) 40vw, 90vw"
+                  className="cover-overlay-image theme-crossfade-img"
+                  style={{ opacity: isLight ? 1 : 0 }}
+                />
+              )}
             </div>
           </div>
 

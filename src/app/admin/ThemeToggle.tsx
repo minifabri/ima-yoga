@@ -72,7 +72,8 @@ function SunMark({ size }: { size: number }) {
 export function toggleTheme(event?: { clientX: number; clientY: number }) {
   const theme = getSnapshot();
   const next = theme === "dark" ? "light" : "dark";
-  const startViewTransition = (document as { startViewTransition?: (cb: () => void) => void }).startViewTransition;
+  type ViewTransition = { ready: Promise<void>; finished: Promise<void>; updateCallbackDone: Promise<void> };
+  const startViewTransition = (document as { startViewTransition?: (cb: () => void) => ViewTransition }).startViewTransition;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   if (!startViewTransition || reducedMotion) {
@@ -92,7 +93,13 @@ export function toggleTheme(event?: { clientX: number; clientY: number }) {
   root.setProperty("--theme-reveal-y", `${y}px`);
   root.setProperty("--theme-reveal-r", `${radius}px`);
 
-  startViewTransition.call(document, () => applyTheme(next));
+  const transition = startViewTransition.call(document, () => applyTheme(next));
+  // Il cerchio è un bonus estetico sopra il fallback CSS (colori e immagini
+  // hanno le loro transizioni comunque, vedi .theme-crossfade-img): se il
+  // browser annulla la transizione (capita con molte animazioni sempre attive
+  // sullo sfondo cosmico), non deve diventare un errore non gestito.
+  transition.ready.catch(() => {});
+  transition.finished.catch(() => {});
 }
 
 export function ThemeToggle({ size = 36 }: { size?: number }) {

@@ -7,11 +7,13 @@ import { Logo } from "./Logo";
 import { ThemeToggle } from "../admin/ThemeToggle";
 import { CARD_SECTIONS } from "./data";
 
-const NAV_LINKS = [
-  { label: "Home", href: "#top" },
-  { label: "Lezioni", href: "/classi" },
-  { label: "Calendario", href: "/calendario" },
-  { label: "Contatti", href: "#contatti" },
+type NavLink = { label: string; kind: "href"; href: string } | { label: string; kind: "section"; sectionId: string };
+
+const NAV_LINKS: NavLink[] = [
+  { label: "Home", kind: "href", href: "#top" },
+  { label: "Lezioni", kind: "href", href: "/classi" },
+  { label: "Calendario", kind: "href", href: "/calendario" },
+  { label: "Contatti", kind: "section", sectionId: "contatti" },
 ];
 
 export function Header({ onOpenSection }: { onOpenSection: (id: string) => void }) {
@@ -22,11 +24,22 @@ export function Header({ onOpenSection }: { onOpenSection: (id: string) => void 
       <Logo />
 
       <nav className="cover-nav" aria-label="Sezioni principali">
-        {NAV_LINKS.map((link) => (
-          <a key={link.label} href={link.href} className="cover-nav-link">
-            {link.label}
-          </a>
-        ))}
+        {NAV_LINKS.map((link) =>
+          link.kind === "section" ? (
+            <button
+              key={link.label}
+              type="button"
+              className="cover-nav-link"
+              onClick={() => onOpenSection(link.sectionId)}
+            >
+              {link.label}
+            </button>
+          ) : (
+            <a key={link.label} href={link.href} className="cover-nav-link">
+              {link.label}
+            </a>
+          )
+        )}
       </nav>
 
       <div className="cover-header-actions">
@@ -47,11 +60,25 @@ export function Header({ onOpenSection }: { onOpenSection: (id: string) => void 
 
       {menuOpen && (
         <div className="cover-mobile-menu" role="dialog" aria-modal="true" aria-label="Menu">
-          {NAV_LINKS.map((link) => (
-            <a key={link.label} href={link.href} className="cover-mobile-link" onClick={() => setMenuOpen(false)}>
-              {link.label}
-            </a>
-          ))}
+          {NAV_LINKS.map((link) =>
+            link.kind === "section" ? (
+              <button
+                key={link.label}
+                type="button"
+                className="cover-mobile-link"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenSection(link.sectionId);
+                }}
+              >
+                {link.label}
+              </button>
+            ) : (
+              <a key={link.label} href={link.href} className="cover-mobile-link" onClick={() => setMenuOpen(false)}>
+                {link.label}
+              </a>
+            )
+          )}
           <div className="cover-mobile-divider" />
           {CARD_SECTIONS.map((s) => (
             <button
