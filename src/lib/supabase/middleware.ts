@@ -2,9 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Pagine/rotte sempre raggiungibili anche a sito bloccato (manutenzione o
-// coming soon): /login serve all'admin per autenticarsi, /api/* copre il
-// cron dei promemoria lezione.
-const MAINTENANCE_EXEMPT_PATHS = ["/manutenzione", "/coming-soon", "/login"];
+// coming soon): /login e /auth/callback servono all'admin per autenticarsi
+// (anche via Google SSO), /api/* copre il cron dei promemoria lezione.
+const MAINTENANCE_EXEMPT_PATHS = ["/manutenzione", "/coming-soon", "/login", "/auth/callback"];
 
 function isMaintenanceExempt(pathname: string) {
   return MAINTENANCE_EXEMPT_PATHS.includes(pathname) || pathname.startsWith("/api/");
