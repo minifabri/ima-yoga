@@ -1,5 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyEventBooking, MyLedgerEntry, MyPackage, PublicClass, PublicEvent } from "./types";
+import type {
+  Announcement,
+  AvailableIndividualSlot,
+  ClassType,
+  ClientNotice,
+  Level,
+  MyBooking,
+  MyEventBooking,
+  MyIndividualClassRequest,
+  MyLedgerEntry,
+  MyPackage,
+  PublicClass,
+  PublicEvent,
+} from "./types";
 
 type DB = SupabaseClient;
 
@@ -265,5 +278,52 @@ export async function cancelBooking(supabase: DB, classId: string): Promise<void
 
 export async function submitIssueReport(supabase: DB, message: string): Promise<void> {
   const { error } = await supabase.rpc("submit_issue_report", { p_message: message });
+  if (error) throw error;
+}
+
+// Slot che l'admin ha pubblicato per un'eventuale lezione individuale — la
+// RLS di individual_class_slots filtra già a published+non assegnati; i
+// passati restano qui (come per le classi normali) e vanno esclusi lato UI.
+export async function fetchAvailableIndividualSlots(supabase: DB): Promise<AvailableIndividualSlot[]> {
+  const { data, error } = await supabase.from("individual_class_slots").select("id, slot_date, slot_time").order("slot_date").order("slot_time");
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ id: r.id, date: r.slot_date, time: (r.slot_time || "").slice(0, 5) }));
+}
+
+type MyIndividualRequestSlotRow = {
+  slot_id: string;
+  individual_class_slots: { slot_date: string; slot_time: string } | null;
+};
+
+// Al massimo una richiesta pending per cliente (garantito da un indice unico
+// lato DB), quindi .maybeSingle() è corretto qui.
+export async function fetchMyIndividualClassRequest(supabase: DB): Promise<MyIndividualClassRequest | null> {
+  const { data, error } = await supabase
+    .from("individual_class_requests")
+    .select("id, notes, status, created_at, individual_class_request_slots(slot_id, individual_class_slots(slot_date, slot_time))")
+    .eq("status", "pending")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const rows = (data.individual_class_request_slots ?? []) as unknown as MyIndividualRequestSlotRow[];
+  return {
+    id: data.id,
+    status: data.status,
+    notes: data.notes ?? "",
+    proposedSlots: rows
+      .filter((r) => r.individual_class_slots)
+      .map((r) => ({ id: r.slot_id, date: r.individual_class_slots!.slot_date, time: (r.individual_class_slots!.slot_time || "").slice(0, 5) })),
+    createdAt: data.created_at,
+  };
+}
+
+export async function requestIndividualClass(supabase: DB, slotIds: string[], notes: string): Promise<string> {
+  const { data, error } = await supabase.rpc("request_individual_class", { p_slot_ids: slotIds, p_notes: notes });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function cancelIndividualClassRequest(supabase: DB, requestId: string): Promise<void> {
+  const { error } = await supabase.rpc("cancel_individual_class_request", { p_request_id: requestId });
   if (error) throw error;
 }
