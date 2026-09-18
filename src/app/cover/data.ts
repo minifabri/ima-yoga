@@ -148,8 +148,8 @@ export function getSection(id: string | null): CardSection | undefined {
 
 // Dati di contatto — placeholder facilmente sostituibili con quelli reali.
 export const CONTACT = {
-  email: "hello@imayoga.it",
-  instagram: "@ima.yoga.space",
-  instagramUrl: "https://instagram.com/ima.yoga.space",
-  whatsappUrl: "https://wa.me/390000000000",
+  email: "blasta.fb@gmail.com",
+  instagram: "@ima.yo.ga",
+  instagramUrl: "https://instagram.com/ima.yo.ga",
+  whatsappUrl: "https://wa.me/393358290919",
 };
