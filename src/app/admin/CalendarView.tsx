@@ -317,7 +317,7 @@ export function CalendarView({
                               gap: 2,
                               opacity: (c.published ? 1 : 0.6) * (past ? 0.6 : 1),
                             }}
-                            title={`${c.time || "—"}${c.published ? "" : " · Bozza"}${c.isIndividual ? " · Individuale" : ""} · Trascina per spostare in un altro giorno`}
+                            title={`${c.time || "—"}${c.published ? "" : " · Bozza"}${c.isIndividual ? (c.personalClientId ? " · Individuale" : " · Slot individuale") : ""} · Trascina per spostare in un altro giorno`}
                           >
                             <span className="flex items-center gap-0.5" style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>
                               {!c.published && <EyeOff size={8} color={COLORS.inkSoft} />}
@@ -488,7 +488,7 @@ export function CalendarView({
                                 className="inline-flex items-center gap-0.5 rounded-full"
                                 style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 14), padding: "1px 6px" }}
                               >
-                                <User size={9} /> Individuale
+                                <User size={9} /> {assignedClient ? "Individuale" : "Slot"}
                               </span>
                             )}
                             {!c.published && (
@@ -508,7 +508,7 @@ export function CalendarView({
                         </div>
                         <span className="flex items-center gap-1.5" style={{ fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
                           <span style={{ width: 7, height: 7, borderRadius: 999, background: dot }} />
-                          {c.isIndividual ? (assignedClient ? "assegnata" : "da assegnare") : `${booked}/${c.capacity || "—"}`}
+                          {c.isIndividual ? (assignedClient ? "assegnata" : "slot libero") : `${booked}/${c.capacity || "—"}`}
                           {waiting > 0 && <span style={{ color: COLORS.gold }}> · {waiting} attesa</span>}
                         </span>
                       </button>
@@ -587,7 +587,7 @@ function ClassCard({
           borderLeft: `2.5px solid ${color}`,
           opacity: (c.published ? 1 : 0.7) * (past ? 0.6 : 1),
         }}
-        title={`${c.time || "—"} · ${type?.name || "Classe"}${isPersonal ? " · Individuale" : ""}${c.published ? "" : " · Bozza"} · Trascina per spostare in un altro giorno`}
+        title={`${c.time || "—"} · ${type?.name || "Classe"}${isPersonal ? (client ? " · Individuale" : " · Slot individuale") : ""}${c.published ? "" : " · Bozza"} · Trascina per spostare in un altro giorno`}
       >
         <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
         <span style={{ fontSize: 10.5, fontWeight: 700, color: COLORS.ink, flexShrink: 0 }}>{c.time || "—"}</span>
@@ -636,7 +636,7 @@ function ClassCard({
           className="self-start inline-flex items-center gap-0.5 rounded-full"
           style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 14), padding: "1px 6px" }}
         >
-          <User size={9} /> Individuale{client ? ` · ${client.name}` : ""}
+          <User size={9} /> {client ? `Individuale · ${client.name}` : "Slot individuale"}
         </span>
       )}
       {!c.published && (

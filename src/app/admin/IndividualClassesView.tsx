@@ -8,12 +8,9 @@ import { COLORS, withAlpha } from "./colors";
 import { Modal, inputStyle } from "./ui";
 import { dateKey } from "./utils";
 import { PersonalClassFormModal } from "./PersonalClassFormModal";
-import { IndividualSlotFormModal } from "./IndividualSlotFormModal";
 import * as db from "./data";
 import { notifyIndividualClassAccepted, notifyIndividualClassRejected } from "./actions";
-import type { ClassItem, ClassType, ClientItem, IndividualClassRequest, IndividualClassSlot, Level, PackageWithUsage, Settings } from "./types";
-
-type SlotModalState = { mode: "new" } | { mode: "edit"; slot: IndividualClassSlot } | null;
+import type { ClassItem, ClassType, ClientItem, IndividualClassRequest, Level, PackageWithUsage, Settings } from "./types";
 
 function formatSlotLabel(slot: { date: string; time: string }): string {
   const label = new Date(`${slot.date}T00:00:00Z`).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
@@ -45,17 +42,15 @@ export function IndividualClassesView({
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"requests" | "scheduled" | "slots">("requests");
-  const [slots, setSlots] = useState<IndividualClassSlot[]>([]);
   const [requests, setRequests] = useState<IndividualClassRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
 
-  const [slotModal, setSlotModal] = useState<SlotModalState>(null);
-  const [confirmDeleteSlot, setConfirmDeleteSlot] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [usedSlotsOpen, setUsedSlotsOpen] = useState(false);
+  const [pastSlotsOpen, setPastSlotsOpen] = useState(false);
   const [pastClassesOpen, setPastClassesOpen] = useState(false);
   const [editClass, setEditClass] = useState<ClassItem | null>(null);
+  const [newSlotOpen, setNewSlotOpen] = useState(false);
   const [confirmDeleteClass, setConfirmDeleteClass] = useState<string | null>(null);
 
   const [selectedSlotByRequest, setSelectedSlotByRequest] = useState<Record<string, string>>({});
@@ -70,17 +65,13 @@ export function IndividualClassesView({
   }
 
   useEffect(() => {
-    Promise.all([db.fetchIndividualClassSlots(supabase), db.fetchIndividualClassRequests(supabase)])
-      .then(([s, r]) => {
-        setSlots(s);
-        setRequests(r);
-      })
+    db.fetchIndividualClassRequests(supabase)
+      .then(setRequests)
       .catch(() => showToast("Errore nel caricamento."))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const slotById = useMemo(() => Object.fromEntries(slots.map((s) => [s.id, s])), [slots]);
   const pendingRequests = useMemo(
     () => requests.filter((r) => r.status === "pending").sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [requests]
@@ -89,22 +80,25 @@ export function IndividualClassesView({
     () => requests.filter((r) => r.status !== "pending").sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [requests]
   );
-  const activeSlots = useMemo(
-    () => slots.filter((s) => s.bookedClassId == null).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)),
-    [slots]
-  );
-  const usedSlots = useMemo(
-    () => slots.filter((s) => s.bookedClassId != null).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)),
-    [slots]
-  );
 
-  // Le lezioni individuali già in calendario (create da lì, da una richiesta
-  // accettata o assegnate a mano): sono righe di `classes` con un cliente
-  // riservato, non slot né richieste, quindi vanno lette da `classes`.
+  // Uno slot è una lezione individuale senza cliente: la si crea dal calendario
+  // (o da qui) e resta uno slot finché non le si assegna un cliente, a mano o
+  // accettando una richiesta. Slot e lezioni programmate vivono quindi tutti in
+  // `classes`, distinti solo dal cliente assegnato.
+  const classById = useMemo(() => Object.fromEntries(classes.map((c) => [c.id, c])), [classes]);
   const clientById = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c])), [clients]);
   const typeById = useMemo(() => Object.fromEntries(classTypes.map((t) => [t.id, t])), [classTypes]);
   const today = dateKey(new Date());
-  const personalClasses = useMemo(() => classes.filter((c) => c.isIndividual), [classes]);
+  const slots = useMemo(() => classes.filter((c) => c.isIndividual && c.personalClientId == null), [classes]);
+  const activeSlots = useMemo(
+    () => slots.filter((s) => s.date >= today).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)),
+    [slots, today]
+  );
+  const pastSlots = useMemo(
+    () => slots.filter((s) => s.date < today).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)),
+    [slots, today]
+  );
+  const personalClasses = useMemo(() => classes.filter((c) => c.isIndividual && c.personalClientId != null), [classes]);
   const upcomingClasses = useMemo(
     () => personalClasses.filter((c) => c.date >= today).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)),
     [personalClasses, today]
@@ -114,56 +108,60 @@ export function IndividualClassesView({
     [personalClasses, today]
   );
 
+  // La data proposta da una richiesta è ancora scegliibile se è ancora uno slot
+  // libero, o se è già assegnata a chi ha fatto la richiesta (un'accettazione
+  // interrotta a metà si può così riprendere).
+  function slotFor(slotId: string, r: IndividualClassRequest): ClassItem | undefined {
+    const c = classById[slotId];
+    if (!c || !c.isIndividual) return undefined;
+    return c.personalClientId == null || c.personalClientId === r.clientId ? c : undefined;
+  }
+
   function selectedSlotFor(r: IndividualClassRequest): string | null {
     return selectedSlotByRequest[r.id] ?? (r.proposedSlotIds.length === 1 ? r.proposedSlotIds[0] : null);
   }
 
-  // ---- slots ----
-  async function handleSaveSlot(slot: IndividualClassSlot) {
-    const isNew = !slots.some((s) => s.id === slot.id);
+  // ---- slots & scheduled classes ----
+  async function handleClassModalSave(item: ClassItem) {
+    const isNew = !classes.some((c) => c.id === item.id);
+    const isSlot = item.personalClientId == null;
     try {
-      await db.saveIndividualClassSlot(supabase, slot);
-      setSlots((cur) => (isNew ? [...cur, slot] : cur.map((s) => (s.id === slot.id ? slot : s))));
-      setSlotModal(null);
-      showToast(isNew ? "Slot creato." : "Slot aggiornato.");
+      await saveClassItem(item);
+      setEditClass(null);
+      setNewSlotOpen(false);
+      showToast(isSlot ? (isNew ? "Slot creato." : "Slot aggiornato.") : isNew ? "Lezione creata." : "Lezione aggiornata.");
+    } catch {
+      showToast("Il salvataggio non è riuscito.");
+    }
+  }
+  async function toggleSlotPublished(slot: ClassItem) {
+    try {
+      await saveClassItem({ ...slot, published: !slot.published });
     } catch {
       showToast("Il salvataggio dello slot non è riuscito.");
     }
   }
-  async function handleDeleteSlot(id: string) {
-    try {
-      await db.deleteIndividualClassSlot(supabase, id);
-      setSlots((cur) => cur.filter((s) => s.id !== id));
-      setSlotModal(null);
-      setConfirmDeleteSlot(null);
-      showToast("Slot eliminato.");
-    } catch (err) {
-      setConfirmDeleteSlot(null);
-      showToast(err instanceof Error ? err.message : "Eliminazione non riuscita.");
+  // Una data proposta in una richiesta in attesa non può sparire in silenzio
+  // dalle scelte del cliente: prima si gestisce la richiesta.
+  function askDeleteClass(id: string) {
+    if (requests.some((r) => r.status === "pending" && r.proposedSlotIds.includes(id))) {
+      showToast("Questo slot è proposto in una richiesta in attesa: gestisci prima quella richiesta.");
+      return;
     }
-  }
-
-  // ---- scheduled classes ----
-  async function handleEditClassSave(item: ClassItem) {
-    try {
-      await saveClassItem(item);
-      setEditClass(null);
-      showToast("Lezione aggiornata.");
-    } catch {
-      showToast("Il salvataggio della lezione non è riuscito.");
-    }
+    setConfirmDeleteClass(id);
   }
   function handleDeleteClass(id: string) {
     deleteClassItem(id);
     setEditClass(null);
+    setAcceptModal(null);
     setConfirmDeleteClass(null);
-    showToast("Lezione eliminata.");
+    showToast("Eliminata.");
   }
 
   // ---- requests ----
   function openAccept(r: IndividualClassRequest) {
     const slotId = selectedSlotFor(r);
-    if (!slotId || !slotById[slotId]) {
+    if (!slotId || !slotFor(slotId, r)) {
       showToast("Scegli prima una delle date proposte.");
       return;
     }
@@ -176,13 +174,12 @@ export function IndividualClassesView({
     setBusyId(request.id);
     try {
       await saveClassItem(item);
-      await db.acceptIndividualClassRequest(supabase, { requestId: request.id, slotId, classId: item.id });
+      await db.acceptIndividualClassRequest(supabase, { requestId: request.id, classId: item.id });
       setRequests((cur) =>
         cur.map((r) => (r.id === request.id ? { ...r, status: "accepted", chosenSlotId: slotId, resultingClassId: item.id } : r))
       );
-      setSlots((cur) => cur.map((s) => (s.id === slotId ? { ...s, bookedClassId: item.id } : s)));
       setAcceptModal(null);
-      showToast("Richiesta accettata: lezione individuale creata.");
+      showToast("Richiesta accettata: lezione assegnata al cliente.");
       notifyIndividualClassAccepted(request.clientId, { date: item.date, time: item.time }).catch(() => {});
     } catch {
       showToast("Non è stato possibile completare l'accettazione. Riprova.");
@@ -220,7 +217,7 @@ export function IndividualClassesView({
         <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 600, color: COLORS.heading }}>Lezioni individuali</div>
         {tab === "slots" && (
           <button
-            onClick={() => setSlotModal({ mode: "new" })}
+            onClick={() => setNewSlotOpen(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white"
             style={{ background: COLORS.primary }}
           >
@@ -271,7 +268,7 @@ export function IndividualClassesView({
 
       {toast && (
         <div className="mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2" style={{ background: COLORS.subtle, color: COLORS.primaryDark }}>
-          {toast.includes("riuscit") || toast.includes("Errore") || toast.includes("non è stato") ? (
+          {toast.includes("riuscit") || toast.includes("Errore") || toast.includes("non è stato") || toast.includes("gestisci prima") ? (
             <AlertCircle size={15} color={COLORS.danger} />
           ) : (
             <Check size={15} />
@@ -306,7 +303,7 @@ export function IndividualClassesView({
                     )}
                     <div className="flex flex-wrap gap-1.5 mb-3">
                       {r.proposedSlotIds.map((slotId) => {
-                        const slot = slotById[slotId];
+                        const slot = slotFor(slotId, r);
                         if (!slot) {
                           return (
                             <span
@@ -374,7 +371,7 @@ export function IndividualClassesView({
                     <div key={r.id} className="p-2.5 rounded-lg flex items-center justify-between flex-wrap gap-1.5" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
                       <div style={{ fontSize: 12.5 }}>
                         <strong>{r.clientName}</strong>{" "}
-                        {r.chosenSlotId && slotById[r.chosenSlotId] ? `— ${formatSlotLabel(slotById[r.chosenSlotId])}` : ""}
+                        {r.chosenSlotId && classById[r.chosenSlotId] ? `— ${formatSlotLabel(classById[r.chosenSlotId])}` : ""}
                       </div>
                       <span
                         style={{
@@ -429,7 +426,7 @@ export function IndividualClassesView({
           {activeSlots.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-14" style={{ color: COLORS.inkSoft }}>
               <Calendar size={28} className="mb-2" />
-              <div style={{ fontSize: 13.5 }}>Nessuno slot ancora — aggiungine uno per iniziare a ricevere richieste.</div>
+              <div style={{ fontSize: 13.5 }}>Nessuno slot ancora — aggiungine uno, anche dal calendario con «Individuale» senza cliente.</div>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
@@ -445,21 +442,21 @@ export function IndividualClassesView({
                   </div>
                   <button
                     title={s.published ? "Pubblicato — clicca per mettere in bozza" : "Bozza — clicca per pubblicare"}
-                    onClick={() => handleSaveSlot({ ...s, published: !s.published })}
+                    onClick={() => toggleSlotPublished(s)}
                     className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
                     style={{ color: s.published ? COLORS.success : COLORS.gold, border: `1px solid ${withAlpha(s.published ? COLORS.success : COLORS.gold, 33)}` }}
                   >
                     {s.published ? <Eye size={12} /> : <EyeOff size={12} />} {s.published ? "Pubblicato" : "Bozza"}
                   </button>
                   <button
-                    onClick={() => setSlotModal({ mode: "edit", slot: s })}
+                    onClick={() => setEditClass(s)}
                     className="text-xs font-semibold px-2.5 py-1.5 rounded-lg"
                     style={{ color: COLORS.primaryDark, border: `1px solid ${COLORS.border}` }}
                   >
                     Modifica
                   </button>
                   <button
-                    onClick={() => setConfirmDeleteSlot(s.id)}
+                    onClick={() => askDeleteClass(s.id)}
                     className="flex items-center justify-center rounded-lg"
                     style={{ width: 32, height: 32, color: COLORS.danger }}
                     title="Elimina"
@@ -471,19 +468,24 @@ export function IndividualClassesView({
             </div>
           )}
 
-          {usedSlots.length > 0 && (
+          {pastSlots.length > 0 && (
             <div className="mt-6">
-              <button onClick={() => setUsedSlotsOpen((v) => !v)} className="flex items-center gap-2" style={{ color: COLORS.heading }}>
-                <span style={{ fontSize: 13.5, fontWeight: 600 }}>Slot già assegnati</span>
-                <span style={{ fontSize: 12, color: COLORS.inkSoft }}>({usedSlots.length})</span>
-                <ChevronDown size={15} color={COLORS.inkSoft} style={{ transform: usedSlotsOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+              <button onClick={() => setPastSlotsOpen((v) => !v)} className="flex items-center gap-2" style={{ color: COLORS.heading }}>
+                <span style={{ fontSize: 13.5, fontWeight: 600 }}>Slot passati</span>
+                <span style={{ fontSize: 12, color: COLORS.inkSoft }}>({pastSlots.length})</span>
+                <ChevronDown size={15} color={COLORS.inkSoft} style={{ transform: pastSlotsOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
               </button>
-              {usedSlotsOpen && (
+              {pastSlotsOpen && (
                 <div className="flex flex-col gap-1.5 mt-2">
-                  {usedSlots.map((s) => (
-                    <div key={s.id} className="p-2.5 rounded-lg" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, opacity: 0.7 }}>
+                  {pastSlots.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setEditClass(s)}
+                      className="p-2.5 rounded-lg text-left"
+                      style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, opacity: 0.7 }}
+                    >
                       <div style={{ fontSize: 12.5 }}>{formatSlotLabel(s)}</div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -492,44 +494,25 @@ export function IndividualClassesView({
         </div>
       )}
 
-      {slotModal && (
-        <IndividualSlotFormModal data={slotModal} onClose={() => setSlotModal(null)} onSave={handleSaveSlot} onDelete={(id) => setConfirmDeleteSlot(id)} />
-      )}
-
-      {confirmDeleteSlot && (
-        <Modal onClose={() => setConfirmDeleteSlot(null)} width={360}>
-          <div className="p-5">
-            <div className="font-semibold mb-1">Eliminare questo slot?</div>
-            <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-4">
-              L&apos;azione non può essere annullata.
-            </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setConfirmDeleteSlot(null)} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
-                Annulla
-              </button>
-              <button onClick={() => handleDeleteSlot(confirmDeleteSlot)} className="px-3 py-2 rounded-lg text-sm font-medium text-white" style={{ background: COLORS.danger }}>
-                Elimina
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {editClass && (
+      {(editClass || newSlotOpen) && (
         <PersonalClassFormModal
-          data={{ mode: "edit", classItem: editClass }}
+          data={editClass ? { mode: "edit", classItem: editClass } : { mode: "new", date: new Date() }}
           classTypes={classTypes}
           levels={levels}
           clients={clients}
           packages={packages}
           defaultTime={settings.time}
           singleClassPrice={settings.singleClassPrice}
-          onClose={() => setEditClass(null)}
-          onSave={handleEditClassSave}
-          onDelete={(id) => setConfirmDeleteClass(id)}
+          onClose={() => {
+            setEditClass(null);
+            setNewSlotOpen(false);
+          }}
+          onSave={handleClassModalSave}
+          onDelete={askDeleteClass}
           onAddClient={upsertClient}
           onOpenSettings={() => {
             setEditClass(null);
+            setNewSlotOpen(false);
             router.push("/admin/impostazioni");
           }}
         />
@@ -538,7 +521,7 @@ export function IndividualClassesView({
       {confirmDeleteClass && (
         <Modal onClose={() => setConfirmDeleteClass(null)} width={360}>
           <div className="p-5">
-            <div className="font-semibold mb-1">Eliminare questa lezione?</div>
+            <div className="font-semibold mb-1">Eliminare questa lezione o slot?</div>
             <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-4">
               L&apos;azione non può essere annullata. Le prenotazioni associate andranno perse.
             </div>
@@ -556,12 +539,11 @@ export function IndividualClassesView({
 
       {acceptModal &&
         (() => {
-          const slot = slotById[acceptModal.slotId];
+          const slot = slotFor(acceptModal.slotId, acceptModal.request);
           if (!slot) return null;
-          const [y, m, d] = slot.date.split("-").map(Number);
           return (
             <PersonalClassFormModal
-              data={{ mode: "new", date: new Date(y, m - 1, d), prefill: { clientId: acceptModal.request.clientId, time: slot.time } }}
+              data={{ mode: "edit", classItem: slot, assignClientId: acceptModal.request.clientId }}
               classTypes={classTypes}
               levels={levels}
               clients={clients}
@@ -570,7 +552,7 @@ export function IndividualClassesView({
               singleClassPrice={settings.singleClassPrice}
               onClose={() => setAcceptModal(null)}
               onSave={handleAcceptSave}
-              onDelete={() => {}}
+              onDelete={askDeleteClass}
               onAddClient={upsertClient}
               onOpenSettings={() => {
                 setAcceptModal(null);
@@ -650,8 +632,8 @@ function ScheduledClassRow({
     >
       <div className="flex-1" style={{ minWidth: 140 }}>
         <div style={{ fontSize: 13.5, fontWeight: 600 }}>{formatSlotLabel({ date: item.date, time: item.time || "—" })}</div>
-        <div style={{ fontSize: 11.5, color: item.personalClientId ? COLORS.inkSoft : COLORS.gold }}>
-          {item.personalClientId ? client?.name || "Cliente" : "Cliente da assegnare"}
+        <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
+          {client?.name || "Cliente"}
           {typeName ? ` · ${typeName}` : ""}
         </div>
       </div>

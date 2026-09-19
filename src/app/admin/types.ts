@@ -123,21 +123,6 @@ export type ClientNotice = {
   createdAt: string;
 };
 
-// Uno slot che l'admin rende disponibile per un'eventuale lezione individuale
-// (vedi PersonalClassFormModal per come diventa una vera lezione). Bozza
-// finché non pubblicato; una volta pubblicato non compare nel calendario del
-// cliente, solo nell'elenco di date proposte quando richiede una lezione
-// individuale (RLS di individual_class_slots).
-export type IndividualClassSlot = {
-  id: string;
-  date: string; // yyyy-mm-dd
-  time: string; // HH:mm
-  notes: string;
-  published: boolean;
-  bookedClassId: string | null;
-  createdAt: string;
-};
-
 export type IndividualClassRequestStatus = "pending" | "accepted" | "rejected" | "cancelled";
 
 export type IndividualClassRequest = {
