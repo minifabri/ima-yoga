@@ -1239,6 +1239,63 @@ body {
   letter-spacing: 0.4px;
   color: var(--gold);
 }
+.online-callout-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.online-callout .online-callout-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px 18px;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--gold) 4%, transparent);
+  transition: background 0.3s ease, transform 0.3s ease, border-color 0.3s ease;
+}
+.online-callout .online-callout-option:hover,
+.online-callout .online-callout-option:focus-visible {
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  border-color: var(--gold);
+  transform: translateY(-2px);
+}
+.online-callout .online-callout-option:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+.online-callout-option-name {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 17px;
+  color: var(--heading);
+}
+.online-callout-option-desc {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.online-callout-option-cta {
+  margin-top: 4px;
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.online-callout-both {
+  padding: 10px 22px;
+}
+.online-callout .online-callout-error {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--danger);
+}
 
 .static-page-closing {
   margin-top: 56px;
