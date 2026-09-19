@@ -8,6 +8,25 @@ import {
   surveyReminderEmailHtml,
 } from "./emailTemplates";
 
+// Campi comuni a tutte le email in uscita. Il mittente (noreply@imayoga.app)
+// non ha una casella che riceve posta: qualunque risposta, anche automatica
+// (risponditore "fuori sede" di una cliente), rimbalzava e la cliente si
+// ritrovava in casella un "Messaggio non recapitato" senza aver scritto nulla.
+// - Auto-Submitted / X-Auto-Response-Suppress dicono ai risponditori automatici
+//   di non rispondere a queste email.
+// - reply_to, se configurato, manda a una casella vera chi risponde a mano
+//   (le email dicono "scrivimi direttamente").
+function commonEmailFields() {
+  return {
+    from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+    reply_to: process.env.RESEND_REPLY_TO_EMAIL || undefined,
+    headers: {
+      "Auto-Submitted": "auto-generated",
+      "X-Auto-Response-Suppress": "All",
+    },
+  };
+}
+
 // Avvisa l'admin via email quando una classe raggiunge il numero massimo di
 // iscritti. Se RESEND_API_KEY o ADMIN_NOTIFICATION_EMAIL non sono configurate
 // (vedi .env.local.example), non fa nulla — non deve mai bloccare una
@@ -34,7 +53,7 @@ export async function notifyClassFull(details: { className: string; date: string
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to,
         subject: `Classe piena — ${details.className}, ${dateLabel}`,
         html: `
@@ -131,7 +150,7 @@ export async function sendEventBookingConfirmationEmail(details: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to: details.to,
         subject: `Prenotazione evento — ${details.eventName}`,
         html: `
@@ -198,7 +217,7 @@ export async function sendSurveyPublishedEmail(details: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to: details.to,
         subject: `Nuovo sondaggio — ${details.surveyTitle}`,
         html: surveyPublishedEmailHtml(details),
@@ -228,7 +247,7 @@ export async function sendSurveyReminderEmail(details: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to: details.to,
         subject: `Il sondaggio "${details.surveyTitle}" aspetta ancora 🤍`,
         html: surveyReminderEmailHtml(details),
@@ -257,7 +276,7 @@ export async function sendEventReminderEmail(details: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to: details.to,
         subject: `${details.eventName} si avvicina e... 🤍`,
         html: eventReminderEmailHtml(details),
@@ -286,7 +305,7 @@ export async function sendSequenceAssignedEmail(details: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to: details.to,
         subject: `Nuova sequenza — ${details.sequenceName}`,
         html: sequenceAssignedEmailHtml(details),
@@ -432,7 +451,7 @@ export async function sendClassReminderEmail(details: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to: details.to,
         subject: `Ci vediamo ${details.isToday ? "stasera" : "domani"} per ${details.className} 🤍`,
         html: `
