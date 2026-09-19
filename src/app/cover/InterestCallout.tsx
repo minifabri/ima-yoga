@@ -34,8 +34,7 @@ export function InterestCallout({ source }: { source: string }) {
     <div className="online-callout">
       <h2>Ima Yoga, anche da casa.</h2>
       <p>
-        Sto pensando a due modi per praticare insieme anche a distanza. Dimmi quale ti piacerebbe di più: mi aiuta a
-        capire da dove partire.
+        Sto pensando a due modi per praticare insieme anche a distanza. Dimmi quale ti piacerebbe di più.
       </p>
       {status === "sent" ? (
         <p className="online-callout-feedback">
@@ -54,18 +53,10 @@ export function InterestCallout({ source }: { source: string }) {
               >
                 <span className="online-callout-option-name">{o.name}</span>
                 <span className="online-callout-option-desc">{o.description}</span>
-                <span className="online-callout-option-cta">
-                  Mi interessa <span aria-hidden="true">✦</span>
-                </span>
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            className="cover-cta-ghost online-callout-both"
-            onClick={() => choose("entrambe")}
-            disabled={status === "pending"}
-          >
+          <button type="button" className="online-callout-both" onClick={() => choose("entrambe")} disabled={status === "pending"}>
             Mi interessano entrambe <span aria-hidden="true">✦</span>
           </button>
           {status === "error" && (
