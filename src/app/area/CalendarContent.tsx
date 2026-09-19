@@ -127,10 +127,6 @@ export function CalendarContent() {
         </div>
       )}
 
-      <div className="mb-4">
-        <IndividualClassRequestCard />
-      </div>
-
       {calendarMode === "grid" ? (
         <>
           <div className="grid grid-cols-5 mb-1">
@@ -318,6 +314,10 @@ export function CalendarContent() {
           })}
         </div>
       )}
+
+      <div className="mt-6">
+        <IndividualClassRequestCard />
+      </div>
     </>
   );
 }

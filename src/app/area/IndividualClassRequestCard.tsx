@@ -47,8 +47,8 @@ export function IndividualClassRequestCard() {
         <User size={16} />
       </span>
       <span className="flex-1">
-        <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, color: COLORS.ink }}>Lezione individuale</span>
-        <span style={{ display: "block", fontSize: 12, color: COLORS.inkSoft }}>Richiedila scegliendo tra le date disponibili</span>
+        <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, color: COLORS.ink }}>Vuoi una lezione solo per te?</span>
+        <span style={{ display: "block", fontSize: 12, color: COLORS.inkSoft }}>Scegli tra le date che propongo e ti confermo appena possibile</span>
       </span>
     </button>
   );
