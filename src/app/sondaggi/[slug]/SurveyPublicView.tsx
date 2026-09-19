@@ -197,7 +197,7 @@ export function SurveyPublicView({
         {!survey.published && (
           <div
             className="mb-4 flex items-center gap-1.5 rounded-lg px-3 py-2"
-            style={{ fontSize: 12, fontWeight: 600, color: COLORS.gold, background: withAlpha(COLORS.gold, 12), border: `1px solid ${withAlpha(COLORS.gold, 30)}` }}
+            style={{ fontSize: 12, fontWeight: 600, color: COLORS.goldText, background: withAlpha(COLORS.gold, 12), border: `1px solid ${withAlpha(COLORS.gold, 30)}` }}
           >
             <EyeOff size={13} /> Anteprima — questo sondaggio è ancora in bozza, non è visibile pubblicamente.
           </div>
@@ -262,7 +262,7 @@ export function SurveyPublicView({
             </div>
             <div
               className="flex items-center gap-1.5 mb-3 rounded-lg px-2.5 py-2"
-              style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.gold, background: withAlpha(COLORS.gold, 10) }}
+              style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.goldText, background: withAlpha(COLORS.gold, 10) }}
             >
               <EyeOff size={12} /> Anteprima admin — questa è la pagina che vedrà davvero chi risponde. Le tue selezioni non sono state salvate.
             </div>
@@ -350,7 +350,7 @@ export function SurveyPublicView({
         ) : (
           <>
             {isAdminProfile ? (
-              <div className="flex items-center gap-1.5 mb-3" style={{ fontSize: 12, fontWeight: 600, color: COLORS.gold }}>
+              <div className="flex items-center gap-1.5 mb-3" style={{ fontSize: 12, fontWeight: 600, color: COLORS.goldText }}>
                 <EyeOff size={13} /> Modalità anteprima admin — le risposte non verranno salvate
               </div>
             ) : (

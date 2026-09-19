@@ -487,7 +487,7 @@ export function CalendarView({
                             {!c.published && (
                               <span
                                 className="inline-flex items-center gap-0.5 rounded-full"
-                                style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.gold, background: withAlpha(COLORS.gold, 16), padding: "1px 6px" }}
+                                style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.goldText, background: withAlpha(COLORS.gold, 16), padding: "1px 6px" }}
                               >
                                 <EyeOff size={9} /> Bozza
                               </span>
@@ -502,7 +502,7 @@ export function CalendarView({
                         <span className="flex items-center gap-1.5" style={{ fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
                           <span style={{ width: 7, height: 7, borderRadius: 999, background: dot }} />
                           {c.personalClientId ? (assignedClient ? "assegnata" : "da assegnare") : `${booked}/${c.capacity || "—"}`}
-                          {waiting > 0 && <span style={{ color: COLORS.gold }}> · {waiting} attesa</span>}
+                          {waiting > 0 && <span style={{ color: COLORS.goldText }}> · {waiting} attesa</span>}
                         </span>
                       </button>
                     );
@@ -634,7 +634,7 @@ function ClassCard({
       {!c.published && (
         <span
           className="self-start inline-flex items-center gap-0.5 rounded-full"
-          style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.gold, background: withAlpha(COLORS.gold, 16), padding: "1px 6px" }}
+          style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.goldText, background: withAlpha(COLORS.gold, 16), padding: "1px 6px" }}
         >
           <EyeOff size={9} /> Bozza
         </span>

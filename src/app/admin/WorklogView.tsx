@@ -50,7 +50,7 @@ function formatDateTime(iso: string): { date: string; time: string } {
 
 function roleMeta(role: WorkLogEntry["actorRole"]) {
   if (role === "admin") return { label: "Admin", color: COLORS.primary, icon: ShieldCheck };
-  if (role === "client") return { label: "Cliente", color: COLORS.gold, icon: User };
+  if (role === "client") return { label: "Cliente", color: COLORS.goldText, icon: User };
   return { label: "Sistema", color: COLORS.inkSoft, icon: User };
 }
 

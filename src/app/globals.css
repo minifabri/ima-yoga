@@ -12,6 +12,7 @@
   --primary: #a48ada;
   --primary-dark: #d9cbf2;
   --gold: #e3c481;
+  --gold-text: #e3c481; /* oro per testo e contorni di controlli: uguale a --gold al buio */
   --success: #97b98c;
   --danger: #d38f77;
 }
@@ -28,6 +29,7 @@
   --primary: #8e72c7; /* viola principale */
   --primary-dark: #4a3a73;
   --gold: #d6b36a;
+  --gold-text: #866519; /* l'oro chiaro su avorio/lavanda è ~1.6:1: qui serve un oro più profondo (~4.5:1) */
   --success: #7c9473;
   --danger: #a85c4a;
 }
@@ -43,6 +45,7 @@
   --color-primary: var(--primary);
   --color-primary-dark: var(--primary-dark);
   --color-gold: var(--gold);
+  --color-gold-text: var(--gold-text);
   --color-success: var(--success);
   --color-danger: var(--danger);
   --font-sans: var(--font-body);
@@ -550,7 +553,7 @@ body {
   text-shadow: 0 2px 30px rgba(0, 0, 0, 0.4);
 }
 .cover-hero-title-accent {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .cover-hero-tagline {
@@ -585,7 +588,7 @@ body {
 }
 .cover-scroll-hint:hover,
 .cover-scroll-hint:focus-visible {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 .cover-scroll-hint svg {
   animation: cover-scroll-bounce 2.2s ease-in-out infinite;
@@ -784,12 +787,12 @@ body {
   gap: 8px;
   padding: 12px 26px;
   min-height: 44px;
-  border: 1px solid var(--gold);
+  border: 1px solid var(--gold-text);
   border-radius: 999px;
   font-size: 12px;
   letter-spacing: 1.8px;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--gold-text);
   text-decoration: none;
   background: color-mix(in srgb, var(--gold) 6%, transparent);
   transition: background 0.3s ease, color 0.3s ease, transform 0.3s ease;
@@ -857,8 +860,8 @@ body {
 }
 .cover-overlay-close:hover,
 .cover-overlay-close:focus-visible {
-  border-color: var(--gold);
-  color: var(--gold);
+  border-color: var(--gold-text);
+  color: var(--gold-text);
 }
 
 .cover-overlay-panel {
@@ -941,7 +944,7 @@ body {
   font-size: 11px;
   letter-spacing: 2.5px;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--gold-text);
   margin-bottom: 10px;
 }
 .cover-overlay-title {
@@ -1003,8 +1006,8 @@ body {
 }
 .cover-social:hover,
 .cover-social:focus-visible {
-  color: var(--gold);
-  border-color: var(--gold);
+  color: var(--gold-text);
+  border-color: var(--gold-text);
 }
 
 /* ---- form contatti ---- */
@@ -1038,7 +1041,7 @@ body {
 }
 .cover-contact-field input:focus-visible,
 .cover-contact-field textarea:focus-visible {
-  border-color: var(--gold);
+  border-color: var(--gold-text);
 }
 .cover-contact-field-honeypot {
   position: absolute;
@@ -1129,8 +1132,8 @@ body {
 }
 .static-page-back:hover,
 .static-page-back:focus-visible {
-  border-color: var(--gold);
-  color: var(--gold);
+  border-color: var(--gold-text);
+  color: var(--gold-text);
 }
 
 .static-page-content {
@@ -1237,7 +1240,7 @@ body {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.4px;
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .static-page-closing {
@@ -1268,11 +1271,11 @@ body {
 }
 .due-volti-toggle:hover,
 .due-volti-toggle:focus-visible {
-  color: var(--gold);
+  color: var(--gold-text);
 }
 .due-volti-toggle-icon {
   font-size: 12px;
-  color: var(--gold);
+  color: var(--gold-text);
 }
 
 .due-volti-reveal {
