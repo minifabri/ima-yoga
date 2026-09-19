@@ -242,7 +242,7 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
     // Per una lezione individuale "piena" (1/1) è lo stato atteso appena la
     // assegni, non un evento da segnalarti via email come per una classe di
     // gruppo che si riempie inaspettatamente.
-    if (isFull && !wasFull && !item.personalClientId) {
+    if (isFull && !wasFull && !item.isIndividual) {
       notifyClassFull({
         className: typeById[item.typeId]?.name || "Classe",
         date: item.date,

@@ -187,6 +187,7 @@ export function PersonalClassFormModal({
       clientIds: clientId ? [clientId] : [],
       waitlistIds: [],
       payments: clientId && payment ? { [clientId]: { ...payment, price: effectivePrice(), amount: isFree ? 0 : payment.amount } } : {},
+      isIndividual: true,
       personalClientId: clientId,
     });
   }
