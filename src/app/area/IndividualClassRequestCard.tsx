@@ -2,6 +2,7 @@
 
 import { CalendarClock, User, X } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
+import { formatEventDate } from "./helpers";
 import { useArea } from "./AreaShell";
 
 // Punto d'ingresso alla richiesta di lezione individuale, condiviso tra il
@@ -16,10 +17,13 @@ export function IndividualClassRequestCard() {
       <div className="p-3.5 rounded-xl" style={{ background: withAlpha(COLORS.gold, 10), border: `1px solid ${withAlpha(COLORS.gold, 35)}` }}>
         <div className="flex items-center gap-2 mb-1" style={{ fontSize: 13.5, fontWeight: 700, color: COLORS.heading }}>
           <CalendarClock size={15} color={COLORS.gold} />
-          Richiesta di lezione individuale in attesa di conferma
+          Ho ricevuto la tua richiesta
+        </div>
+        <div style={{ fontSize: 12, color: COLORS.inkSoft }} className="mb-1">
+          Sto allineando la mia agenda e le stelle per farti spazio: ti scrivo appena si incastra tutto.
         </div>
         <div style={{ fontSize: 12, color: COLORS.inkSoft }} className="mb-2">
-          Date proposte: {myIndividualClassRequest.proposedSlots.map((s) => `${s.date} · ${s.time}`).join(" — ") || "—"}
+          Le date che hai scelto: {myIndividualClassRequest.proposedSlots.map((s) => `${formatEventDate(s.date)} · ${s.time}`).join(" — ") || "—"}
         </div>
         <button
           disabled={pending}
@@ -48,7 +52,7 @@ export function IndividualClassRequestCard() {
       </span>
       <span className="flex-1">
         <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, color: COLORS.ink }}>Vuoi una lezione solo per te?</span>
-        <span style={{ display: "block", fontSize: 12, color: COLORS.inkSoft }}>Scegli tra le date che propongo e ti confermo appena possibile</span>
+        <span style={{ display: "block", fontSize: 12, color: COLORS.inkSoft }}>Richiedi una lezione individuale</span>
       </span>
     </button>
   );
