@@ -3,6 +3,7 @@
 import { CalendarDays, Check, List, Route, Sparkles } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { dateKey } from "@/app/admin/utils";
+import { IndividualClassRequestCard } from "./IndividualClassRequestCard";
 import { availabilityLabel, formatEventDate, formatUpcomingDate } from "./helpers";
 import type { ClassType, Level, PublicClass, PublicEvent } from "./types";
 
@@ -110,6 +111,8 @@ export function MobileAreaHome({
           </a>
         </div>
       )}
+
+      <IndividualClassRequestCard />
 
       <div className="grid grid-cols-2 gap-3">
         <button
