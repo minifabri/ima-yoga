@@ -16,7 +16,6 @@ import type {
   HoldUnit,
   IndividualClassRequest,
   IndividualClassRequestStatus,
-  IndividualClassSlot,
   LedgerEntry,
   Level,
   NotificationItem,
@@ -218,26 +217,6 @@ function mapClass(row: {
   };
 }
 
-function mapIndividualClassSlot(row: {
-  id: string;
-  slot_date: string;
-  slot_time: string;
-  notes: string | null;
-  published: boolean;
-  booked_class_id: string | null;
-  created_at: string;
-}): IndividualClassSlot {
-  return {
-    id: row.id,
-    date: row.slot_date,
-    time: (row.slot_time || "").slice(0, 5),
-    notes: row.notes ?? "",
-    published: row.published,
-    bookedClassId: row.booked_class_id,
-    createdAt: row.created_at,
-  };
-}
-
 function mapIndividualClassRequest(row: {
   id: string;
   client_id: string;
@@ -393,18 +372,12 @@ export async function moveClass(supabase: DB, id: string, newDate: string) {
 }
 
 // ---------------------------------------------------------
-// Lezioni individuali su richiesta: slot proposti dall'admin + richieste
-// dei clienti (vedi PersonalClassFormModal per come una richiesta accettata
-// diventa una vera lezione individuale). Come events/surveys, questi dati
-// non fanno parte del bootstrap di fetchAdminData — li carica direttamente
-// la pagina /admin/lezioni-individuali.
+// Richieste di lezione individuale dei clienti. Gli slot che propongono sono
+// lezioni individuali senza cliente (già in `classes`, vedi
+// PersonalClassFormModal); accettare una richiesta assegna loro il cliente.
+// Come events/surveys, le richieste non fanno parte del bootstrap di
+// fetchAdminData — le carica direttamente la pagina /admin/lezioni-individuali.
 // ---------------------------------------------------------
-export async function fetchIndividualClassSlots(supabase: DB): Promise<IndividualClassSlot[]> {
-  const { data, error } = await supabase.from("individual_class_slots").select("*").order("slot_date").order("slot_time");
-  if (error) throw error;
-  return (data ?? []).map(mapIndividualClassSlot);
-}
-
 export async function fetchIndividualClassRequests(supabase: DB): Promise<IndividualClassRequest[]> {
   const { data, error } = await supabase
     .from("individual_class_requests")
@@ -414,45 +387,12 @@ export async function fetchIndividualClassRequests(supabase: DB): Promise<Indivi
   return (data ?? []).map(mapIndividualClassRequest);
 }
 
-export async function saveIndividualClassSlot(
-  supabase: DB,
-  slot: { id: string; date: string; time: string; notes: string; published: boolean }
-): Promise<void> {
-  const { error } = await supabase.from("individual_class_slots").upsert({
-    id: slot.id,
-    slot_date: slot.date,
-    slot_time: slot.time,
-    notes: slot.notes.trim() || null,
-    published: slot.published,
-  });
-  if (error) throw error;
-}
-
-// Uno slot proposto in una richiesta ancora in attesa non può essere
-// eliminato senza prima gestire quella richiesta, altrimenti sparirebbe in
-// silenzio dalle date che il cliente ha già proposto.
-export async function deleteIndividualClassSlot(supabase: DB, id: string): Promise<void> {
-  const { data: pending, error: checkErr } = await supabase
-    .from("individual_class_request_slots")
-    .select("request_id, individual_class_requests!inner(status)")
-    .eq("slot_id", id)
-    .eq("individual_class_requests.status", "pending")
-    .limit(1);
-  if (checkErr) throw checkErr;
-  if (pending && pending.length > 0) {
-    throw new Error("Questo slot è proposto in una richiesta in attesa: gestisci prima quella richiesta.");
-  }
-  const { error } = await supabase.from("individual_class_slots").delete().eq("id", id);
-  if (error) throw error;
-}
-
 export async function acceptIndividualClassRequest(
   supabase: DB,
-  params: { requestId: string; slotId: string; classId: string }
+  params: { requestId: string; classId: string }
 ): Promise<void> {
   const { error } = await supabase.rpc("finalize_individual_class_request", {
     p_request_id: params.requestId,
-    p_slot_id: params.slotId,
     p_class_id: params.classId,
   });
   if (error) throw error;

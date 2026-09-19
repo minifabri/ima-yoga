@@ -281,38 +281,40 @@ export async function submitIssueReport(supabase: DB, message: string): Promise<
   if (error) throw error;
 }
 
-// Slot che l'admin ha pubblicato per un'eventuale lezione individuale — la
-// RLS di individual_class_slots filtra già a published+non assegnati; i
-// passati restano qui (come per le classi normali) e vanno esclusi lato UI.
+// Slot che l'admin ha pubblicato per un'eventuale lezione individuale: lezioni
+// individuali senza cliente, che la RLS di classes nasconde ai clienti — le
+// espone available_individual_slots() con solo id, data e ora. I passati
+// restano qui (come per le classi normali) e vanno esclusi lato UI.
+type SlotRow = { class_date: string; class_time: string };
+
 export async function fetchAvailableIndividualSlots(supabase: DB): Promise<AvailableIndividualSlot[]> {
-  const { data, error } = await supabase.from("individual_class_slots").select("id, slot_date, slot_time").order("slot_date").order("slot_time");
+  const { data, error } = await supabase.rpc("available_individual_slots");
   if (error) throw error;
-  return (data ?? []).map((r) => ({ id: r.id, date: r.slot_date, time: (r.slot_time || "").slice(0, 5) }));
+  return ((data ?? []) as (SlotRow & { id: string })[]).map((r) => ({ id: r.id, date: r.class_date, time: (r.class_time || "").slice(0, 5) }));
 }
 
-type MyIndividualRequestSlotRow = {
-  slot_id: string;
-  individual_class_slots: { slot_date: string; slot_time: string } | null;
-};
-
 // Al massimo una richiesta pending per cliente (garantito da un indice unico
-// lato DB), quindi .maybeSingle() è corretto qui.
+// lato DB), quindi .maybeSingle() è corretto qui. Le date che ha proposto le
+// dà my_individual_request_slots(), per lo stesso motivo di sopra.
 export async function fetchMyIndividualClassRequest(supabase: DB): Promise<MyIndividualClassRequest | null> {
   const { data, error } = await supabase
     .from("individual_class_requests")
-    .select("id, notes, status, created_at, individual_class_request_slots(slot_id, individual_class_slots(slot_date, slot_time))")
+    .select("id, notes, status, created_at")
     .eq("status", "pending")
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const rows = (data.individual_class_request_slots ?? []) as unknown as MyIndividualRequestSlotRow[];
+  const { data: slotRows, error: slotsError } = await supabase.rpc("my_individual_request_slots");
+  if (slotsError) throw slotsError;
   return {
     id: data.id,
     status: data.status,
     notes: data.notes ?? "",
-    proposedSlots: rows
-      .filter((r) => r.individual_class_slots)
-      .map((r) => ({ id: r.slot_id, date: r.individual_class_slots!.slot_date, time: (r.individual_class_slots!.slot_time || "").slice(0, 5) })),
+    proposedSlots: ((slotRows ?? []) as (SlotRow & { slot_id: string })[]).map((r) => ({
+      id: r.slot_id,
+      date: r.class_date,
+      time: (r.class_time || "").slice(0, 5),
+    })),
     createdAt: data.created_at,
   };
 }
