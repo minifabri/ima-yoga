@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarClock, CheckSquare, ChevronLeft, ChevronRight, Gift, LayoutGrid, List, Lock, Sparkles, Square, User } from "lucide-react";
+import { CalendarCheck, CalendarClock, ChevronLeft, ChevronRight, Gift, LayoutGrid, List, Lock, Sparkles, User } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay } from "@/app/admin/utils";
 import { availabilityLabel, formatEventDate, isPastClass, typeInitials } from "./helpers";
@@ -87,8 +87,17 @@ export function CalendarContent() {
             <List size={13} /> Elenco
           </button>
         </div>
-        <button onClick={() => setOnlyMine((v) => !v)} className="flex items-center gap-1.5 text-xs font-medium" style={{ color: onlyMine ? COLORS.primaryDark : COLORS.inkSoft }}>
-          {onlyMine ? <CheckSquare size={15} color={COLORS.primary} /> : <Square size={15} />} Solo le mie prenotazioni
+        <button
+          onClick={() => setOnlyMine((v) => !v)}
+          aria-pressed={onlyMine}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+          style={{
+            border: `1px solid ${onlyMine ? COLORS.primary : COLORS.border}`,
+            background: onlyMine ? withAlpha(COLORS.primary, 12) : "transparent",
+            color: onlyMine ? COLORS.primaryDark : COLORS.ink,
+          }}
+        >
+          <CalendarCheck size={13} color={onlyMine ? COLORS.primary : undefined} /> Solo le mie
         </button>
       </div>
 
@@ -257,7 +266,7 @@ export function CalendarContent() {
         <div className="flex flex-col gap-4">
           {listDays.length === 0 && (
             <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="px-1">
-              Nessuna lezione in programma questo mese.
+              {onlyMine ? "Non hai prenotazioni questo mese." : "Nessuna lezione in programma questo mese."}
             </div>
           )}
           {listDays.map((d) => {
