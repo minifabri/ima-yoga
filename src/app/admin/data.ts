@@ -182,6 +182,7 @@ function mapClass(row: {
   is_free: boolean;
   published: boolean;
   personal_client_id: string | null;
+  is_individual: boolean;
   bookings: BookingRow[];
 }): ClassItem {
   const bookings = row.bookings ?? [];
@@ -212,6 +213,7 @@ function mapClass(row: {
     clientIds: booked.map((b) => b.client_id),
     waitlistIds: waitlist.map((b) => b.client_id),
     payments,
+    isIndividual: row.is_individual,
     personalClientId: row.personal_client_id,
   };
 }
@@ -341,6 +343,7 @@ export async function saveClass(supabase: DB, item: ClassItem) {
     price_override: item.priceOverride,
     is_free: item.isFree,
     published: item.published,
+    is_individual: item.isIndividual,
     personal_client_id: item.personalClientId,
   });
   if (classErr) throw classErr;

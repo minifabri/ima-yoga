@@ -279,6 +279,7 @@ export function ClassFormModal({
       clientIds,
       waitlistIds,
       payments,
+      isIndividual: false,
       personalClientId: null,
     });
   }

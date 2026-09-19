@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, Calendar, CalendarClock, Check, ChevronDown, Eye, EyeOff, Plus, Trash2, User, X } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { Modal, inputStyle } from "./ui";
+import { dateKey } from "./utils";
 import { PersonalClassFormModal } from "./PersonalClassFormModal";
 import { IndividualSlotFormModal } from "./IndividualSlotFormModal";
 import * as db from "./data";
@@ -21,25 +22,29 @@ function formatSlotLabel(slot: { date: string; time: string }): string {
 
 export function IndividualClassesView({
   supabase,
+  classes,
   classTypes,
   levels,
   clients,
   packages,
   settings,
   saveClassItem,
+  deleteClassItem,
   upsertClient,
 }: {
   supabase: SupabaseClient;
+  classes: ClassItem[];
   classTypes: ClassType[];
   levels: Level[];
   clients: ClientItem[];
   packages: PackageWithUsage[];
   settings: Settings;
   saveClassItem: (item: ClassItem) => Promise<void>;
+  deleteClassItem: (id: string) => void;
   upsertClient: (client: ClientItem) => void;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"requests" | "slots">("requests");
+  const [tab, setTab] = useState<"requests" | "scheduled" | "slots">("requests");
   const [slots, setSlots] = useState<IndividualClassSlot[]>([]);
   const [requests, setRequests] = useState<IndividualClassRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,6 +54,9 @@ export function IndividualClassesView({
   const [confirmDeleteSlot, setConfirmDeleteSlot] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [usedSlotsOpen, setUsedSlotsOpen] = useState(false);
+  const [pastClassesOpen, setPastClassesOpen] = useState(false);
+  const [editClass, setEditClass] = useState<ClassItem | null>(null);
+  const [confirmDeleteClass, setConfirmDeleteClass] = useState<string | null>(null);
 
   const [selectedSlotByRequest, setSelectedSlotByRequest] = useState<Record<string, string>>({});
   const [acceptModal, setAcceptModal] = useState<{ request: IndividualClassRequest; slotId: string } | null>(null);
@@ -90,6 +98,22 @@ export function IndividualClassesView({
     [slots]
   );
 
+  // Le lezioni individuali già in calendario (create da lì, da una richiesta
+  // accettata o assegnate a mano): sono righe di `classes` con un cliente
+  // riservato, non slot né richieste, quindi vanno lette da `classes`.
+  const clientById = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c])), [clients]);
+  const typeById = useMemo(() => Object.fromEntries(classTypes.map((t) => [t.id, t])), [classTypes]);
+  const today = dateKey(new Date());
+  const personalClasses = useMemo(() => classes.filter((c) => c.isIndividual), [classes]);
+  const upcomingClasses = useMemo(
+    () => personalClasses.filter((c) => c.date >= today).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)),
+    [personalClasses, today]
+  );
+  const pastClasses = useMemo(
+    () => personalClasses.filter((c) => c.date < today).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)),
+    [personalClasses, today]
+  );
+
   function selectedSlotFor(r: IndividualClassRequest): string | null {
     return selectedSlotByRequest[r.id] ?? (r.proposedSlotIds.length === 1 ? r.proposedSlotIds[0] : null);
   }
@@ -117,6 +141,23 @@ export function IndividualClassesView({
       setConfirmDeleteSlot(null);
       showToast(err instanceof Error ? err.message : "Eliminazione non riuscita.");
     }
+  }
+
+  // ---- scheduled classes ----
+  async function handleEditClassSave(item: ClassItem) {
+    try {
+      await saveClassItem(item);
+      setEditClass(null);
+      showToast("Lezione aggiornata.");
+    } catch {
+      showToast("Il salvataggio della lezione non è riuscito.");
+    }
+  }
+  function handleDeleteClass(id: string) {
+    deleteClassItem(id);
+    setEditClass(null);
+    setConfirmDeleteClass(null);
+    showToast("Lezione eliminata.");
   }
 
   // ---- requests ----
@@ -211,6 +252,13 @@ export function IndividualClassesView({
               {pendingRequests.length}
             </span>
           )}
+        </button>
+        <button
+          onClick={() => setTab("scheduled")}
+          className="px-3.5 py-2 text-sm font-medium"
+          style={{ background: tab === "scheduled" ? COLORS.primary : "transparent", color: tab === "scheduled" ? "#fff" : COLORS.ink }}
+        >
+          Programmate
         </button>
         <button
           onClick={() => setTab("slots")}
@@ -344,6 +392,38 @@ export function IndividualClassesView({
             </div>
           )}
         </div>
+      ) : tab === "scheduled" ? (
+        <div>
+          {upcomingClasses.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center py-14" style={{ color: COLORS.inkSoft }}>
+              <User size={28} className="mb-2" />
+              <div style={{ fontSize: 13.5 }}>Nessuna lezione individuale in programma.</div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {upcomingClasses.map((c) => (
+                <ScheduledClassRow key={c.id} item={c} client={c.personalClientId ? clientById[c.personalClientId] : undefined} typeName={typeById[c.typeId]?.name} onOpen={setEditClass} />
+              ))}
+            </div>
+          )}
+
+          {pastClasses.length > 0 && (
+            <div className="mt-6">
+              <button onClick={() => setPastClassesOpen((v) => !v)} className="flex items-center gap-2" style={{ color: COLORS.heading }}>
+                <span style={{ fontSize: 13.5, fontWeight: 600 }}>Lezioni passate</span>
+                <span style={{ fontSize: 12, color: COLORS.inkSoft }}>({pastClasses.length})</span>
+                <ChevronDown size={15} color={COLORS.inkSoft} style={{ transform: pastClassesOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+              </button>
+              {pastClassesOpen && (
+                <div className="flex flex-col gap-1.5 mt-2">
+                  {pastClasses.map((c) => (
+                    <ScheduledClassRow key={c.id} item={c} client={c.personalClientId ? clientById[c.personalClientId] : undefined} typeName={typeById[c.typeId]?.name} onOpen={setEditClass} muted />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       ) : (
         <div>
           {activeSlots.length === 0 ? (
@@ -435,6 +515,45 @@ export function IndividualClassesView({
         </Modal>
       )}
 
+      {editClass && (
+        <PersonalClassFormModal
+          data={{ mode: "edit", classItem: editClass }}
+          classTypes={classTypes}
+          levels={levels}
+          clients={clients}
+          packages={packages}
+          defaultTime={settings.time}
+          singleClassPrice={settings.singleClassPrice}
+          onClose={() => setEditClass(null)}
+          onSave={handleEditClassSave}
+          onDelete={(id) => setConfirmDeleteClass(id)}
+          onAddClient={upsertClient}
+          onOpenSettings={() => {
+            setEditClass(null);
+            router.push("/admin/impostazioni");
+          }}
+        />
+      )}
+
+      {confirmDeleteClass && (
+        <Modal onClose={() => setConfirmDeleteClass(null)} width={360}>
+          <div className="p-5">
+            <div className="font-semibold mb-1">Eliminare questa lezione?</div>
+            <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-4">
+              L&apos;azione non può essere annullata. Le prenotazioni associate andranno perse.
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmDeleteClass(null)} className="px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
+                Annulla
+              </button>
+              <button onClick={() => handleDeleteClass(confirmDeleteClass)} className="px-3 py-2 rounded-lg text-sm font-medium text-white" style={{ background: COLORS.danger }}>
+                Elimina
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {acceptModal &&
         (() => {
           const slot = slotById[acceptModal.slotId];
@@ -506,5 +625,42 @@ export function IndividualClassesView({
         </Modal>
       )}
     </div>
+  );
+}
+
+function ScheduledClassRow({
+  item,
+  client,
+  typeName,
+  onOpen,
+  muted,
+}: {
+  item: ClassItem;
+  client: ClientItem | undefined;
+  typeName: string | undefined;
+  onOpen: (item: ClassItem) => void;
+  muted?: boolean;
+}) {
+  const color = item.published ? COLORS.success : COLORS.gold;
+  return (
+    <button
+      onClick={() => onOpen(item)}
+      className="flex items-center gap-3 p-3 rounded-xl flex-wrap text-left w-full"
+      style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, opacity: muted ? 0.7 : 1 }}
+    >
+      <div className="flex-1" style={{ minWidth: 140 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600 }}>{formatSlotLabel({ date: item.date, time: item.time || "—" })}</div>
+        <div style={{ fontSize: 11.5, color: item.personalClientId ? COLORS.inkSoft : COLORS.gold }}>
+          {item.personalClientId ? client?.name || "Cliente" : "Cliente da assegnare"}
+          {typeName ? ` · ${typeName}` : ""}
+        </div>
+      </div>
+      <span
+        className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
+        style={{ color, border: `1px solid ${withAlpha(color, 33)}` }}
+      >
+        {item.published ? <Eye size={12} /> : <EyeOff size={12} />} {item.published ? "Pubblicata" : "Bozza"}
+      </span>
+    </button>
   );
 }
