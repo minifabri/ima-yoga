@@ -6,6 +6,7 @@ import { COLORS, withAlpha } from "@/app/admin/colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay } from "@/app/admin/utils";
 import { availabilityLabel, formatEventDate, isPastClass, typeInitials } from "./helpers";
 import { useArea } from "./AreaShell";
+import { IndividualClassRequestCard } from "./IndividualClassRequestCard";
 import type { PublicClass } from "./types";
 
 export function CalendarContent() {
@@ -125,6 +126,10 @@ export function CalendarContent() {
           </div>
         </div>
       )}
+
+      <div className="mb-4">
+        <IndividualClassRequestCard />
+      </div>
 
       {calendarMode === "grid" ? (
         <>
