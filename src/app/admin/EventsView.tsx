@@ -248,7 +248,7 @@ export function EventsView({ supabase, clients }: { supabase: SupabaseClient; cl
                     onClick={() => setReminderFor(ev)}
                     title="Invia promemoria a chi non si è ancora prenotato"
                     className="flex items-center justify-center rounded-lg"
-                    style={{ width: 34, height: 34, border: `1px solid ${COLORS.border}`, color: COLORS.gold }}
+                    style={{ width: 34, height: 34, border: `1px solid ${COLORS.border}`, color: COLORS.goldText }}
                   >
                     <Bell size={14} />
                   </button>

@@ -8,9 +8,9 @@ import type { NotificationItem, NotificationType } from "./types";
 export const TYPE_META: Record<NotificationType, { icon: typeof UserPlus; color: string }> = {
   registration: { icon: UserPlus, color: COLORS.primary },
   enrollment: { icon: CalendarPlus, color: COLORS.success },
-  cancellation: { icon: CalendarX, color: COLORS.gold },
+  cancellation: { icon: CalendarX, color: COLORS.goldText },
   issue_report: { icon: AlertTriangle, color: COLORS.danger },
-  interest: { icon: Heart, color: COLORS.gold },
+  interest: { icon: Heart, color: COLORS.goldText },
   survey_response: { icon: ClipboardCheck, color: COLORS.primaryDark },
 };
 

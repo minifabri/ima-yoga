@@ -194,7 +194,7 @@ export function SurveyFormModal({
           className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium mb-2"
           style={{
             border: `1px solid ${withAlpha(published ? COLORS.success : COLORS.gold, 33)}`,
-            color: published ? COLORS.success : COLORS.gold,
+            color: published ? COLORS.success : COLORS.goldText,
             background: withAlpha(published ? COLORS.success : COLORS.gold, 8),
           }}
         >

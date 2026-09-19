@@ -84,6 +84,7 @@ export function EventPublicView({
     ? `Ultimi ${remaining} posti`
     : "Posti liberi";
   const availabilityColor = isFull ? COLORS.gold : lowSeats ? COLORS.gold : COLORS.success;
+  const availabilityTextColor = isFull || lowSeats ? COLORS.goldText : COLORS.success;
   const past = isPastEvent(event.date, event.time);
 
   async function handleBookRegistered() {
@@ -194,7 +195,7 @@ export function EventPublicView({
         {!event.published && (
           <div
             className="mb-4 flex items-center gap-1.5 rounded-lg px-3 py-2"
-            style={{ fontSize: 12, fontWeight: 600, color: COLORS.gold, background: withAlpha(COLORS.gold, 12), border: `1px solid ${withAlpha(COLORS.gold, 30)}` }}
+            style={{ fontSize: 12, fontWeight: 600, color: COLORS.goldText, background: withAlpha(COLORS.gold, 12), border: `1px solid ${withAlpha(COLORS.gold, 30)}` }}
           >
             <EyeOff size={13} /> Anteprima — questo evento è ancora in bozza, non è visibile pubblicamente.
           </div>
@@ -246,7 +247,7 @@ export function EventPublicView({
           ) : (
             <span
               className="inline-flex items-center gap-1.5 rounded-full"
-              style={{ fontSize: 11.5, fontWeight: 700, color: availabilityColor, background: withAlpha(availabilityColor, 14), padding: "5px 12px" }}
+              style={{ fontSize: 11.5, fontWeight: 700, color: availabilityTextColor, background: withAlpha(availabilityColor, 14), padding: "5px 12px" }}
             >
               <Users size={13} /> {availabilityLabel}
               {waitlistCount > 0 && <span style={{ opacity: 0.85 }}>· {waitlistCount} in lista d&apos;attesa</span>}
@@ -276,7 +277,7 @@ export function EventPublicView({
           </div>
         ) : myStatus ? (
           <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-            <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 14, fontWeight: 700, color: myStatus === "waitlist" ? COLORS.gold : COLORS.success }}>
+            <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 14, fontWeight: 700, color: myStatus === "waitlist" ? COLORS.goldText : COLORS.success }}>
               <Check size={15} /> {myStatus === "waitlist" ? "Sei in lista d'attesa" : "Prenotazione confermata"}
             </div>
             {myPlusOne && (
@@ -305,7 +306,7 @@ export function EventPublicView({
           </div>
         ) : guestResult ? (
           <div className="p-4 rounded-2xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-            <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 14, fontWeight: 700, color: guestResult.status === "waitlist" ? COLORS.gold : COLORS.success }}>
+            <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 14, fontWeight: 700, color: guestResult.status === "waitlist" ? COLORS.goldText : COLORS.success }}>
               <Check size={15} /> {guestResult.status === "waitlist" ? "Sei in lista d'attesa" : "Prenotazione confermata"}
             </div>
             <div style={{ fontSize: 12.5, color: COLORS.inkSoft }}>

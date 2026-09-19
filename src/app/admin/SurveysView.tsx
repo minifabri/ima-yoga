@@ -15,10 +15,10 @@ type ModalState = { mode: "new" } | { mode: "edit"; survey: SurveyItem } | null;
 
 function surveyStatus(s: SurveyItem): { label: string; color: string } {
   if (s.archived) return { label: "Archiviato", color: COLORS.inkSoft };
-  if (!s.published) return { label: "Bozza", color: COLORS.gold };
+  if (!s.published) return { label: "Bozza", color: COLORS.goldText };
   const now = Date.now();
   if (s.endsAt && new Date(s.endsAt).getTime() < now) return { label: "Chiuso", color: COLORS.inkSoft };
-  if (s.startsAt && new Date(s.startsAt).getTime() > now) return { label: "Programmato", color: COLORS.gold };
+  if (s.startsAt && new Date(s.startsAt).getTime() > now) return { label: "Programmato", color: COLORS.goldText };
   return { label: "Pubblicato", color: COLORS.success };
 }
 
@@ -178,7 +178,7 @@ export function SurveysView({ supabase, clients }: { supabase: SupabaseClient; c
                       onClick={() => setReminderFor(s)}
                       title="Invia promemoria a chi non ha ancora risposto"
                       className="flex items-center justify-center rounded-lg"
-                      style={{ width: 34, height: 34, border: `1px solid ${COLORS.border}`, color: COLORS.gold }}
+                      style={{ width: 34, height: 34, border: `1px solid ${COLORS.border}`, color: COLORS.goldText }}
                     >
                       <Bell size={14} />
                     </button>

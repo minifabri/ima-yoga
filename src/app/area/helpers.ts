@@ -28,7 +28,7 @@ export function availabilityLabel(c: PublicClass): { text: string; color: string
   if (c.capacity <= 0) return { text: "Posti liberi", color: COLORS.success };
   const remaining = c.capacity - c.bookedCount;
   if (remaining <= 0) return { text: "Al completo", color: COLORS.danger };
-  if (remaining === 1) return { text: "Ultimo posto libero", color: COLORS.gold };
+  if (remaining === 1) return { text: "Ultimo posto libero", color: COLORS.goldText };
   return { text: "Posti liberi", color: COLORS.success };
 }
 
