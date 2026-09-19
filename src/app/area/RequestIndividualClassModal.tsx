@@ -67,7 +67,7 @@ export function RequestIndividualClassModal({
 
         <div className="p-5 overflow-y-auto" style={{ flex: 1 }}>
           <div style={{ fontSize: 12.5, color: COLORS.inkSoft, lineHeight: 1.5 }} className="mb-3">
-            Scegli una o più date tra quelle che propongo: ti confermo appena possibile quale va bene.
+            Scegli una o più date tra quelle disponibili e attendi conferma.
           </div>
 
           {loading ? (
@@ -104,6 +104,12 @@ export function RequestIndividualClassModal({
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {upcoming.length > 0 && (
+            <div style={{ fontSize: 12, color: COLORS.inkSoft, lineHeight: 1.5 }} className="mb-4">
+              Non trovi nessuna data adatta? Scrivimi direttamente per organizzarne una insieme.
             </div>
           )}
 
