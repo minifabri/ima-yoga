@@ -1281,15 +1281,33 @@ body {
   line-height: 1.6;
   color: var(--ink-soft);
 }
-.online-callout-option-cta {
-  margin-top: 4px;
-  font-size: 11px;
-  letter-spacing: 1.6px;
+.online-callout .online-callout-both {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 1.8px;
   text-transform: uppercase;
   color: var(--gold);
+  cursor: pointer;
+  transition: opacity 0.3s ease;
 }
-.online-callout-both {
-  padding: 10px 22px;
+.online-callout .online-callout-both:hover,
+.online-callout .online-callout-both:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.online-callout .online-callout-both:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.online-callout .online-callout-both span {
+  font-size: 11px;
 }
 .online-callout .online-callout-error {
   margin: 12px 0 0;
