@@ -1,8 +1,8 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { CosmicBackground } from "../cover/CosmicBackground";
-import { getSection } from "../cover/data";
+import { getSection, sectionImage } from "../cover/data";
+import { SectionCardImage } from "../cover/SectionCardImage";
 import { DueVolti } from "./DueVolti";
 
 export default function ChiSonoPage() {
@@ -19,12 +19,7 @@ export default function ChiSonoPage() {
       <div className="static-page-content">
         {section && (
           <div className="static-page-visual">
-            <div
-              className="cover-overlay-image-wrap"
-              style={{ aspectRatio: `${section.imageWidth} / ${section.imageHeight}`, width: "min(200px, 50vw)" }}
-            >
-              <Image src={section.image} alt="" fill quality={95} unoptimized sizes="200px" className="cover-overlay-image" />
-            </div>
+            <SectionCardImage image={sectionImage(section)} width="min(200px, 50vw)" sizes="200px" />
           </div>
         )}
 

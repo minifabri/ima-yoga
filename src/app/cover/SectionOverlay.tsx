@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { X, AtSign, MessageCircle, Mail } from "lucide-react";
 import type { CardSection } from "./data";
-import { CONTACT } from "./data";
+import { CONTACT, sectionImage } from "./data";
 import { CosmicBackground } from "./CosmicBackground";
 import { ContactForm } from "./ContactForm";
-import { useTheme } from "./hooks";
+import { SectionCardImage } from "./SectionCardImage";
 
 const isInternal = (href: string) => href.startsWith("/");
 
@@ -23,10 +22,6 @@ export function SectionOverlay({
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const theme = useTheme();
-  const isLight = theme === "light";
-  const imageWidth = isLight ? (section.imageLightWidth ?? section.imageWidth) : section.imageWidth;
-  const imageHeight = isLight ? (section.imageLightHeight ?? section.imageHeight) : section.imageHeight;
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -79,30 +74,7 @@ export function SectionOverlay({
       <div className="cover-overlay-panel">
         <div className="cover-overlay-grid">
           <div className="cover-overlay-visual">
-            <div className="cover-overlay-image-wrap" style={{ aspectRatio: `${imageWidth} / ${imageHeight}` }}>
-              <Image
-                src={section.image}
-                alt=""
-                fill
-                quality={95}
-                unoptimized
-                sizes="(min-width: 900px) 40vw, 90vw"
-                className="cover-overlay-image theme-crossfade-img"
-                style={{ opacity: isLight ? 0 : 1 }}
-              />
-              {section.imageLight && (
-                <Image
-                  src={section.imageLight}
-                  alt=""
-                  fill
-                  quality={95}
-                  unoptimized
-                  sizes="(min-width: 900px) 40vw, 90vw"
-                  className="cover-overlay-image theme-crossfade-img"
-                  style={{ opacity: isLight ? 1 : 0 }}
-                />
-              )}
-            </div>
+            <SectionCardImage image={sectionImage(section)} sizes="(min-width: 900px) 40vw, 90vw" />
           </div>
 
           <div className="cover-overlay-content">

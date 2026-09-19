@@ -31,6 +31,18 @@ export type CardSection = {
   cta: { label: string; href: string };
 };
 
+// Solo i campi immagine di una sezione: serve ai server component che passano
+// l'artwork a un componente client (`Icon` è una funzione, non serializzabile).
+export type SectionImage = Pick<
+  CardSection,
+  "image" | "imageLight" | "imageWidth" | "imageHeight" | "imageLightWidth" | "imageLightHeight"
+>;
+
+export function sectionImage(s: CardSection): SectionImage {
+  const { image, imageLight, imageWidth, imageHeight, imageLightWidth, imageLightHeight } = s;
+  return { image, imageLight, imageWidth, imageHeight, imageLightWidth, imageLightHeight };
+}
+
 export const CARD_SECTIONS: CardSection[] = [
   {
     id: "lezioni",
