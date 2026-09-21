@@ -3,6 +3,7 @@
 import { CalendarDays, Check, List, Route, Sparkles } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { dateKey } from "@/app/admin/utils";
+import { classTitle } from "@/lib/classTitle";
 import { IndividualClassRequestCard } from "./IndividualClassRequestCard";
 import { availabilityLabel, formatEventDate, formatUpcomingDate } from "./helpers";
 import type { ClassType, Level, PublicClass, PublicEvent } from "./types";
@@ -52,7 +53,7 @@ export function MobileAreaHome({
             <div style={{ fontSize: 12.5, color: COLORS.inkSoft, padding: 14 }}>Nessuna lezione in programma.</div>
           ) : (
             upcoming.map((c, i) => {
-              const type = typeById[c.typeId];
+              const type = c.typeId ? typeById[c.typeId] : undefined;
               const level = levelById[c.levelId];
               const avail = availabilityLabel(c);
               const booked = c.myStatus === "booked";
@@ -74,7 +75,7 @@ export function MobileAreaHome({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5" style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.ink }}>
                       <span className="flex-shrink-0 rounded-full" style={{ width: 7, height: 7, background: type?.color || COLORS.primary }} />
-                      {type?.name || "Classe"}
+                      {classTitle(c.isPersonal, c.typeId, typeById)}
                     </div>
                     <div style={{ fontSize: 11, color: COLORS.inkSoft, marginTop: 2, lineHeight: 1.4 }}>
                       {level?.name}

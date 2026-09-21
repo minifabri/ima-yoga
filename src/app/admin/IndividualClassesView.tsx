@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
 import { AlertCircle, Calendar, CalendarClock, Check, ChevronDown, Eye, EyeOff, Plus, Trash2, User, X } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { Modal, inputStyle } from "./ui";
@@ -10,7 +9,7 @@ import { dateKey } from "./utils";
 import { PersonalClassFormModal } from "./PersonalClassFormModal";
 import * as db from "./data";
 import { notifyIndividualClassAccepted, notifyIndividualClassRejected } from "./actions";
-import type { ClassItem, ClassType, ClientItem, IndividualClassRequest, Level, PackageWithUsage, Settings } from "./types";
+import type { ClassItem, ClientItem, IndividualClassRequest, Level, Settings } from "./types";
 
 function formatSlotLabel(slot: { date: string; time: string }): string {
   const label = new Date(`${slot.date}T00:00:00Z`).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
@@ -20,10 +19,8 @@ function formatSlotLabel(slot: { date: string; time: string }): string {
 export function IndividualClassesView({
   supabase,
   classes,
-  classTypes,
   levels,
   clients,
-  packages,
   settings,
   saveClassItem,
   deleteClassItem,
@@ -31,16 +28,13 @@ export function IndividualClassesView({
 }: {
   supabase: SupabaseClient;
   classes: ClassItem[];
-  classTypes: ClassType[];
   levels: Level[];
   clients: ClientItem[];
-  packages: PackageWithUsage[];
   settings: Settings;
   saveClassItem: (item: ClassItem) => Promise<void>;
   deleteClassItem: (id: string) => void;
   upsertClient: (client: ClientItem) => void;
 }) {
-  const router = useRouter();
   const [tab, setTab] = useState<"requests" | "scheduled" | "slots">("requests");
   const [requests, setRequests] = useState<IndividualClassRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,7 +81,6 @@ export function IndividualClassesView({
   // `classes`, distinti solo dal cliente assegnato.
   const classById = useMemo(() => Object.fromEntries(classes.map((c) => [c.id, c])), [classes]);
   const clientById = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c])), [clients]);
-  const typeById = useMemo(() => Object.fromEntries(classTypes.map((t) => [t.id, t])), [classTypes]);
   const today = dateKey(new Date());
   const slots = useMemo(() => classes.filter((c) => c.isIndividual && c.personalClientId == null), [classes]);
   const activeSlots = useMemo(
@@ -399,7 +392,7 @@ export function IndividualClassesView({
           ) : (
             <div className="flex flex-col gap-2">
               {upcomingClasses.map((c) => (
-                <ScheduledClassRow key={c.id} item={c} client={c.personalClientId ? clientById[c.personalClientId] : undefined} typeName={typeById[c.typeId]?.name} onOpen={setEditClass} />
+                <ScheduledClassRow key={c.id} item={c} client={c.personalClientId ? clientById[c.personalClientId] : undefined} onOpen={setEditClass} />
               ))}
             </div>
           )}
@@ -414,7 +407,7 @@ export function IndividualClassesView({
               {pastClassesOpen && (
                 <div className="flex flex-col gap-1.5 mt-2">
                   {pastClasses.map((c) => (
-                    <ScheduledClassRow key={c.id} item={c} client={c.personalClientId ? clientById[c.personalClientId] : undefined} typeName={typeById[c.typeId]?.name} onOpen={setEditClass} muted />
+                    <ScheduledClassRow key={c.id} item={c} client={c.personalClientId ? clientById[c.personalClientId] : undefined} onOpen={setEditClass} muted />
                   ))}
                 </div>
               )}
@@ -497,10 +490,8 @@ export function IndividualClassesView({
       {(editClass || newSlotOpen) && (
         <PersonalClassFormModal
           data={editClass ? { mode: "edit", classItem: editClass } : { mode: "new", date: new Date() }}
-          classTypes={classTypes}
           levels={levels}
           clients={clients}
-          packages={packages}
           defaultTime={settings.time}
           singleClassPrice={settings.singleClassPrice}
           onClose={() => {
@@ -510,11 +501,6 @@ export function IndividualClassesView({
           onSave={handleClassModalSave}
           onDelete={askDeleteClass}
           onAddClient={upsertClient}
-          onOpenSettings={() => {
-            setEditClass(null);
-            setNewSlotOpen(false);
-            router.push("/admin/impostazioni");
-          }}
         />
       )}
 
@@ -544,20 +530,14 @@ export function IndividualClassesView({
           return (
             <PersonalClassFormModal
               data={{ mode: "edit", classItem: slot, assignClientId: acceptModal.request.clientId }}
-              classTypes={classTypes}
               levels={levels}
               clients={clients}
-              packages={packages}
               defaultTime={settings.time}
               singleClassPrice={settings.singleClassPrice}
               onClose={() => setAcceptModal(null)}
               onSave={handleAcceptSave}
               onDelete={askDeleteClass}
               onAddClient={upsertClient}
-              onOpenSettings={() => {
-                setAcceptModal(null);
-                router.push("/admin/impostazioni");
-              }}
             />
           );
         })()}
@@ -613,13 +593,11 @@ export function IndividualClassesView({
 function ScheduledClassRow({
   item,
   client,
-  typeName,
   onOpen,
   muted,
 }: {
   item: ClassItem;
   client: ClientItem | undefined;
-  typeName: string | undefined;
   onOpen: (item: ClassItem) => void;
   muted?: boolean;
 }) {
@@ -634,7 +612,6 @@ function ScheduledClassRow({
         <div style={{ fontSize: 13.5, fontWeight: 600 }}>{formatSlotLabel({ date: item.date, time: item.time || "—" })}</div>
         <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
           {client?.name || "Cliente"}
-          {typeName ? ` · ${typeName}` : ""}
         </div>
       </div>
       <span

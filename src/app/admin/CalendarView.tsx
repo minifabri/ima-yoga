@@ -6,6 +6,7 @@ import { IconButton, CapacityBar } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays, isPastClass } from "./utils";
 import { downloadIcsFile } from "@/lib/ics";
+import { classTitle, individualLessonIcsTitle } from "@/lib/classTitle";
 import type { ClassItem, ClassType, ClientItem, EventItem, Level } from "./types";
 
 type ClassClipboard = {
@@ -97,12 +98,22 @@ export function CalendarView({
       });
     downloadIcsFile(
       `ima-yoga-${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, "0")}`,
-      monthClasses.map((c) => ({
-        date: c.date,
-        time: c.time,
-        title: typeById[c.typeId]?.name || "Classe",
-        description: [levelById[c.levelId]?.name, `${c.clientIds.length}/${c.capacity || "—"} iscritti`].filter(Boolean).join(" · "),
-      }))
+      monthClasses.map((c) =>
+        // Individuale: "Lezione individuale - Nome" (niente conteggio iscritti, è sempre 1 persona).
+        c.isIndividual
+          ? {
+              date: c.date,
+              time: c.time,
+              title: individualLessonIcsTitle(c.personalClientId ? clientById[c.personalClientId]?.name : undefined),
+              description: levelById[c.levelId]?.name,
+            }
+          : {
+              date: c.date,
+              time: c.time,
+              title: classTitle(false, c.typeId, typeById),
+              description: [levelById[c.levelId]?.name, `${c.clientIds.length}/${c.capacity || "—"} iscritti`].filter(Boolean).join(" · "),
+            }
+      )
     );
   }
 
@@ -291,10 +302,11 @@ export function CalendarView({
 
                     <div className="flex flex-col gap-0.5">
                       {dayClasses.map((c) => {
-                        const type = typeById[c.typeId];
+                        const type = c.typeId ? typeById[c.typeId] : undefined;
                         const color = c.isIndividual ? COLORS.primary : type?.color || COLORS.primary;
                         const dot = availabilityDot(c);
                         const past = isPastClass(c.date, c.time);
+                        const assigned = c.personalClientId ? clientById[c.personalClientId] : undefined;
                         return (
                           <button
                             key={c.id}
@@ -317,14 +329,14 @@ export function CalendarView({
                               gap: 2,
                               opacity: (c.published ? 1 : 0.6) * (past ? 0.6 : 1),
                             }}
-                            title={`${c.time || "—"}${c.published ? "" : " · Bozza"}${c.isIndividual ? (c.personalClientId ? " · Individuale" : " · Slot individuale") : ""} · Trascina per spostare in un altro giorno`}
+                            title={`${c.time || "—"}${c.published ? "" : " · Bozza"}${c.isIndividual ? ` · ${classTitle(true, null, typeById)}${assigned ? ` · ${assigned.name}` : " · Slot libero"}` : ""} · Trascina per spostare in un altro giorno`}
                           >
                             <span className="flex items-center gap-0.5" style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>
                               {!c.published && <EyeOff size={8} color={COLORS.inkSoft} />}
                               {!c.bookingsOpen && !c.isIndividual && <Lock size={8} color={COLORS.inkSoft} />}
                               {c.isFree && <Gift size={8} color={COLORS.gold} />}
                               {c.isIndividual && <User size={8} color={COLORS.primary} />}
-                              {typeInitials(type?.name)}
+                              {typeInitials(classTitle(c.isIndividual, c.typeId, typeById))}
                             </span>
                             <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
                           </button>
@@ -390,7 +402,8 @@ export function CalendarView({
                           <ClassCard
                             key={c.id}
                             classItem={c}
-                            type={typeById[c.typeId]}
+                            type={c.typeId ? typeById[c.typeId] : undefined}
+                            title={classTitle(c.isIndividual, c.typeId, typeById)}
                             level={levelById[c.levelId]}
                             client={c.personalClientId ? clientById[c.personalClientId] : undefined}
                             compact={isMulti}
@@ -460,7 +473,7 @@ export function CalendarView({
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {dayClasses.map((c) => {
-                    const type = typeById[c.typeId];
+                    const type = c.typeId ? typeById[c.typeId] : undefined;
                     const level = levelById[c.levelId];
                     const color = c.isIndividual ? COLORS.primary : type?.color || COLORS.primary;
                     const booked = c.clientIds.length;
@@ -482,15 +495,8 @@ export function CalendarView({
                       >
                         <div>
                           <div style={{ fontSize: 12.5, fontWeight: 700 }} className="flex items-center gap-1.5">
-                            {c.time || "—"} · {type?.name || "Classe"}
-                            {c.isIndividual && (
-                              <span
-                                className="inline-flex items-center gap-0.5 rounded-full"
-                                style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 14), padding: "1px 6px" }}
-                              >
-                                <User size={9} /> {assignedClient ? "Individuale" : "Slot"}
-                              </span>
-                            )}
+                            {c.time || "—"} · {classTitle(c.isIndividual, c.typeId, typeById)}
+                            {c.isIndividual && <User size={11} color={COLORS.primary} />}
                             {!c.published && (
                               <span
                                 className="inline-flex items-center gap-0.5 rounded-full"
@@ -547,6 +553,7 @@ export function CalendarView({
 function ClassCard({
   classItem,
   type,
+  title,
   level,
   client,
   compact = false,
@@ -556,6 +563,7 @@ function ClassCard({
 }: {
   classItem: ClassItem;
   type?: ClassType;
+  title: string;
   level?: Level;
   client?: ClientItem;
   compact?: boolean;
@@ -587,12 +595,12 @@ function ClassCard({
           borderLeft: `2.5px solid ${color}`,
           opacity: (c.published ? 1 : 0.7) * (past ? 0.6 : 1),
         }}
-        title={`${c.time || "—"} · ${type?.name || "Classe"}${isPersonal ? (client ? " · Individuale" : " · Slot individuale") : ""}${c.published ? "" : " · Bozza"} · Trascina per spostare in un altro giorno`}
+        title={`${c.time || "—"} · ${title}${isPersonal ? (client ? ` · ${client.name}` : " · Slot libero") : ""}${c.published ? "" : " · Bozza"} · Trascina per spostare in un altro giorno`}
       >
         <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
         <span style={{ fontSize: 10.5, fontWeight: 700, color: COLORS.ink, flexShrink: 0 }}>{c.time || "—"}</span>
         <span className="truncate" style={{ fontSize: 10.5, fontWeight: 600, color: COLORS.ink, flex: 1, minWidth: 0 }}>
-          {isPersonal && client ? client.name : type?.name || "Classe"}
+          {isPersonal && client ? client.name : title}
         </span>
         {!c.published && <EyeOff size={9} color={COLORS.inkSoft} />}
         {!c.bookingsOpen && !isPersonal && <Lock size={9} color={COLORS.inkSoft} />}
@@ -630,13 +638,13 @@ function ClassCard({
           <GripVertical size={12} color={COLORS.inkSoft} style={{ opacity: 0.6 }} />
         </span>
       </div>
-      <div style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.ink, lineHeight: 1.2 }}>{type?.name || "Classe"}</div>
+      <div style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.ink, lineHeight: 1.2 }}>{title}</div>
       {isPersonal && (
         <span
           className="self-start inline-flex items-center gap-0.5 rounded-full"
           style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 14), padding: "1px 6px" }}
         >
-          <User size={9} /> {client ? `Individuale · ${client.name}` : "Slot individuale"}
+          <User size={9} /> {client ? client.name : "Slot libero"}
         </span>
       )}
       {!c.published && (
