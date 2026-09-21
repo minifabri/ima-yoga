@@ -892,7 +892,7 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                 {selected.isFree && (
                   <span
                     className="inline-flex items-center gap-1 rounded-full"
-                    style={{ fontSize: 10.5, fontWeight: 700, color: COLORS.gold, background: withAlpha(COLORS.gold, 16), padding: "1px 8px" }}
+                    style={{ fontSize: 10.5, fontWeight: 700, color: COLORS.goldText, background: withAlpha(COLORS.gold, 16), padding: "1px 8px" }}
                   >
                     <Gift size={10} /> Gratuita
                   </span>
@@ -914,7 +914,7 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
               </div>
 
               {selected.myStatus === "booked" && justBookedId === selected.id && (
-                <div className="booking-celebration-text mb-3 text-center" style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: COLORS.gold }}>
+                <div className="booking-celebration-text mb-3 text-center" style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 600, color: COLORS.goldText }}>
                   Complimenti, la lezione è tua!
                 </div>
               )}
@@ -978,7 +978,7 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                   Questa lezione è già passata.
                 </div>
               ) : !bookingsOpen ? (
-                <div style={{ fontSize: 12.5, color: COLORS.gold, fontWeight: 600 }} className="text-center">
+                <div style={{ fontSize: 12.5, color: COLORS.goldText, fontWeight: 600 }} className="text-center">
                   Le iscrizioni non sono ancora aperte.
                 </div>
               ) : !selected.bookingsOpen ? (

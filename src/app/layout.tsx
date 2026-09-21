@@ -21,8 +21,9 @@ export const metadata: Metadata = {
 };
 
 // Il tema scuro è quello di default (bare :root in globals.css): basta impostare
-// l'attributo quando l'utente ha scelto esplicitamente il chiaro.
-const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('ima-yoga-theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
+// l'attributo quando serve il chiaro, sia per scelta esplicita salvata sia,
+// in assenza di una scelta, perché il sistema operativo dell'utente è in chiaro.
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('ima-yoga-theme');var light=t?t==='light':window.matchMedia('(prefers-color-scheme: light)').matches;if(light){document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

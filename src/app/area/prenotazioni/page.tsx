@@ -58,7 +58,7 @@ export default function AreaPrenotazioniPage() {
                       {b.isPersonal && <span title="Lezione individuale" className="inline-flex"><User size={11} color={COLORS.primary} /></span>}
                     </div>
                     <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
-                      {level?.name} {b.status === "waitlist" && <span style={{ color: COLORS.gold, fontWeight: 700 }}>· In lista d&apos;attesa</span>}
+                      {level?.name} {b.status === "waitlist" && <span style={{ color: COLORS.goldText, fontWeight: 700 }}>· In lista d&apos;attesa</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -118,7 +118,7 @@ export default function AreaPrenotazioniPage() {
                       {pastEvent ? (
                         <span style={{ fontStyle: "italic" }}>Evento passato</span>
                       ) : b.status === "waitlist" ? (
-                        <span style={{ color: COLORS.gold, fontWeight: 700 }}>In lista d&apos;attesa</span>
+                        <span style={{ color: COLORS.goldText, fontWeight: 700 }}>In lista d&apos;attesa</span>
                       ) : b.paymentStatus === "paid" ? (
                         <span style={{ color: COLORS.success, fontWeight: 600 }}>Pagato</span>
                       ) : (

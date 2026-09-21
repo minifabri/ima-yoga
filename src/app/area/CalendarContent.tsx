@@ -31,7 +31,7 @@ export function CalendarContent() {
   return (
     <>
       {!bookingsOpen && (
-        <div className="mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2" style={{ background: withAlpha(COLORS.gold, 16), color: COLORS.gold }}>
+        <div className="mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2" style={{ background: withAlpha(COLORS.gold, 16), color: COLORS.goldText }}>
           <Lock size={15} /> Le iscrizioni non sono ancora aperte.
         </div>
       )}

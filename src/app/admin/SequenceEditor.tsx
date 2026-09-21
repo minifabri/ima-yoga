@@ -1259,7 +1259,7 @@ export function SequenceEditor({
           )}
           <span style={{ fontSize: 12, color: COLORS.inkSoft }}>
             {totalActive} posizioni attive{selectedType ? ` · ${selectedType.name}` : ""}
-            {totalNeedsReview > 0 && <span style={{ color: COLORS.gold, fontWeight: 600 }}> · {totalNeedsReview} da verificare</span>}
+            {totalNeedsReview > 0 && <span style={{ color: COLORS.goldText, fontWeight: 600 }}> · {totalNeedsReview} da verificare</span>}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -1849,7 +1849,7 @@ function ItemRow({
         <button
           onClick={() => onUpdate({ needsReview: !item.needsReview })}
           title={item.needsReview ? "Segnato da verificare" : "Segna da verificare"}
-          style={{ color: item.needsReview ? COLORS.gold : COLORS.inkSoft }}
+          style={{ color: item.needsReview ? COLORS.goldText : COLORS.inkSoft }}
         >
           <Flag size={14} fill={item.needsReview ? COLORS.gold : "none"} />
         </button>
