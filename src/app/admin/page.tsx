@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Ticket, Calculator, Route, BookOpen, ClipboardList } from "lucide-react";
 import { COLORS } from "./colors";
 import { dateKey } from "./utils";
+import { classTitle } from "@/lib/classTitle";
 import { MobileHub, type UpcomingClassPreview } from "./MobileHub";
 import type { MoreMenuItem } from "./MoreMenu";
 import { CalendarContent } from "./CalendarContent";
@@ -45,8 +46,8 @@ export default function AdminHomePage() {
         id: c.id,
         date: c.date,
         time: c.time,
-        typeName: typeById[c.typeId]?.name || "Classe",
-        typeColor: typeById[c.typeId]?.color || COLORS.primary,
+        typeName: classTitle(c.isIndividual, c.typeId, typeById),
+        typeColor: (!c.isIndividual && c.typeId && typeById[c.typeId]?.color) || COLORS.primary,
         levelName: levelById[c.levelId]?.name || "",
         capacity: c.capacity,
         booked: c.clientIds.length,

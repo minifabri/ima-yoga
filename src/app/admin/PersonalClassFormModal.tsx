@@ -3,10 +3,11 @@
 import { useRef, useState } from "react";
 import { X, Plus, Trash2, Search, Download, Gift, Eye, EyeOff, User } from "lucide-react";
 import { downloadIcsFile } from "@/lib/ics";
+import { INDIVIDUAL_LESSON_TITLE, individualLessonIcsTitle } from "@/lib/classTitle";
 import { Modal, Field, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { genId, dateKey } from "./utils";
-import type { ClassItem, ClassType, ClientItem, Level, PackageWithUsage, Payment, PaymentStatus } from "./types";
+import type { ClassItem, ClientItem, Level, Payment, PaymentStatus } from "./types";
 
 // assignClientId: usato dal flusso di accettazione di una richiesta di lezione
 // individuale (src/app/admin/lezioni-individuali/page.tsx). Lo slot scelto dal
@@ -30,24 +31,18 @@ function paymentMeta(status: PaymentStatus) {
 }
 
 // Pagamento iniziale di un cliente appena assegnato: gratuita → pagata, altrimenti
-// pacchetto se ne ha uno utilizzabile (e la tipologia lo ammette), altrimenti da
-// pagare. Funzione pura, condivisa tra assignClient (scelta manuale) e lo stato
-// iniziale (cliente pre-assegnato da una richiesta accettata).
-function assignedPayment(
-  clientId: string,
-  opts: { isFree: boolean; price: number; packageEligible: boolean; packages: PackageWithUsage[]; date: string }
-): Payment {
+// da pagare. Le lezioni individuali non hanno tipologia, quindi non c'è modo di
+// scalarle da un pacchetto (come per book_class lato database). Funzione pura,
+// condivisa tra assignClient (scelta manuale) e lo stato iniziale (cliente
+// pre-assegnato da una richiesta accettata).
+function assignedPayment(opts: { isFree: boolean; price: number }): Payment {
   if (opts.isFree) return { status: "paid", amount: 0, price: 0 };
-  const pkg = opts.packageEligible
-    ? opts.packages.filter((p) => p.clientId === clientId && p.date <= opts.date && p.remaining > 0).sort((a, b) => a.date.localeCompare(b.date))[0]
-    : undefined;
-  return pkg
-    ? { status: "package", amount: opts.price, price: opts.price, packageId: pkg.id }
-    : { status: "unpaid", amount: 0, price: opts.price };
+  return { status: "unpaid", amount: 0, price: opts.price };
 }
 
 // Flusso dedicato per le lezioni individuali (one-to-one): a differenza del
-// ClassFormModal di gruppo, qui c'è un solo cliente possibile (niente lista
+// ClassFormModal di gruppo, qui non c'è la tipologia (il titolo è sempre
+// "Lezione individuale"), c'è un solo cliente possibile (niente lista
 // d'attesa, niente multi-selezione), la capienza è sempre 1 e le iscrizioni
 // non sono mai "aperte" — è l'admin ad assegnare/riassegnare il cliente a
 // mano. Senza cliente la lezione è uno slot: pubblicato, i clienti lo possono
@@ -56,37 +51,30 @@ function assignedPayment(
 // lato database da public_classes() e dalla RLS di classes, non qui.
 export function PersonalClassFormModal({
   data,
-  classTypes,
   levels,
   clients,
-  packages,
   defaultTime,
   singleClassPrice,
   onClose,
   onSave,
   onDelete,
   onAddClient,
-  onOpenSettings,
 }: {
   data: ModalData;
-  classTypes: ClassType[];
   levels: Level[];
   clients: ClientItem[];
-  packages: PackageWithUsage[];
   defaultTime: string;
   singleClassPrice: number;
   onClose: () => void;
   onSave: (item: ClassItem) => void;
   onDelete: (id: string) => void;
   onAddClient: (client: ClientItem) => void;
-  onOpenSettings: () => void;
 }) {
   const editing = data.mode === "edit";
   const base = editing ? data.classItem : null;
 
   const [date, setDate] = useState(editing ? base!.date : dateKey(data.date));
   const [time, setTime] = useState(editing ? base!.time || "" : defaultTime);
-  const [typeId, setTypeId] = useState(editing ? base!.typeId : classTypes[0]?.id || "");
   const [levelId, setLevelId] = useState(editing ? base!.levelId : levels[0]?.id || "");
   const [notes, setNotes] = useState(editing ? base!.notes || "" : "");
   const [description, setDescription] = useState(editing ? base!.description || "" : "");
@@ -99,18 +87,14 @@ export function PersonalClassFormModal({
     if (!editing) return null;
     if (base!.personalClientId) return base!.payments[base!.personalClientId] || null;
     if (!assignClientId) return null;
-    return assignedPayment(assignClientId, {
+    return assignedPayment({
       isFree: base!.isFree,
       price: base!.isFree ? 0 : Number(base!.priceOverride ?? singleClassPrice) || 0,
-      packageEligible: !!classTypes.find((t) => t.id === base!.typeId)?.packageEligible,
-      packages,
-      date: base!.date,
     });
   });
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const typeObj = classTypes.find((t) => t.id === typeId);
   const client = clientId ? clients.find((c) => c.id === clientId) : null;
   const suggestions = query.trim()
     ? clients.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 6)
@@ -122,17 +106,10 @@ export function PersonalClassFormModal({
     return Number(priceOverride) || 0;
   }
 
-  function eligiblePackage() {
-    if (!clientId || !typeObj?.packageEligible) return null;
-    return packages
-      .filter((p) => p.clientId === clientId && p.date <= date && p.remaining > 0)
-      .sort((a, b) => a.date.localeCompare(b.date))[0] || null;
-  }
-
   function assignClient(id: string) {
     const price = isFree ? 0 : effectivePrice();
     setClientId(id);
-    setPayment(assignedPayment(id, { isFree, price, packageEligible: !!typeObj?.packageEligible, packages, date }));
+    setPayment(assignedPayment({ isFree, price }));
     setQuery("");
   }
 
@@ -149,31 +126,17 @@ export function PersonalClassFormModal({
       const base = cur || { status: "unpaid" as const, amount: 0, price };
       const next: Payment = { ...base, status, price };
       if (status === "paid") next.amount = price;
-      if (status === "unpaid") {
-        next.amount = 0;
-        next.packageId = undefined;
-      }
-      if (status === "partial") next.packageId = undefined;
-      if (status === "package") {
-        const pkg = eligiblePackage();
-        next.packageId = pkg?.id;
-        next.amount = price;
-      }
+      if (status === "unpaid") next.amount = 0;
       return next;
     });
   }
 
-  function handleTypeChange(newTypeId: string) {
-    setTypeId(newTypeId);
-  }
-
   function handleSave() {
-    if (!typeId) return;
     onSave({
       id: editing ? base!.id : genId(),
       date,
       time,
-      typeId,
+      typeId: null,
       levelId,
       capacity: 1,
       notes: notes.trim(),
@@ -188,22 +151,6 @@ export function PersonalClassFormModal({
       isIndividual: true,
       personalClientId: clientId,
     });
-  }
-
-  if (classTypes.length === 0) {
-    return (
-      <Modal onClose={onClose} width={380}>
-        <div className="p-6 text-center">
-          <div className="font-semibold mb-2">Nessuna tipologia di classe</div>
-          <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-4">
-            Crea prima una tipologia (es. Ashtanga, Flexibility) dalle impostazioni.
-          </div>
-          <button onClick={onOpenSettings} className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: COLORS.primary }}>
-            Vai alle impostazioni
-          </button>
-        </div>
-      </Modal>
-    );
   }
 
   return (
@@ -245,16 +192,7 @@ export function PersonalClassFormModal({
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <Field label="Tipologia">
-            <select value={typeId} onChange={(e) => handleTypeChange(e.target.value)} style={inputStyle}>
-              {classTypes.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+        <div className="mb-3">
           <Field label="Livello">
             <select value={levelId} onChange={(e) => setLevelId(e.target.value)} style={inputStyle}>
               {levels.map((l) => (
@@ -349,7 +287,6 @@ export function PersonalClassFormModal({
                     <option value="unpaid">Da pagare</option>
                     <option value="paid">Pagato</option>
                     <option value="partial">Parziale</option>
-                    {eligiblePackage() && <option value="package">Pacchetto</option>}
                   </select>
                 </>
               )}
@@ -421,8 +358,8 @@ export function PersonalClassFormModal({
           )}
           <button
             onClick={() =>
-              downloadIcsFile(`${typeObj?.name || "Lezione individuale"}-${date}`, [
-                { date, time, title: `${typeObj?.name || "Lezione"} (individuale)`, description: client?.name },
+              downloadIcsFile(`${INDIVIDUAL_LESSON_TITLE}-${date}`, [
+                { date, time, title: individualLessonIcsTitle(client?.name), description: levels.find((l) => l.id === levelId)?.name },
               ])
             }
             className="flex items-center gap-1.5 text-sm font-medium"

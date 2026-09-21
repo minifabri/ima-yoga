@@ -171,7 +171,7 @@ function mapClass(row: {
   id: string;
   class_date: string;
   class_time: string;
-  type_id: string;
+  type_id: string | null;
   level_id: string;
   capacity: number;
   notes: string | null;
@@ -200,7 +200,8 @@ function mapClass(row: {
     id: row.id,
     date: row.class_date,
     time: (row.class_time || "").slice(0, 5),
-    typeId: row.type_id,
+    // Una lezione individuale non ha tipologia, qualunque cosa ci sia nel database.
+    typeId: row.is_individual ? null : row.type_id,
     levelId: row.level_id,
     capacity: row.capacity,
     notes: row.notes ?? "",
@@ -313,7 +314,7 @@ export async function saveClass(supabase: DB, item: ClassItem) {
     id: item.id,
     class_date: item.date,
     class_time: item.time,
-    type_id: item.typeId,
+    type_id: item.isIndividual ? null : item.typeId,
     level_id: item.levelId || null,
     capacity: item.capacity,
     notes: item.notes || null,

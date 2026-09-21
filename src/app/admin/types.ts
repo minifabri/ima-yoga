@@ -11,7 +11,9 @@ export type ClassItem = {
   id: string;
   date: string; // yyyy-mm-dd
   time: string; // HH:mm
-  typeId: string;
+  // Nessuna tipologia per le lezioni individuali (isIndividual): il titolo è sempre
+  // "Lezione individuale" — vedi src/lib/classTitle.ts.
+  typeId: string | null;
   levelId: string;
   capacity: number;
   notes: string;

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { CalendarCheck, CalendarClock, ChevronLeft, ChevronRight, Gift, LayoutGrid, List, Lock, Sparkles, User } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay } from "@/app/admin/utils";
+import { classTitle } from "@/lib/classTitle";
 import { availabilityLabel, formatEventDate, isPastClass, typeInitials } from "./helpers";
 import { useArea } from "./AreaShell";
 import { IndividualClassRequestCard } from "./IndividualClassRequestCard";
@@ -174,7 +175,8 @@ export function CalendarContent() {
                     </span>
                     <div className="flex flex-col gap-1">
                       {dayClasses.map((c) => {
-                        const type = typeById[c.typeId];
+                        const type = c.typeId ? typeById[c.typeId] : undefined;
+                        const title = classTitle(c.isPersonal, c.typeId, typeById);
                         const color = type?.color || COLORS.primary;
                         const avail = availabilityLabel(c);
                         const past = isPastClass(c.date, c.time);
@@ -182,7 +184,7 @@ export function CalendarContent() {
                           <button
                             key={c.id}
                             onClick={() => setSelected(c)}
-                            title={`${c.time} · ${type?.name || "Classe"}`}
+                            title={`${c.time} · ${title}`}
                             className="flex flex-col items-center justify-center w-full"
                             style={{
                               minHeight: 26,
@@ -197,7 +199,7 @@ export function CalendarContent() {
                             <span className="flex items-center gap-0.5" style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>
                               {c.isFree && <Gift size={8} color={COLORS.gold} />}
                               {c.isPersonal && <User size={8} color={COLORS.primary} />}
-                              {typeInitials(type?.name)}
+                              {typeInitials(title)}
                             </span>
                             <span style={{ width: 5, height: 5, borderRadius: 999, background: avail.color, flexShrink: 0 }} />
                           </button>
@@ -227,7 +229,7 @@ export function CalendarContent() {
                     </span>
                     <div className="flex flex-col gap-1">
                       {dayClasses.map((c) => {
-                        const type = typeById[c.typeId];
+                        const type = c.typeId ? typeById[c.typeId] : undefined;
                         const color = type?.color || COLORS.primary;
                         const avail = availabilityLabel(c);
                         const past = isPastClass(c.date, c.time);
@@ -251,7 +253,7 @@ export function CalendarContent() {
                               {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={10} color={COLORS.gold} /></span>}
                               {c.isPersonal && <span title="Lezione individuale" className="inline-flex"><User size={10} color={COLORS.primary} /></span>}
                             </div>
-                            <div>{type?.name || "Classe"}</div>
+                            <div>{classTitle(c.isPersonal, c.typeId, typeById)}</div>
                             <div style={{ color: avail.color, fontWeight: 600 }}>{avail.text}</div>
                           </button>
                         );
@@ -285,7 +287,7 @@ export function CalendarContent() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {dayClasses.map((c) => {
-                    const type = typeById[c.typeId];
+                    const type = c.typeId ? typeById[c.typeId] : undefined;
                     const color = type?.color || COLORS.primary;
                     const avail = availabilityLabel(c);
                     const past = isPastClass(c.date, c.time);
@@ -298,7 +300,7 @@ export function CalendarContent() {
                       >
                         <div>
                           <div className="flex items-center gap-1" style={{ fontSize: 12.5, fontWeight: 700 }}>
-                            {c.time} · {type?.name || "Classe"}
+                            {c.time} · {classTitle(c.isPersonal, c.typeId, typeById)}
                             {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
                             {c.isPersonal && <span title="Lezione individuale" className="inline-flex"><User size={11} color={COLORS.primary} /></span>}
                           </div>

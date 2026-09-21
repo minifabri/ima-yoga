@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Search, Plus, Clock, Trash2, Ban, CheckCircle2, KeyRound, Copy, Mail, Send, RefreshCw, GitMerge } from "lucide-react";
 import { Badge, Modal, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
+import { classTitle } from "@/lib/classTitle";
 import type { ClassItem, ClassType, ClientItem } from "./types";
 
 type AuthStatus = { email: string; emailConfirmed: boolean };
@@ -184,7 +185,7 @@ export function ClientsView({
                     {bookings.map((b) => (
                       <div key={b.id} className="flex items-center gap-2" style={{ fontSize: 12.5 }}>
                         <Clock size={12} color={COLORS.inkSoft} />
-                        {b.date} {b.time && `· ${b.time}`} — {typeById[b.typeId]?.name || "Classe"}
+                        {b.date} {b.time && `· ${b.time}`} — {classTitle(b.isIndividual, b.typeId, typeById)}
                       </div>
                     ))}
                   </div>

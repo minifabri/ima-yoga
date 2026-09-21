@@ -5,6 +5,7 @@ import { ChevronDown, Clock, Download, Gift, History, Moon, PackagePlus, Sparkle
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { dateKey } from "@/app/admin/utils";
 import { downloadIcsFile } from "@/lib/ics";
+import { classTitle } from "@/lib/classTitle";
 import { canStillCancel, formatLune, isPastClass } from "../helpers";
 import { useArea } from "../AreaShell";
 import type { MyEventBooking } from "../types";
@@ -46,14 +47,14 @@ export default function AreaPrenotazioniPage() {
         ) : (
           <div className="flex flex-col gap-2">
             {upcomingBookings.map((b) => {
-              const type = typeById[b.typeId];
+              const title = classTitle(b.isPersonal, b.typeId, typeById);
               const level = levelById[b.levelId];
               const cancellable = canStillCancel(b.date, b.time);
               return (
                 <div key={b.id} className="flex items-center justify-between p-3 rounded-xl flex-wrap gap-2" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
                   <div>
                     <div className="flex items-center gap-1" style={{ fontSize: 13.5, fontWeight: 600 }}>
-                      {b.date} · {b.time} — {type?.name || "Classe"}
+                      {b.date} · {b.time} — {title}
                       {b.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
                       {b.isPersonal && <span title="Lezione individuale" className="inline-flex"><User size={11} color={COLORS.primary} /></span>}
                     </div>
@@ -64,8 +65,8 @@ export default function AreaPrenotazioniPage() {
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() =>
-                        downloadIcsFile(`${type?.name || "Classe"}-${b.date}`, [
-                          { date: b.date, time: b.time, title: type?.name || "Classe", description: level?.name },
+                        downloadIcsFile(`${title}-${b.date}`, [
+                          { date: b.date, time: b.time, title, description: level?.name },
                         ])
                       }
                       title="Aggiungi al calendario"
@@ -204,12 +205,12 @@ export default function AreaPrenotazioniPage() {
           {historyOpen && (
             <div className="flex flex-col gap-1.5 mt-2">
               {pastBookings.map((b) => {
-                const type = typeById[b.typeId];
+                const title = classTitle(b.isPersonal, b.typeId, typeById);
                 const level = levelById[b.levelId];
                 return (
                   <div key={b.id} className="p-2.5 rounded-lg" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
                     <div style={{ fontSize: 12.5, fontWeight: 600 }}>
-                      {b.date} · {b.time} — {type?.name || "Classe"}
+                      {b.date} · {b.time} — {title}
                     </div>
                     <div style={{ fontSize: 11, color: COLORS.inkSoft }}>{level?.name}</div>
                   </div>

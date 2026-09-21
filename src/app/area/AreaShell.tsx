@@ -36,6 +36,7 @@ import { dateKey, getCalendarDays } from "@/app/admin/utils";
 import * as db from "./data";
 import { fetchVisibleSequences, fetchPoseCatalog } from "@/app/admin/data";
 import { downloadIcsFile } from "@/lib/ics";
+import { classTitle } from "@/lib/classTitle";
 import { notifyClassFull, notifyIndividualClassRequest } from "@/lib/notifications";
 import { RequestIndividualClassModal } from "./RequestIndividualClassModal";
 import { availabilityLabel, canStillCancel, errorMessage, formatNoticeDate, isPastClass } from "./helpers";
@@ -461,6 +462,9 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
 
   const typeById = useMemo(() => Object.fromEntries(classTypes.map((t) => [t.id, t])), [classTypes]);
   const levelById = useMemo(() => Object.fromEntries(levels.map((l) => [l.id, l])), [levels]);
+  const selectedTitle = selected ? classTitle(selected.isPersonal, selected.typeId, typeById) : "";
+  // Le lezioni individuali non hanno tipologia (e quindi nemmeno la sua descrizione).
+  const selectedTypeDescription = selected && !selected.isPersonal && selected.typeId ? typeById[selected.typeId]?.description : undefined;
 
   async function goToNextClass() {
     const todayStr = dateKey(new Date());
@@ -500,7 +504,7 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
       }
       if (status === "booked" && updated && updated.capacity > 0 && updated.bookedCount >= updated.capacity) {
         notifyClassFull({
-          className: typeById[updated.typeId]?.name || "Classe",
+          className: classTitle(updated.isPersonal, updated.typeId, typeById),
           date: updated.date,
           time: updated.time,
           capacity: updated.capacity,
@@ -865,7 +869,7 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
             >
               <div className="flex items-center justify-between mb-3">
                 <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>
-                  {typeById[selected.typeId]?.name || "Classe"}
+                  {selectedTitle}
                 </div>
                 <button
                   onClick={() => {
@@ -881,14 +885,6 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                 <span style={{ fontSize: 13, color: COLORS.inkSoft }}>
                   {selected.date} · {selected.time}
                 </span>
-                {selected.isPersonal && (
-                  <span
-                    className="inline-flex items-center gap-1 rounded-full"
-                    style={{ fontSize: 10.5, fontWeight: 700, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 14), padding: "1px 8px" }}
-                  >
-                    <User size={10} /> Lezione individuale
-                  </span>
-                )}
                 {selected.isFree && (
                   <span
                     className="inline-flex items-center gap-1 rounded-full"
@@ -901,11 +897,11 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
               <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="mb-3">
                 {levelById[selected.levelId]?.name}
               </div>
-              {(typeById[selected.typeId]?.description || selected.description) && (
+              {(selectedTypeDescription || selected.description) && (
                 <div className="mb-3 p-2.5 rounded-lg" style={{ background: COLORS.subtle, fontSize: 12.5, color: COLORS.ink, lineHeight: 1.4 }}>
-                  {typeById[selected.typeId]?.description && <div>{typeById[selected.typeId]?.description}</div>}
+                  {selectedTypeDescription && <div>{selectedTypeDescription}</div>}
                   {selected.description && (
-                    <div className={typeById[selected.typeId]?.description ? "mt-1.5" : ""}>{selected.description}</div>
+                    <div className={selectedTypeDescription ? "mt-1.5" : ""}>{selected.description}</div>
                   )}
                 </div>
               )}
@@ -938,11 +934,11 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
               {selected.myStatus === "booked" && (
                 <button
                   onClick={() =>
-                    downloadIcsFile(`${typeById[selected.typeId]?.name || "Classe"}-${selected.date}`, [
+                    downloadIcsFile(`${selectedTitle}-${selected.date}`, [
                       {
                         date: selected.date,
                         time: selected.time,
-                        title: typeById[selected.typeId]?.name || "Classe",
+                        title: selectedTitle,
                         description: levelById[selected.levelId]?.name,
                       },
                     ])

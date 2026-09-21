@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendClassReminderEmail } from "@/lib/notifications";
+import { INDIVIDUAL_LESSON_TITLE } from "@/lib/classTitle";
 
 const ROME_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }); // yyyy-mm-dd
 const ROME_TIME = new Intl.DateTimeFormat("en-GB", {
@@ -31,7 +32,7 @@ export async function runClassRemindersJob(
     const { data: bookings, error } = await adminClient
       .from("bookings")
       .select(
-        "id, client_id, profiles(full_name, auth_user_id), classes!inner(class_date, class_time, class_types(name))"
+        "id, client_id, profiles(full_name, auth_user_id), classes!inner(class_date, class_time, is_individual, class_types(name))"
       )
       .eq("status", "booked")
       .is("reminder_sent_at", null)
@@ -48,7 +49,10 @@ export async function runClassRemindersJob(
       const cls = Array.isArray(booking.classes) ? booking.classes[0] : booking.classes;
       const classType = cls ? (Array.isArray(cls.class_types) ? cls.class_types[0] : cls.class_types) : null;
 
-      if (!profile?.auth_user_id || !cls || !classType?.name) {
+      // Le lezioni individuali non hanno tipologia: nel testo diventano "la lezione individuale".
+      const className = cls?.is_individual ? `la ${INDIVIDUAL_LESSON_TITLE.toLowerCase()}` : classType?.name;
+
+      if (!profile?.auth_user_id || !cls || !className) {
         skipped++;
         continue;
       }
@@ -72,7 +76,7 @@ export async function runClassRemindersJob(
       const ok = await sendClassReminderEmail({
         to: email,
         firstName,
-        className: classType.name,
+        className,
         date: cls.class_date,
         time: cls.class_time.slice(0, 5),
         isToday,
