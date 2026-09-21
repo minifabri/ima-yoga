@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, Route, BookOpen, ArrowLeft, ClipboardList, ScrollText } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, Route, BookOpen, ArrowLeft, ClipboardList, ScrollText, CalendarClock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
@@ -34,6 +34,7 @@ import type {
 } from "./types";
 
 const moreMenuItems: MoreMenuItem[] = [
+  { key: "individual-requests", label: "Lezioni individuali", icon: CalendarClock },
   { key: "events", label: "Eventi", icon: Ticket },
   { key: "surveys", label: "Sondaggi", icon: ClipboardList },
   { key: "earnings", label: "Guadagni", icon: PiggyBank },
@@ -70,7 +71,7 @@ type AdminContextValue = {
   showToast: (msg: string) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
-  saveClassItem: (item: ClassItem) => void;
+  saveClassItem: (item: ClassItem) => Promise<void>;
   deleteClassItem: (id: string) => void;
   moveClass: (id: string, targetDate: string) => void;
   markClassPaymentPaid: (classId: string, clientId: string) => void;
@@ -218,7 +219,13 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
   }, [classes, packages]);
 
   // ---- classes & bookings ----
-  function saveClassItem(item: ClassItem) {
+  // Ritorna la Promise del salvataggio (a differenza delle altre azioni
+  // "fire and forget" di questo file) perché il flusso di accettazione di
+  // una richiesta di lezione individuale deve aspettare che la lezione sia
+  // davvero salvata prima di collegarci la richiesta — vedi
+  // src/app/admin/lezioni-individuali/page.tsx. L'errore resta gestito qui
+  // (toast) come per gli altri chiamanti, che continuano a non fare await.
+  async function saveClassItem(item: ClassItem): Promise<void> {
     const prev = classes.find((c) => c.id === item.id);
     const wasFull = !!prev && prev.capacity > 0 && prev.clientIds.length >= prev.capacity;
     const isFull = item.capacity > 0 && item.clientIds.length >= item.capacity;
@@ -226,11 +233,16 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
       const exists = cur.some((c) => c.id === item.id);
       return exists ? cur.map((c) => (c.id === item.id ? item : c)) : [...cur, item];
     });
-    db.saveClass(supabase, item).catch(() => showToast("Il salvataggio della classe non è riuscito."));
+    try {
+      await db.saveClass(supabase, item);
+    } catch {
+      showToast("Il salvataggio della classe non è riuscito.");
+      throw new Error("Il salvataggio della classe non è riuscito.");
+    }
     // Per una lezione individuale "piena" (1/1) è lo stato atteso appena la
     // assegni, non un evento da segnalarti via email come per una classe di
     // gruppo che si riempie inaspettatamente.
-    if (isFull && !wasFull && !item.personalClientId) {
+    if (isFull && !wasFull && !item.isIndividual) {
       notifyClassFull({
         className: typeById[item.typeId]?.name || "Classe",
         date: item.date,

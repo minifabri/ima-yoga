@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Bell, Check, Lock, LockOpen, Archive, ArchiveRestore, Calculator, ArrowLeft } from "lucide-react";
+import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Bell, Check, Lock, LockOpen, Ban, Undo2, Archive, ArchiveRestore, Calculator, ArrowLeft } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { EventFormModal } from "./EventFormModal";
 import { EventBookingsPanel } from "./EventBookingsPanel";
 import { EventReminderModal } from "./EventReminderModal";
 import { EventBudgetCalculator, computeTotals } from "./EventBudgetCalculator";
-import { deleteEvent, fetchEventBudgets, fetchEvents, saveEvent, setEventArchived, setEventBookingsOpen } from "./data";
+import { deleteEvent, fetchEventBudgets, fetchEvents, saveEvent, setEventArchived, setEventBookingsOpen, setEventCancellationDisabled } from "./data";
 import { notifyEventReminder } from "./actions";
 import type { ClientItem, EventBudget, EventItem } from "./types";
 
@@ -70,6 +70,15 @@ export function EventsView({ supabase, clients }: { supabase: SupabaseClient; cl
     setEventBookingsOpen(supabase, ev.id, next).catch(() => {
       setEvents((cur) => cur.map((e) => (e.id === ev.id ? { ...e, bookingsOpen: ev.bookingsOpen } : e)));
       showToast("Errore nel cambiare lo stato delle iscrizioni.");
+    });
+  }
+
+  function toggleCancellationDisabled(ev: EventItem) {
+    const next = !ev.cancellationDisabled;
+    setEvents((cur) => cur.map((e) => (e.id === ev.id ? { ...e, cancellationDisabled: next } : e)));
+    setEventCancellationDisabled(supabase, ev.id, next).catch(() => {
+      setEvents((cur) => cur.map((e) => (e.id === ev.id ? { ...e, cancellationDisabled: ev.cancellationDisabled } : e)));
+      showToast("Errore nel cambiare lo stato della cancellazione.");
     });
   }
 
@@ -214,6 +223,24 @@ export function EventsView({ supabase, clients }: { supabase: SupabaseClient; cl
                       }}
                     >
                       {ev.bookingsOpen ? <LockOpen size={14} /> : <Lock size={14} />}
+                    </button>
+                    <button
+                      onClick={() => toggleCancellationDisabled(ev)}
+                      title={
+                        ev.cancellationDisabled
+                          ? "Cancellazione disabilitata — clicca per riconsentirla a chi ha prenotato"
+                          : "Cancellazione consentita — clicca per impedire a chi ha prenotato di cancellare da solo"
+                      }
+                      className="flex items-center justify-center rounded-lg"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        border: `1px solid ${withAlpha(ev.cancellationDisabled ? COLORS.danger : COLORS.border, 33)}`,
+                        color: ev.cancellationDisabled ? COLORS.danger : COLORS.inkSoft,
+                        background: ev.cancellationDisabled ? withAlpha(COLORS.danger, 8) : "transparent",
+                      }}
+                    >
+                      {ev.cancellationDisabled ? <Ban size={14} /> : <Undo2 size={14} />}
                     </button>
                     <a
                       href={`/eventi/${ev.slug}`}

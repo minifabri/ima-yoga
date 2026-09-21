@@ -5,7 +5,14 @@ import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import { logAdminAction } from "@/lib/supabase/audit";
 import { addPersonalNotices } from "./data";
-import { sendEventReminderEmail, sendSequenceAssignedEmail, sendSurveyPublishedEmail, sendSurveyReminderEmail } from "@/lib/notifications";
+import {
+  sendEventReminderEmail,
+  sendIndividualClassAcceptedEmail,
+  sendIndividualClassRejectedEmail,
+  sendSequenceAssignedEmail,
+  sendSurveyPublishedEmail,
+  sendSurveyReminderEmail,
+} from "@/lib/notifications";
 import { runClassRemindersJob } from "@/lib/classRemindersJob";
 
 function generateTempPassword(): string {
@@ -364,6 +371,62 @@ export async function notifyEventReminder(
   );
 
   return { ok: true, emailsSent };
+}
+
+// Email al cliente quando l'admin accetta la sua richiesta di lezione
+// individuale (la lezione stessa è già stata creata e collegata prima di
+// chiamare questa action — vedi IndividualClassesView). Come per le altre
+// email di questo file, l'indirizzo vive in auth.users, non in profiles.
+export async function notifyIndividualClassAccepted(
+  clientId: string,
+  details: { date: string; time: string }
+): Promise<{ ok: boolean; error?: string }> {
+  const { ctx, error } = await requireAdminContext();
+  if (!ctx) return { ok: false, error };
+
+  const { data: profile } = await ctx.supabase.from("profiles").select("auth_user_id, full_name").eq("id", clientId).maybeSingle();
+  if (!profile?.auth_user_id) return { ok: true };
+  const { data: userData } = await ctx.adminClient.auth.admin.getUserById(profile.auth_user_id);
+  const email = userData?.user?.email;
+  if (!email) return { ok: true };
+
+  const sent = await sendIndividualClassAcceptedEmail({ to: email, fullName: profile.full_name || "", date: details.date, time: details.time });
+
+  await logAdminAction(
+    ctx.supabase,
+    "notify_individual_class_accepted",
+    "individual_class_requests",
+    null,
+    `Email di accettazione lezione individuale a ${email}${sent ? "" : " (invio non riuscito)"}.`
+  );
+
+  return { ok: true };
+}
+
+// Email al cliente quando l'admin rifiuta la sua richiesta di lezione
+// individuale. Nessuna lezione è stata creata: gli slot proposti restano
+// disponibili per altri.
+export async function notifyIndividualClassRejected(clientId: string, note: string): Promise<{ ok: boolean; error?: string }> {
+  const { ctx, error } = await requireAdminContext();
+  if (!ctx) return { ok: false, error };
+
+  const { data: profile } = await ctx.supabase.from("profiles").select("auth_user_id, full_name").eq("id", clientId).maybeSingle();
+  if (!profile?.auth_user_id) return { ok: true };
+  const { data: userData } = await ctx.adminClient.auth.admin.getUserById(profile.auth_user_id);
+  const email = userData?.user?.email;
+  if (!email) return { ok: true };
+
+  const sent = await sendIndividualClassRejectedEmail({ to: email, fullName: profile.full_name || "", note });
+
+  await logAdminAction(
+    ctx.supabase,
+    "notify_individual_class_rejected",
+    "individual_class_requests",
+    null,
+    `Email di rifiuto lezione individuale a ${email}${sent ? "" : " (invio non riuscito)"}.`
+  );
+
+  return { ok: true };
 }
 
 // Esegui-ora per il promemoria lezioni, dalla pagina Log automazioni: usa

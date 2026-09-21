@@ -20,6 +20,7 @@ type EventRpcRow = {
   allow_plus_one: boolean;
   bookings_open: boolean;
   published: boolean;
+  cancellation_disabled: boolean;
   booked_seats: number;
   waitlist_count: number;
   my_status: "booked" | "waitlist" | null;
@@ -78,6 +79,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
     allowPlusOne: data.allow_plus_one,
     bookingsOpen: data.bookings_open,
     published: data.published,
+    cancellationDisabled: data.cancellation_disabled,
     bookedSeats: data.booked_seats,
     waitlistCount: Number(data.waitlist_count),
     myStatus: data.my_status,

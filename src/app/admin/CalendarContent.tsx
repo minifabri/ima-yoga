@@ -104,12 +104,12 @@ export function CalendarContent() {
   }
   function pasteClass(dateStr: string) {
     if (!clipboard) return;
-    const item: ClassItem = { id: genId(), date: dateStr, ...clipboard, published: false, clientIds: [], waitlistIds: [], payments: {}, personalClientId: null };
+    const item: ClassItem = { id: genId(), date: dateStr, ...clipboard, published: false, clientIds: [], waitlistIds: [], payments: {}, isIndividual: false, personalClientId: null };
     saveClassItem(item);
     showToast("Classe incollata.");
   }
   function openClass(classItem: ClassItem) {
-    if (classItem.personalClientId != null) setPersonalClassModal({ mode: "edit", classItem });
+    if (classItem.isIndividual) setPersonalClassModal({ mode: "edit", classItem });
     else setClassModal({ mode: "edit", classItem });
   }
 

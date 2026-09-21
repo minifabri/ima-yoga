@@ -1,6 +1,8 @@
 import { COLORS } from "@/app/admin/colors";
-import { WEEKDAYS, MONTHS } from "@/app/admin/utils";
+import { WEEKDAYS, MONTHS, isPastClass } from "@/app/admin/utils";
 import type { PublicClass } from "./types";
+
+export { isPastClass };
 
 export function formatLune(amount: number): string {
   const rounded = Math.round(amount * 100) / 100;
@@ -13,11 +15,6 @@ export function formatNoticeDate(iso: string): string {
   const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
   if (d.getFullYear() !== new Date().getFullYear()) opts.year = "numeric";
   return d.toLocaleDateString("it-IT", opts);
-}
-
-export function isPastClass(dateStr: string, timeStr: string): boolean {
-  const dt = new Date(`${dateStr}T${(timeStr || "00:00").padEnd(5, "0")}:00`);
-  return dt.getTime() < Date.now();
 }
 
 export function availabilityLabel(c: PublicClass): { text: string; color: string } {

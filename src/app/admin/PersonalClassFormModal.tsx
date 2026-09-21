@@ -1,14 +1,20 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X, Plus, Trash2, Search, Download, Gift, Eye, EyeOff, User, AlertTriangle } from "lucide-react";
+import { X, Plus, Trash2, Search, Download, Gift, Eye, EyeOff, User } from "lucide-react";
 import { downloadIcsFile } from "@/lib/ics";
 import { Modal, Field, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { genId, dateKey } from "./utils";
 import type { ClassItem, ClassType, ClientItem, Level, PackageWithUsage, Payment, PaymentStatus } from "./types";
 
-type ModalData = { mode: "new"; date: Date } | { mode: "edit"; classItem: ClassItem };
+// assignClientId: usato dal flusso di accettazione di una richiesta di lezione
+// individuale (src/app/admin/lezioni-individuali/page.tsx). Lo slot scelto dal
+// cliente è già una lezione (senza cliente): si apre in modifica con il
+// cliente della richiesta già assegnato, così l'admin lo rivede e lo salva
+// come farebbe assegnandolo a mano — nessuna logica di prezzo/pacchetto
+// duplicata altrove.
+type ModalData = { mode: "new"; date: Date } | { mode: "edit"; classItem: ClassItem; assignClientId?: string };
 
 function paymentMeta(status: PaymentStatus) {
   switch (status) {
@@ -23,13 +29,31 @@ function paymentMeta(status: PaymentStatus) {
   }
 }
 
+// Pagamento iniziale di un cliente appena assegnato: gratuita → pagata, altrimenti
+// pacchetto se ne ha uno utilizzabile (e la tipologia lo ammette), altrimenti da
+// pagare. Funzione pura, condivisa tra assignClient (scelta manuale) e lo stato
+// iniziale (cliente pre-assegnato da una richiesta accettata).
+function assignedPayment(
+  clientId: string,
+  opts: { isFree: boolean; price: number; packageEligible: boolean; packages: PackageWithUsage[]; date: string }
+): Payment {
+  if (opts.isFree) return { status: "paid", amount: 0, price: 0 };
+  const pkg = opts.packageEligible
+    ? opts.packages.filter((p) => p.clientId === clientId && p.date <= opts.date && p.remaining > 0).sort((a, b) => a.date.localeCompare(b.date))[0]
+    : undefined;
+  return pkg
+    ? { status: "package", amount: opts.price, price: opts.price, packageId: pkg.id }
+    : { status: "unpaid", amount: 0, price: opts.price };
+}
+
 // Flusso dedicato per le lezioni individuali (one-to-one): a differenza del
 // ClassFormModal di gruppo, qui c'è un solo cliente possibile (niente lista
 // d'attesa, niente multi-selezione), la capienza è sempre 1 e le iscrizioni
 // non sono mai "aperte" — è l'admin ad assegnare/riassegnare il cliente a
-// mano. La riserva di visibilità (solo il cliente assegnato la vede una
-// volta pubblicata) è applicata lato database da public_classes() e dalla
-// RLS di classes, non qui.
+// mano. Senza cliente la lezione è uno slot: pubblicato, i clienti lo possono
+// scegliere quando richiedono una lezione individuale. La riserva di
+// visibilità (solo il cliente assegnato la vede in calendario) è applicata
+// lato database da public_classes() e dalla RLS di classes, non qui.
 export function PersonalClassFormModal({
   data,
   classTypes,
@@ -69,10 +93,21 @@ export function PersonalClassFormModal({
   const [priceOverride, setPriceOverride] = useState<number | string>(editing ? base!.priceOverride ?? "" : "");
   const [isFree, setIsFree] = useState(editing ? base!.isFree : false);
   const [published, setPublished] = useState(editing ? base!.published : false);
-  const [clientId, setClientId] = useState<string | null>(editing ? base!.personalClientId : null);
-  const [payment, setPayment] = useState<Payment | null>(editing && base!.personalClientId ? base!.payments[base!.personalClientId] || null : null);
+  const assignClientId = data.mode === "edit" && !data.classItem.personalClientId ? data.assignClientId : undefined;
+  const [clientId, setClientId] = useState<string | null>(editing ? base!.personalClientId ?? assignClientId ?? null : null);
+  const [payment, setPayment] = useState<Payment | null>(() => {
+    if (!editing) return null;
+    if (base!.personalClientId) return base!.payments[base!.personalClientId] || null;
+    if (!assignClientId) return null;
+    return assignedPayment(assignClientId, {
+      isFree: base!.isFree,
+      price: base!.isFree ? 0 : Number(base!.priceOverride ?? singleClassPrice) || 0,
+      packageEligible: !!classTypes.find((t) => t.id === base!.typeId)?.packageEligible,
+      packages,
+      date: base!.date,
+    });
+  });
   const [query, setQuery] = useState("");
-  const [showPublishWarning, setShowPublishWarning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const typeObj = classTypes.find((t) => t.id === typeId);
@@ -96,19 +131,11 @@ export function PersonalClassFormModal({
 
   function assignClient(id: string) {
     const price = isFree ? 0 : effectivePrice();
-    const pkg = typeObj?.packageEligible
-      ? packages.filter((p) => p.clientId === id && p.date <= date && p.remaining > 0).sort((a, b) => a.date.localeCompare(b.date))[0]
-      : undefined;
     setClientId(id);
-    setPayment(
-      isFree
-        ? { status: "paid", amount: 0, price: 0 }
-        : pkg
-          ? { status: "package", amount: price, price, packageId: pkg.id }
-          : { status: "unpaid", amount: 0, price }
-    );
+    setPayment(assignedPayment(id, { isFree, price, packageEligible: !!typeObj?.packageEligible, packages, date }));
     setQuery("");
   }
+
   function addNewClient() {
     const name = query.trim();
     if (!name) return;
@@ -142,10 +169,6 @@ export function PersonalClassFormModal({
 
   function handleSave() {
     if (!typeId) return;
-    if (published && !clientId) {
-      setShowPublishWarning(true);
-      return;
-    }
     onSave({
       id: editing ? base!.id : genId(),
       date,
@@ -162,6 +185,7 @@ export function PersonalClassFormModal({
       clientIds: clientId ? [clientId] : [],
       waitlistIds: [],
       payments: clientId && payment ? { [clientId]: { ...payment, price: effectivePrice(), amount: isFree ? 0 : payment.amount } } : {},
+      isIndividual: true,
       personalClientId: clientId,
     });
   }
@@ -197,11 +221,8 @@ export function PersonalClassFormModal({
       <div className="p-5 overflow-y-auto" style={{ flex: 1 }}>
         <button
           type="button"
-          onClick={() => {
-            setPublished((v) => !v);
-            setShowPublishWarning(false);
-          }}
-          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium mb-1.5"
+          onClick={() => setPublished((v) => !v)}
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium mb-4"
           style={{
             border: `1px solid ${withAlpha(published ? COLORS.success : COLORS.gold, 33)}`,
             color: published ? COLORS.success : COLORS.goldText,
@@ -209,16 +230,11 @@ export function PersonalClassFormModal({
           }}
         >
           {published ? <Eye size={15} /> : <EyeOff size={15} />}
-          <span className="flex-1 text-left">{published ? "Pubblicata — visibile solo al cliente assegnato" : "Bozza — visibile solo a te"}</span>
+          <span className="flex-1 text-left">
+            {published ? (clientId ? "Pubblicata — visibile solo al cliente assegnato" : "Slot pubblicato — i clienti lo possono richiedere") : "Bozza — visibile solo a te"}
+          </span>
           <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.8 }}>{published ? "Rendi bozza" : "Pubblica"}</span>
         </button>
-        <div className="mb-4" style={{ fontSize: 11.5, color: COLORS.danger, minHeight: showPublishWarning ? undefined : 0 }}>
-          {showPublishWarning && (
-            <span className="flex items-center gap-1.5">
-              <AlertTriangle size={12} /> Assegna prima un cliente: senza, nessuno la vedrebbe.
-            </span>
-          )}
-        </div>
 
         <div className="grid grid-cols-2 gap-3 mb-3">
           <Field label="Data">
@@ -388,7 +404,11 @@ export function PersonalClassFormModal({
               )}
             </div>
           )}
-          {!client && <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>Nessun cliente assegnato ancora.</div>}
+          {!client && (
+            <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
+              Senza cliente è uno <strong>slot disponibile</strong>: pubblicato, i clienti lo possono scegliere quando richiedono una lezione individuale.
+            </div>
+          )}
         </div>
       </div>
 

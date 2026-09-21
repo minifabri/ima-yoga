@@ -90,6 +90,31 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   redirect(safeNext(formData));
 }
 
+// Avvia il login/registrazione con Google: Supabase crea l'account al primo
+// accesso, quindi lo stesso pulsante serve sia per "Accedi" sia per "Registrati".
+export async function signInWithGoogle(formData: FormData) {
+  const supabase = await createClient();
+
+  const hdrs = await headers();
+  const host = hdrs.get("host");
+  const proto = hdrs.get("x-forwarded-proto") || "https";
+  const origin = host ? `${proto}://${host}` : undefined;
+
+  const next = safeNext(formData);
+  const redirectTo = origin ? `${origin}/auth/callback?next=${encodeURIComponent(next)}` : undefined;
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo },
+  });
+
+  if (error || !data.url) {
+    redirect("/login?error=oauth");
+  }
+
+  redirect(data.url);
+}
+
 export async function requestPasswordReset(_prevState: ForgotPasswordState, formData: FormData): Promise<ForgotPasswordState> {
   const supabase = await createClient();
   const email = String(formData.get("email") || "").trim();

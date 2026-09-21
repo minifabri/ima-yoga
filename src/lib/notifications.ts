@@ -1,6 +1,31 @@
 "use server";
 
-import { eventReminderEmailHtml, sequenceAssignedEmailHtml, surveyPublishedEmailHtml, surveyReminderEmailHtml } from "./emailTemplates";
+import {
+  eventReminderEmailHtml,
+  individualClassRejectedEmailHtml,
+  sequenceAssignedEmailHtml,
+  surveyPublishedEmailHtml,
+  surveyReminderEmailHtml,
+} from "./emailTemplates";
+
+// Campi comuni a tutte le email in uscita. Il mittente (noreply@imayoga.app)
+// non ha una casella che riceve posta: qualunque risposta, anche automatica
+// (risponditore "fuori sede" di una cliente), rimbalzava e la cliente si
+// ritrovava in casella un "Messaggio non recapitato" senza aver scritto nulla.
+// - Auto-Submitted / X-Auto-Response-Suppress dicono ai risponditori automatici
+//   di non rispondere a queste email.
+// - reply_to, se configurato, manda a una casella vera chi risponde a mano
+//   (le email dicono "scrivimi direttamente").
+function commonEmailFields() {
+  return {
+    from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+    reply_to: process.env.RESEND_REPLY_TO_EMAIL || undefined,
+    headers: {
+      "Auto-Submitted": "auto-generated",
+      "X-Auto-Response-Suppress": "All",
+    },
+  };
+}
 
 // Avvisa l'admin via email quando una classe raggiunge il numero massimo di
 // iscritti. Se RESEND_API_KEY o ADMIN_NOTIFICATION_EMAIL non sono configurate
@@ -28,7 +53,7 @@ export async function notifyClassFull(details: { className: string; date: string
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to,
         subject: `Classe piena — ${details.className}, ${dateLabel}`,
         html: `
@@ -41,6 +66,36 @@ export async function notifyClassFull(details: { className: string; date: string
     });
   } catch {
     // vedi commento sopra: un errore di invio non deve mai propagarsi al chiamante
+  }
+}
+
+// Avvisa l'admin via email quando un cliente invia una richiesta di lezione
+// individuale (la notifica in-app arriva a parte, via notify_admin() dentro
+// la RPC request_individual_class — questa è solo l'email di cortesia).
+export async function notifyIndividualClassRequest(details: { clientName: string; notes: string }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = process.env.ADMIN_NOTIFICATION_EMAIL;
+  if (!apiKey || !to) return;
+
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        to,
+        subject: `Nuova richiesta di lezione individuale — ${details.clientName}`,
+        html: `
+          <div style="font-family:Helvetica,Arial,sans-serif; font-size:14px; color:#362D4A; line-height:1.6;">
+            <p><strong>${details.clientName}</strong> ha richiesto una lezione individuale.</p>
+            ${details.notes ? `<p style="color:#362D4A;">Nota: ${details.notes}</p>` : ""}
+            <p style="color:#867CA0; font-size:12.5px;">Vai a «Lezioni individuali» nell'area admin per accettare o rifiutare.</p>
+          </div>
+        `,
+      }),
+    });
+  } catch {
+    // vedi commento in notifyClassFull: un errore di invio non deve mai propagarsi al chiamante
   }
 }
 
@@ -95,7 +150,7 @@ export async function sendEventBookingConfirmationEmail(details: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to: details.to,
         subject: `Prenotazione evento — ${details.eventName}`,
         html: `
@@ -162,7 +217,7 @@ export async function sendSurveyPublishedEmail(details: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to: details.to,
         subject: `Nuovo sondaggio — ${details.surveyTitle}`,
         html: surveyPublishedEmailHtml(details),
@@ -192,7 +247,7 @@ export async function sendSurveyReminderEmail(details: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to: details.to,
         subject: `Il sondaggio "${details.surveyTitle}" aspetta ancora 🤍`,
         html: surveyReminderEmailHtml(details),
@@ -221,7 +276,7 @@ export async function sendEventReminderEmail(details: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to: details.to,
         subject: `${details.eventName} si avvicina e... 🤍`,
         html: eventReminderEmailHtml(details),
@@ -250,10 +305,108 @@ export async function sendSequenceAssignedEmail(details: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to: details.to,
         subject: `Nuova sequenza — ${details.sequenceName}`,
         html: sequenceAssignedEmailHtml(details),
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Conferma al cliente che la sua richiesta di lezione individuale è stata
+// accettata — inline (non in emailTemplates.ts) perché, come
+// sendClassReminderEmail, ha bisogno della data formattata sullo stesso
+// fuso esplicito (UTC) usato in tutto il file.
+export async function sendIndividualClassAcceptedEmail(details: {
+  to: string;
+  fullName: string;
+  date: string; // yyyy-mm-dd
+  time: string; // HH:mm
+}): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !details.to) return false;
+
+  const dateLabel = new Date(`${details.date}T00:00:00Z`).toLocaleDateString("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  });
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ima-yoga.vercel.app";
+  const firstName = details.fullName.split(" ")[0] || "!";
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        to: details.to,
+        subject: `La tua lezione individuale è confermata — ${dateLabel} 🤍`,
+        html: `
+          <div style="background-color:#FAF7F2; padding:40px 16px; font-family:Helvetica, Arial, sans-serif;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:420px; margin:0 auto; background:#FFFFFF; border-radius:18px; overflow:hidden; border:1px solid #E4DAF0;">
+              <tr>
+                <td style="padding:36px 32px 28px 32px; text-align:center;">
+                  <div style="font-family:Georgia,'Times New Roman',serif; font-size:30px; color:#4A3A73; margin-bottom:4px;">
+                    ima yoga
+                  </div>
+                  <div style="font-size:11px; letter-spacing:2px; text-transform:uppercase; color:#D6B36A; font-weight:700; margin-bottom:28px;">
+                    Lezione individuale confermata
+                  </div>
+
+                  <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 8px 0; text-align:left;">
+                    Ciao ${firstName}!
+                  </p>
+                  <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 28px 0; text-align:left;">
+                    La tua richiesta è confermata: ci vediamo <strong>${dateLabel}</strong> alle <strong>${details.time}</strong>, solo per te.
+                  </p>
+
+                  <a href="${siteUrl}/area/prenotazioni"
+                     style="display:inline-block; background:#8E72C7; color:#FFFFFF; text-decoration:none; font-size:14px; font-weight:600; padding:12px 28px; border-radius:10px;">
+                    Vai alla tua area
+                  </a>
+
+                  <p style="font-size:14px; line-height:1.6; color:#362D4A; margin:28px 0 0 0;">
+                    A presto ✨
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:18px 32px; background:#F2EDF9; text-align:center;">
+                  <span style="font-size:11px; color:#867CA0;">ima yoga</span>
+                </td>
+              </tr>
+            </table>
+          </div>
+        `,
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function sendIndividualClassRejectedEmail(details: { to: string; fullName: string; note: string }): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !details.to) return false;
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ima-yoga.vercel.app";
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        to: details.to,
+        subject: "Aggiornamento sulla tua richiesta di lezione individuale",
+        html: individualClassRejectedEmailHtml({ fullName: details.fullName, note: details.note, areaUrl: `${siteUrl}/area/prenotazioni` }),
       }),
     });
     return res.ok;
@@ -298,7 +451,7 @@ export async function sendClassReminderEmail(details: {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
+        ...commonEmailFields(),
         to: details.to,
         subject: `Ci vediamo ${details.isToday ? "stasera" : "domani"} per ${details.className} 🤍`,
         html: `

@@ -8,6 +8,8 @@ import {
   AtSign,
   Bell,
   Bug,
+  CalendarCheck,
+  CalendarX,
   Check,
   ClipboardList,
   Clock,
@@ -34,9 +36,23 @@ import { dateKey, getCalendarDays } from "@/app/admin/utils";
 import * as db from "./data";
 import { fetchVisibleSequences, fetchPoseCatalog } from "@/app/admin/data";
 import { downloadIcsFile } from "@/lib/ics";
-import { notifyClassFull } from "@/lib/notifications";
+import { notifyClassFull, notifyIndividualClassRequest } from "@/lib/notifications";
+import { RequestIndividualClassModal } from "./RequestIndividualClassModal";
 import { availabilityLabel, canStillCancel, errorMessage, formatNoticeDate, isPastClass } from "./helpers";
-import type { Announcement, ClassType, ClientNotice, Level, MyBooking, MyEventBooking, MyLedgerEntry, MyPackage, PublicClass, PublicEvent } from "./types";
+import type {
+  Announcement,
+  AvailableIndividualSlot,
+  ClassType,
+  ClientNotice,
+  Level,
+  MyBooking,
+  MyEventBooking,
+  MyIndividualClassRequest,
+  MyLedgerEntry,
+  MyPackage,
+  PublicClass,
+  PublicEvent,
+} from "./types";
 import type { PoseCatalogItem, Sequence } from "@/app/admin/types";
 
 const DISMISSED_ANNOUNCEMENTS_KEY = "ima-yoga-dismissed-announcements";
@@ -87,6 +103,14 @@ type AreaContextValue = {
   handleCancelEvent: (eventId: string) => Promise<void>;
   hasNewSequences: boolean;
   hasNewCalendar: boolean;
+  availableIndividualSlots: AvailableIndividualSlot[];
+  individualSlotsLoading: boolean;
+  myIndividualClassRequest: MyIndividualClassRequest | null;
+  individualRequestModalOpen: boolean;
+  openIndividualRequestModal: () => void;
+  closeIndividualRequestModal: () => void;
+  submitIndividualClassRequest: (slotIds: string[], notes: string) => Promise<void>;
+  cancelMyIndividualClassRequest: () => Promise<void>;
 };
 
 const AreaContext = createContext<AreaContextValue | null>(null);
@@ -144,6 +168,10 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
   const [favoriteSequenceIds, setFavoriteSequenceIds] = useState<Set<string>>(new Set());
   const [myNotices, setMyNotices] = useState<ClientNotice[]>([]);
   const [unreadNoticeCount, setUnreadNoticeCount] = useState(0);
+  const [myIndividualClassRequest, setMyIndividualClassRequest] = useState<MyIndividualClassRequest | null>(null);
+  const [availableIndividualSlots, setAvailableIndividualSlots] = useState<AvailableIndividualSlot[]>([]);
+  const [individualSlotsLoading, setIndividualSlotsLoading] = useState(false);
+  const [individualRequestModalOpen, setIndividualRequestModalOpen] = useState(false);
   const [selected, setSelected] = useState<PublicClass | null>(null);
   const [justBookedId, setJustBookedId] = useState<string | null>(null);
   const [justCancelledId, setJustCancelledId] = useState<string | null>(null);
@@ -347,16 +375,64 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
   }
 
   async function refreshMine() {
-    const [bookings, eventBookings, packages, ledger] = await Promise.all([
+    const [bookings, eventBookings, packages, ledger, individualRequest] = await Promise.all([
       db.fetchMyBookings(supabase),
       db.fetchMyEventBookings(supabase),
       db.fetchMyPackages(supabase),
       db.fetchMyLedger(supabase),
+      db.fetchMyIndividualClassRequest(supabase),
     ]);
     setMyBookings(bookings);
     setMyEventBookings(eventBookings);
     setMyPackages(packages);
     setMyLedger(ledger);
+    setMyIndividualClassRequest(individualRequest);
+  }
+
+  // Gli slot disponibili si caricano solo alla prima apertura del modale
+  // (feature usata raramente): niente query in più a ogni caricamento
+  // dell'area per chi non la usa mai.
+  function openIndividualRequestModal() {
+    setIndividualRequestModalOpen(true);
+    if (availableIndividualSlots.length === 0) {
+      setIndividualSlotsLoading(true);
+      db.fetchAvailableIndividualSlots(supabase)
+        .then(setAvailableIndividualSlots)
+        .catch(() => showToast("Errore nel caricamento delle date disponibili."))
+        .finally(() => setIndividualSlotsLoading(false));
+    }
+  }
+  function closeIndividualRequestModal() {
+    setIndividualRequestModalOpen(false);
+  }
+
+  async function submitIndividualClassRequest(slotIds: string[], notes: string) {
+    setPending(true);
+    try {
+      await db.requestIndividualClass(supabase, slotIds, notes);
+      showToast("Richiesta inviata: ti scriverò appena la confermo.");
+      setIndividualRequestModalOpen(false);
+      await refreshMine();
+      notifyIndividualClassRequest({ clientName: fullName, notes }).catch(() => {});
+    } catch (err) {
+      showToast(errorMessage(err) || "Non è stato possibile inviare la richiesta.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function cancelMyIndividualClassRequest() {
+    if (!myIndividualClassRequest) return;
+    setPending(true);
+    try {
+      await db.cancelIndividualClassRequest(supabase, myIndividualClassRequest.id);
+      setMyIndividualClassRequest(null);
+      showToast("Richiesta annullata.");
+    } catch (err) {
+      showToast(errorMessage(err) || "Non è stato possibile annullare la richiesta.");
+    } finally {
+      setPending(false);
+    }
   }
 
   async function handleCancelEvent(eventId: string) {
@@ -483,6 +559,14 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
     handleCancelEvent,
     hasNewSequences,
     hasNewCalendar,
+    availableIndividualSlots,
+    individualSlotsLoading,
+    myIndividualClassRequest,
+    individualRequestModalOpen,
+    openIndividualRequestModal,
+    closeIndividualRequestModal,
+    submitIndividualClassRequest,
+    cancelMyIndividualClassRequest,
   };
 
   return (
@@ -602,6 +686,10 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                                 <Sparkles size={14} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                               ) : n.kind === "waitlist_promoted" ? (
                                 <UserCheck size={14} color={COLORS.success} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
+                              ) : n.kind === "individual_class_accepted" ? (
+                                <CalendarCheck size={14} color={COLORS.success} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
+                              ) : n.kind === "individual_class_rejected" ? (
+                                <CalendarX size={14} color={COLORS.inkSoft} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                               ) : (
                                 <Bell size={14} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                               );
@@ -1006,6 +1094,16 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
               </form>
             </div>
           </div>
+        )}
+
+        {individualRequestModalOpen && (
+          <RequestIndividualClassModal
+            slots={availableIndividualSlots}
+            loading={individualSlotsLoading}
+            pending={pending}
+            onClose={closeIndividualRequestModal}
+            onSubmit={submitIndividualClassRequest}
+          />
         )}
 
         {deleteAccountOpen && (

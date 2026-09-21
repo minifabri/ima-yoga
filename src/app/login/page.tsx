@@ -4,6 +4,7 @@ import { Suspense, useActionState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { login, type ActionState } from "@/app/actions";
+import { GoogleSignInButton } from "@/app/GoogleSignInButton";
 import { createClient } from "@/lib/supabase/client";
 import { trackPageView } from "@/lib/track";
 
@@ -38,6 +39,19 @@ function AccountDeletedBanner() {
   );
 }
 
+function OAuthErrorBanner() {
+  const searchParams = useSearchParams();
+  if (searchParams.get("error") !== "oauth") return null;
+  return (
+    <div
+      className="text-sm rounded-lg px-3 py-2 mb-3"
+      style={{ background: "color-mix(in srgb, var(--danger) 14%, transparent)", color: "var(--danger)" }}
+    >
+      Accesso con Google non riuscito. Riprova.
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(login, initialState);
   const supabase = useMemo(() => createClient(), []);
@@ -63,6 +77,18 @@ export default function LoginPage() {
         <Suspense fallback={null}>
           <AccountDeletedBanner />
         </Suspense>
+        <Suspense fallback={null}>
+          <OAuthErrorBanner />
+        </Suspense>
+
+        <div className="mb-4">
+          <GoogleSignInButton label="Accedi con Google" />
+        </div>
+        <div className="flex items-center gap-3 mb-4" style={{ color: "var(--ink-soft)" }}>
+          <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+          <span style={{ fontSize: 11.5 }}>oppure</span>
+          <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+        </div>
 
         <form action={formAction} className="flex flex-col gap-3">
           <Suspense fallback={null}>
@@ -101,6 +127,11 @@ export default function LoginPage() {
           <Suspense fallback={<Link href="/signup" style={{ color: "var(--primary-dark)", fontWeight: 600 }}>Registrati</Link>}>
             <SignupLink />
           </Suspense>
+        </div>
+        <div className="mt-2 text-center" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+          <Link href="/privacy" style={{ color: "var(--ink-soft)", textDecoration: "underline" }}>
+            Informativa Privacy
+          </Link>
         </div>
       </div>
     </main>

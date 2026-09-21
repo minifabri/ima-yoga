@@ -10,7 +10,17 @@ import { useArea } from "../AreaShell";
 import type { MyEventBooking } from "../types";
 
 export default function AreaPrenotazioniPage() {
-  const { myBookings, myEventBookings, myPackages, myLedger, typeById, levelById, pending, handleCancel, handleCancelEvent } = useArea();
+  const {
+    myBookings,
+    myEventBookings,
+    myPackages,
+    myLedger,
+    typeById,
+    levelById,
+    pending,
+    handleCancel,
+    handleCancelEvent,
+  } = useArea();
   const [confirmCancelEvent, setConfirmCancelEvent] = useState<MyEventBooking | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -116,16 +126,19 @@ export default function AreaPrenotazioniPage() {
                       )}
                     </div>
                   </div>
-                  {!pastEvent && (
-                    <button
-                      disabled={pending}
-                      onClick={() => setConfirmCancelEvent(b)}
-                      className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
-                      style={{ color: COLORS.danger, border: `1px solid ${withAlpha(COLORS.danger, 33)}` }}
-                    >
-                      <X size={12} /> Cancella
-                    </button>
-                  )}
+                  {!pastEvent &&
+                    (b.cancellationDisabled ? (
+                      <span style={{ fontSize: 11, color: COLORS.inkSoft, fontStyle: "italic" }}>Per cancellare ora, contattaci</span>
+                    ) : (
+                      <button
+                        disabled={pending}
+                        onClick={() => setConfirmCancelEvent(b)}
+                        className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
+                        style={{ color: COLORS.danger, border: `1px solid ${withAlpha(COLORS.danger, 33)}` }}
+                      >
+                        <X size={12} /> Cancella
+                      </button>
+                    ))}
                 </div>
               );
             })}

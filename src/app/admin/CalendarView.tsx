@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, UserPlus, User, ClipboardPaste, LayoutGrid, List, Lock, EyeOff, GripVertical, CalendarClock, Download, Gift } from "lucide-react";
 import { IconButton, CapacityBar } from "./ui";
 import { COLORS, withAlpha } from "./colors";
-import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays } from "./utils";
+import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays, isPastClass } from "./utils";
 import { downloadIcsFile } from "@/lib/ics";
 import type { ClassItem, ClassType, ClientItem, EventItem, Level } from "./types";
 
@@ -33,7 +33,7 @@ function availabilityDot(c: ClassItem): string {
   // Per le lezioni individuali "piena" (1/1) è lo stato normale, non un
   // allarme da segnalare in rosso come per una classe di gruppo: qui il
   // pallino indica solo se un cliente è assegnato o meno.
-  if (c.personalClientId) return c.clientIds.length > 0 ? COLORS.primary : COLORS.gold;
+  if (c.isIndividual) return c.clientIds.length > 0 ? COLORS.primary : COLORS.gold;
   const booked = c.clientIds.length;
   const capNum = c.capacity;
   const full = capNum > 0 && booked >= capNum;
@@ -292,8 +292,9 @@ export function CalendarView({
                     <div className="flex flex-col gap-0.5">
                       {dayClasses.map((c) => {
                         const type = typeById[c.typeId];
-                        const color = c.personalClientId ? COLORS.primary : type?.color || COLORS.primary;
+                        const color = c.isIndividual ? COLORS.primary : type?.color || COLORS.primary;
                         const dot = availabilityDot(c);
+                        const past = isPastClass(c.date, c.time);
                         return (
                           <button
                             key={c.id}
@@ -311,18 +312,18 @@ export function CalendarView({
                               minHeight: 26,
                               padding: "3px 2px",
                               borderRadius: 5,
-                              background: withAlpha(color, 12),
+                              background: withAlpha(color, past ? 6 : 12),
                               borderLeft: `2.5px solid ${color}`,
                               gap: 2,
-                              opacity: c.published ? 1 : 0.6,
+                              opacity: (c.published ? 1 : 0.6) * (past ? 0.6 : 1),
                             }}
-                            title={`${c.time || "—"}${c.published ? "" : " · Bozza"}${c.personalClientId ? " · Individuale" : ""} · Trascina per spostare in un altro giorno`}
+                            title={`${c.time || "—"}${c.published ? "" : " · Bozza"}${c.isIndividual ? (c.personalClientId ? " · Individuale" : " · Slot individuale") : ""} · Trascina per spostare in un altro giorno`}
                           >
                             <span className="flex items-center gap-0.5" style={{ fontSize: 9.5, fontWeight: 800, color: COLORS.ink, letterSpacing: 0.3 }}>
                               {!c.published && <EyeOff size={8} color={COLORS.inkSoft} />}
-                              {!c.bookingsOpen && !c.personalClientId && <Lock size={8} color={COLORS.inkSoft} />}
+                              {!c.bookingsOpen && !c.isIndividual && <Lock size={8} color={COLORS.inkSoft} />}
                               {c.isFree && <Gift size={8} color={COLORS.gold} />}
-                              {c.personalClientId && <User size={8} color={COLORS.primary} />}
+                              {c.isIndividual && <User size={8} color={COLORS.primary} />}
                               {typeInitials(type?.name)}
                             </span>
                             <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
@@ -461,27 +462,33 @@ export function CalendarView({
                   {dayClasses.map((c) => {
                     const type = typeById[c.typeId];
                     const level = levelById[c.levelId];
-                    const color = c.personalClientId ? COLORS.primary : type?.color || COLORS.primary;
+                    const color = c.isIndividual ? COLORS.primary : type?.color || COLORS.primary;
                     const booked = c.clientIds.length;
                     const waiting = c.waitlistIds.length;
                     const dot = availabilityDot(c);
                     const assignedClient = c.personalClientId ? clientById[c.personalClientId] : undefined;
+                    const past = isPastClass(c.date, c.time);
                     return (
                       <button
                         key={c.id}
                         onClick={() => onOpenClass(c)}
                         className="flex items-center justify-between text-left p-2.5 rounded-lg w-full gap-2"
-                        style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderLeft: `3px solid ${color}`, opacity: c.published ? 1 : 0.65 }}
+                        style={{
+                          background: COLORS.card,
+                          border: `1px solid ${COLORS.border}`,
+                          borderLeft: `3px solid ${color}`,
+                          opacity: (c.published ? 1 : 0.65) * (past ? 0.6 : 1),
+                        }}
                       >
                         <div>
                           <div style={{ fontSize: 12.5, fontWeight: 700 }} className="flex items-center gap-1.5">
                             {c.time || "—"} · {type?.name || "Classe"}
-                            {c.personalClientId && (
+                            {c.isIndividual && (
                               <span
                                 className="inline-flex items-center gap-0.5 rounded-full"
                                 style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 14), padding: "1px 6px" }}
                               >
-                                <User size={9} /> Individuale
+                                <User size={9} /> {assignedClient ? "Individuale" : "Slot"}
                               </span>
                             )}
                             {!c.published && (
@@ -492,7 +499,7 @@ export function CalendarView({
                                 <EyeOff size={9} /> Bozza
                               </span>
                             )}
-                            {!c.bookingsOpen && !c.personalClientId && <Lock size={11} color={COLORS.inkSoft} />}
+                            {!c.bookingsOpen && !c.isIndividual && <Lock size={11} color={COLORS.inkSoft} />}
                             {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
                           </div>
                           <div style={{ fontSize: 11, color: COLORS.inkSoft }}>
@@ -501,7 +508,7 @@ export function CalendarView({
                         </div>
                         <span className="flex items-center gap-1.5" style={{ fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
                           <span style={{ width: 7, height: 7, borderRadius: 999, background: dot }} />
-                          {c.personalClientId ? (assignedClient ? "assegnata" : "da assegnare") : `${booked}/${c.capacity || "—"}`}
+                          {c.isIndividual ? (assignedClient ? "assegnata" : "slot libero") : `${booked}/${c.capacity || "—"}`}
                           {waiting > 0 && <span style={{ color: COLORS.goldText }}> · {waiting} attesa</span>}
                         </span>
                       </button>
@@ -557,10 +564,11 @@ function ClassCard({
   onDragEnd: () => void;
 }) {
   const c = classItem;
-  const isPersonal = !!c.personalClientId;
+  const isPersonal = c.isIndividual;
   const color = isPersonal ? COLORS.primary : type?.color || COLORS.primary;
   const booked = c.clientIds.length;
   const waiting = c.waitlistIds.length;
+  const past = isPastClass(c.date, c.time);
 
   if (compact) {
     const dot = availabilityDot(c);
@@ -575,11 +583,11 @@ function ClassCard({
           cursor: "grab",
           borderRadius: 7,
           padding: "4px 7px",
-          background: withAlpha(color, 9),
+          background: withAlpha(color, past ? 5 : 9),
           borderLeft: `2.5px solid ${color}`,
-          opacity: c.published ? 1 : 0.7,
+          opacity: (c.published ? 1 : 0.7) * (past ? 0.6 : 1),
         }}
-        title={`${c.time || "—"} · ${type?.name || "Classe"}${isPersonal ? " · Individuale" : ""}${c.published ? "" : " · Bozza"} · Trascina per spostare in un altro giorno`}
+        title={`${c.time || "—"} · ${type?.name || "Classe"}${isPersonal ? (client ? " · Individuale" : " · Slot individuale") : ""}${c.published ? "" : " · Bozza"} · Trascina per spostare in un altro giorno`}
       >
         <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
         <span style={{ fontSize: 10.5, fontWeight: 700, color: COLORS.ink, flexShrink: 0 }}>{c.time || "—"}</span>
@@ -605,10 +613,10 @@ function ClassCard({
         cursor: "grab",
         borderRadius: 10,
         padding: "8px 9px",
-        background: withAlpha(color, 9),
+        background: withAlpha(color, past ? 5 : 9),
         borderLeft: `3px solid ${color}`,
         gap: 4,
-        opacity: c.published ? 1 : 0.7,
+        opacity: (c.published ? 1 : 0.7) * (past ? 0.6 : 1),
       }}
       title={`Trascina per spostare in un altro giorno${c.published ? "" : " · Bozza, non visibile ai clienti"}`}
     >
@@ -628,7 +636,7 @@ function ClassCard({
           className="self-start inline-flex items-center gap-0.5 rounded-full"
           style={{ fontSize: 9.5, fontWeight: 700, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 14), padding: "1px 6px" }}
         >
-          <User size={9} /> Individuale{client ? ` · ${client.name}` : ""}
+          <User size={9} /> {client ? `Individuale · ${client.name}` : "Slot individuale"}
         </span>
       )}
       {!c.published && (

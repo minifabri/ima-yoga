@@ -18,10 +18,37 @@ export type Announcement = {
 export type ClientNotice = {
   id: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published" | "sequence_assigned";
+  kind:
+    | "custom"
+    | "package_assigned"
+    | "welcome"
+    | "waitlist_promoted"
+    | "survey_published"
+    | "sequence_assigned"
+    | "individual_class_accepted"
+    | "individual_class_rejected";
   linkPath: string | null;
   createdAt: string;
   read: boolean;
+};
+
+export type AvailableIndividualSlot = {
+  id: string;
+  date: string; // yyyy-mm-dd
+  time: string; // HH:mm
+};
+
+export type IndividualClassRequestStatus = "pending" | "accepted" | "rejected" | "cancelled";
+
+// La richiesta di lezione individuale del cliente corrente, se ne ha una in
+// corso (o l'ultima gestita) — vedi RequestIndividualClassModal e
+// AreaShell.submitIndividualClassRequest.
+export type MyIndividualClassRequest = {
+  id: string;
+  status: IndividualClassRequestStatus;
+  notes: string;
+  proposedSlots: AvailableIndividualSlot[];
+  createdAt: string;
 };
 
 export type PublicClass = {
@@ -93,4 +120,5 @@ export type MyEventBooking = {
   price: number;
   plusOne: boolean;
   plusOneName: string | null;
+  cancellationDisabled: boolean;
 };

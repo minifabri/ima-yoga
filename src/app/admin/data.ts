@@ -14,6 +14,8 @@ import type {
   EventItem,
   Expense,
   HoldUnit,
+  IndividualClassRequest,
+  IndividualClassRequestStatus,
   LedgerEntry,
   Level,
   NotificationItem,
@@ -179,6 +181,7 @@ function mapClass(row: {
   is_free: boolean;
   published: boolean;
   personal_client_id: string | null;
+  is_individual: boolean;
   bookings: BookingRow[];
 }): ClassItem {
   const bookings = row.bookings ?? [];
@@ -209,7 +212,36 @@ function mapClass(row: {
     clientIds: booked.map((b) => b.client_id),
     waitlistIds: waitlist.map((b) => b.client_id),
     payments,
+    isIndividual: row.is_individual,
     personalClientId: row.personal_client_id,
+  };
+}
+
+function mapIndividualClassRequest(row: {
+  id: string;
+  client_id: string;
+  notes: string | null;
+  status: IndividualClassRequestStatus;
+  chosen_slot_id: string | null;
+  resulting_class_id: string | null;
+  decision_note: string | null;
+  decided_at: string | null;
+  created_at: string;
+  profiles: { full_name: string } | null;
+  individual_class_request_slots: { slot_id: string }[] | null;
+}): IndividualClassRequest {
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    clientName: row.profiles?.full_name ?? "",
+    notes: row.notes ?? "",
+    status: row.status,
+    proposedSlotIds: (row.individual_class_request_slots ?? []).map((s) => s.slot_id),
+    chosenSlotId: row.chosen_slot_id,
+    resultingClassId: row.resulting_class_id,
+    decisionNote: row.decision_note,
+    decidedAt: row.decided_at,
+    createdAt: row.created_at,
   };
 }
 
@@ -290,6 +322,7 @@ export async function saveClass(supabase: DB, item: ClassItem) {
     price_override: item.priceOverride,
     is_free: item.isFree,
     published: item.published,
+    is_individual: item.isIndividual,
     personal_client_id: item.personalClientId,
   });
   if (classErr) throw classErr;
@@ -336,6 +369,55 @@ export async function deleteClass(supabase: DB, id: string) {
 export async function moveClass(supabase: DB, id: string, newDate: string) {
   const { error } = await supabase.from("classes").update({ class_date: newDate }).eq("id", id);
   if (error) throw error;
+}
+
+// ---------------------------------------------------------
+// Richieste di lezione individuale dei clienti. Gli slot che propongono sono
+// lezioni individuali senza cliente (già in `classes`, vedi
+// PersonalClassFormModal); accettare una richiesta assegna loro il cliente.
+// Come events/surveys, le richieste non fanno parte del bootstrap di
+// fetchAdminData — le carica direttamente la pagina /admin/lezioni-individuali.
+// ---------------------------------------------------------
+export async function fetchIndividualClassRequests(supabase: DB): Promise<IndividualClassRequest[]> {
+  const { data, error } = await supabase
+    .from("individual_class_requests")
+    .select("*, profiles(full_name), individual_class_request_slots(slot_id)")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapIndividualClassRequest);
+}
+
+export async function acceptIndividualClassRequest(
+  supabase: DB,
+  params: { requestId: string; classId: string }
+): Promise<void> {
+  const { error } = await supabase.rpc("finalize_individual_class_request", {
+    p_request_id: params.requestId,
+    p_class_id: params.classId,
+  });
+  if (error) throw error;
+}
+
+export async function rejectIndividualClassRequest(supabase: DB, requestId: string, note: string): Promise<void> {
+  const trimmedNote = note.trim();
+  const { data, error } = await supabase
+    .from("individual_class_requests")
+    .update({ status: "rejected", decision_note: trimmedNote || null, decided_at: new Date().toISOString() })
+    .eq("id", requestId)
+    .eq("status", "pending")
+    .select("client_id")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Richiesta non trovata o già gestita.");
+
+  await addPersonalNotices(
+    supabase,
+    [data.client_id],
+    trimmedNote
+      ? `La tua richiesta di lezione individuale non è stata accettata. ${trimmedNote}`
+      : "La tua richiesta di lezione individuale non è stata accettata. Scrivimi per organizzare insieme un'altra data.",
+    { kind: "individual_class_rejected", linkPath: "/area/prenotazioni" }
+  );
 }
 
 export async function markBookingPaid(supabase: DB, classId: string, clientId: string, price: number) {
@@ -736,6 +818,7 @@ function mapEvent(row: {
   bookings_open: boolean;
   published: boolean;
   archived: boolean;
+  cancellation_disabled: boolean;
 }): EventItem {
   return {
     id: row.id,
@@ -754,6 +837,7 @@ function mapEvent(row: {
     bookingsOpen: row.bookings_open,
     published: row.published,
     archived: row.archived,
+    cancellationDisabled: row.cancellation_disabled,
   };
 }
 
@@ -782,6 +866,7 @@ export async function saveEvent(
     allow_plus_one: event.allowPlusOne,
     bookings_open: event.bookingsOpen,
     published: event.published,
+    cancellation_disabled: event.cancellationDisabled,
   };
   const query = event.id
     ? supabase.from("events").update(payload).eq("id", event.id).select().single()
@@ -798,6 +883,11 @@ export async function deleteEvent(supabase: DB, id: string) {
 
 export async function setEventBookingsOpen(supabase: DB, id: string, bookingsOpen: boolean) {
   const { error } = await supabase.from("events").update({ bookings_open: bookingsOpen }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function setEventCancellationDisabled(supabase: DB, id: string, cancellationDisabled: boolean) {
+  const { error } = await supabase.from("events").update({ cancellation_disabled: cancellationDisabled }).eq("id", id);
   if (error) throw error;
 }
 

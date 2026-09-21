@@ -293,6 +293,10 @@ export function EventPublicView({
             </div>
             {past ? (
               <div style={{ fontSize: 12.5, color: COLORS.inkSoft, fontStyle: "italic" }}>Questo evento è già passato.</div>
+            ) : event.cancellationDisabled ? (
+              <div style={{ fontSize: 12.5, color: COLORS.inkSoft, fontStyle: "italic" }}>
+                Per questo evento non è più possibile cancellare la prenotazione da soli: scrivici direttamente.
+              </div>
             ) : (
               <button
                 disabled={submitting}

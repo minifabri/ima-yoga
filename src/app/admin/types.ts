@@ -23,11 +23,14 @@ export type ClassItem = {
   clientIds: string[];
   waitlistIds: string[];
   payments: Record<string, Payment>;
-  // Se valorizzato, la classe è una lezione individuale (one-to-one) riservata
-  // a questo cliente: vedi PersonalClassFormModal. Una volta pubblicata la
+  // Lezione individuale (one-to-one): vedi PersonalClassFormModal. Indipendente
+  // dal cliente, così una lezione ancora da assegnare (bozza senza cliente) resta
+  // riconoscibile come individuale e non diventa una classe di gruppo.
+  isIndividual: boolean;
+  // Il cliente a cui è riservata (solo se isIndividual). Una volta pubblicata la
   // vede (ed è già iscritto) solo lui/lei — non compare nel calendario degli
   // altri clienti (filtro applicato da public_classes() e dalla RLS di
-  // classes lato database).
+  // classes lato database, che nascondono anche quelle senza cliente).
   personalClientId: string | null;
 };
 
@@ -106,9 +109,33 @@ export type ClientNotice = {
   clientId: string;
   clientName: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published" | "sequence_assigned";
+  kind:
+    | "custom"
+    | "package_assigned"
+    | "welcome"
+    | "waitlist_promoted"
+    | "survey_published"
+    | "sequence_assigned"
+    | "individual_class_accepted"
+    | "individual_class_rejected";
   linkPath: string | null;
   read: boolean;
+  createdAt: string;
+};
+
+export type IndividualClassRequestStatus = "pending" | "accepted" | "rejected" | "cancelled";
+
+export type IndividualClassRequest = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  notes: string;
+  status: IndividualClassRequestStatus;
+  proposedSlotIds: string[];
+  chosenSlotId: string | null;
+  resultingClassId: string | null;
+  decisionNote: string | null;
+  decidedAt: string | null;
   createdAt: string;
 };
 
@@ -129,7 +156,14 @@ export type WorkLogEntry = {
   userAgent: string | null;
 };
 
-export type NotificationType = "registration" | "enrollment" | "cancellation" | "issue_report" | "interest" | "survey_response";
+export type NotificationType =
+  | "registration"
+  | "enrollment"
+  | "cancellation"
+  | "issue_report"
+  | "interest"
+  | "survey_response"
+  | "individual_class_request";
 
 export type NotificationItem = {
   id: string;
@@ -166,6 +200,7 @@ export type EventItem = {
   bookingsOpen: boolean;
   published: boolean;
   archived: boolean;
+  cancellationDisabled: boolean;
 };
 
 export type EventBookingItem = {

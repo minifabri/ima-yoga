@@ -4,6 +4,7 @@ import { Suspense, useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signup, type SignupState } from "@/app/actions";
+import { GoogleSignInButton } from "@/app/GoogleSignInButton";
 import { createClient } from "@/lib/supabase/client";
 import { getVisitorId, trackPageView } from "@/lib/track";
 
@@ -53,7 +54,17 @@ export default function SignupPage() {
             Account creato! Controlla la tua email e clicca sul link di conferma per attivarlo prima di accedere.
           </div>
         ) : (
-          <form action={formAction} className="flex flex-col gap-3">
+          <>
+            <div className="mb-4">
+              <GoogleSignInButton label="Registrati con Google" />
+            </div>
+            <div className="flex items-center gap-3 mb-4" style={{ color: "var(--ink-soft)" }}>
+              <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+              <span style={{ fontSize: 11.5 }}>oppure</span>
+              <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+            </div>
+
+            <form action={formAction} className="flex flex-col gap-3">
             <input type="hidden" name="visitor_id" value={visitorId ?? ""} />
             <Suspense fallback={null}>
               <NextField />
@@ -92,7 +103,8 @@ export default function SignupPage() {
             >
               {pending ? "Creazione account…" : "Registrati"}
             </button>
-          </form>
+            </form>
+          </>
         )}
 
         <div className="mt-4 text-center" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
@@ -100,6 +112,12 @@ export default function SignupPage() {
           <Suspense fallback={<Link href="/login" style={{ color: "var(--primary-dark)", fontWeight: 600 }}>Accedi</Link>}>
             <LoginLink />
           </Suspense>
+        </div>
+        <div className="mt-2 text-center" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+          Registrandoti accetti la nostra{" "}
+          <Link href="/privacy" style={{ color: "var(--ink-soft)", textDecoration: "underline" }}>
+            Informativa Privacy
+          </Link>
         </div>
       </div>
     </main>
