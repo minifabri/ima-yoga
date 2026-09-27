@@ -15,7 +15,7 @@ export default function PrivacyPage() {
           Informativa Privacy
         </div>
         <p className="mt-1 mb-6" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-          Ultimo aggiornamento: 18 settembre 2026
+          Ultimo aggiornamento: 27 settembre 2026
         </p>
 
         <div className="flex flex-col gap-5" style={{ fontSize: 14, lineHeight: 1.6, color: "var(--ink)" }}>
@@ -30,12 +30,17 @@ export default function PrivacyPage() {
           <Section title="2. Quali dati raccogliamo e perché">
             <p><strong>Dati dell&apos;account.</strong> Quando crei un account (email e password, oppure con Google) raccogliamo nome e cognome, email, telefono (facoltativo). Se ti registri con Google, riceviamo da Google nome, email e foto profilo (se presente) — usiamo questi dati solo per creare e riconoscere il tuo account, non abbiamo accesso alla tua password Google.</p>
             <p><strong>Dati di prenotazione.</strong> Le lezioni ed eventi che prenoti, le presenze, i pacchetti acquistati: servono a gestire il servizio che ci hai richiesto.</p>
+            <p><strong>Prenotazioni agli eventi senza account.</strong> Se prenoti un evento senza registrarti, raccogliamo nome e cognome ed email. Se porti qualcuno con te, ci indichi anche il nome della persona che ti accompagna. Usiamo questi dati solo per gestire quella prenotazione e scriverti in merito all&apos;evento.</p>
+            <p><strong>Richieste e segnalazioni.</strong> Quando chiedi una lezione individuale o ci segnali un problema, salviamo le note e i messaggi che scrivi, per poterti rispondere.</p>
+            <p><strong>Sondaggi.</strong> Se rispondi a un sondaggio con il tuo account, le risposte sono collegate al tuo profilo. Senza account puoi lasciare il tuo nome oppure rispondere in forma anonima.</p>
+            <p><strong>Sequenze personalizzate e informazioni sulla salute.</strong> La tua insegnante può preparare per te sequenze di pratica personalizzate. Se le racconti di infortuni, dolori, gravidanza o altre condizioni fisiche, può annotarle per adattare la pratica. Queste sono informazioni sulla salute, cioè dati particolari: le raccogliamo solo se sei tu a comunicarle e acconsenti che vengano usate a questo scopo. Sono visibili solo a te e alla tua insegnante, non vengono mai condivise con altri allievi e puoi chiederne la cancellazione in qualsiasi momento.</p>
             <p><strong>Log di sicurezza.</strong> Per i tentativi di accesso registriamo indirizzo IP e user agent del browser, a scopo di sicurezza e prevenzione di abusi.</p>
             <p><strong>Statistiche di utilizzo.</strong> Un identificativo anonimo salvato nel tuo browser (non un cookie di profilazione, non ci segue su altri siti) ci aiuta a contare le visite. Usiamo anche Vercel Analytics, che raccoglie statistiche aggregate sulle pagine visitate senza cookie e senza identificare le singole persone.</p>
           </Section>
 
           <Section title="3. Base giuridica del trattamento">
             <p>Trattiamo i tuoi dati per eseguire il servizio che ci richiedi (prenotare e gestire le lezioni), per obblighi di legge dove applicabili, e per il nostro legittimo interesse a mantenere il servizio sicuro e funzionante.</p>
+            <p>Le informazioni sulla salute usate per le sequenze personalizzate le trattiamo solo sulla base del tuo consenso esplicito. Puoi revocarlo quando vuoi, scrivendoci: da quel momento non le useremo più e le cancelleremo.</p>
           </Section>
 
           <Section title="4. Con chi condividiamo i dati">
@@ -51,6 +56,7 @@ export default function PrivacyPage() {
 
           <Section title="5. Conservazione dei dati">
             <p>Conserviamo i tuoi dati finché il tuo account resta attivo. Puoi chiedere la cancellazione del tuo account e dei relativi dati in qualsiasi momento.</p>
+            <p>I dati delle prenotazioni agli eventi senza account e delle risposte ai sondaggi li conserviamo finché servono a gestire l&apos;evento o il sondaggio. Anche in questo caso puoi chiederne la cancellazione quando vuoi.</p>
           </Section>
 
           <Section title="6. I tuoi diritti">
