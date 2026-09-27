@@ -92,7 +92,7 @@ export function NoticesView({
                   <button
                     onClick={() => onUpdateAnnouncement(a.id, { active: !a.active })}
                     title={a.active ? "Clicca per disattivare" : "Clicca per attivare"}
-                    style={{ fontSize: 10.5, fontWeight: 700, color: a.active ? COLORS.gold : COLORS.inkSoft, whiteSpace: "nowrap" }}
+                    style={{ fontSize: 10.5, fontWeight: 700, color: a.active ? COLORS.goldText : COLORS.inkSoft, whiteSpace: "nowrap" }}
                   >
                     {a.active ? "Attivo" : "Spento"}
                   </button>
@@ -261,7 +261,7 @@ export function NoticesView({
                       style={{
                         fontSize: 10,
                         fontWeight: 700,
-                        color: n.read ? COLORS.success : COLORS.gold,
+                        color: n.read ? COLORS.success : COLORS.goldText,
                         background: withAlpha(n.read ? COLORS.success : COLORS.gold, 14),
                         padding: "1px 7px",
                       }}

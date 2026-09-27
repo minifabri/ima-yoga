@@ -90,7 +90,7 @@ export function DrishtiPicker({
             <span style={{ fontWeight: 400, opacity: 0.7 }}> · {DRISHTI_LABELS[effective].detail}</span>
           </span>
           {showOverrideMark && (
-            <span style={{ fontWeight: 700, color: COLORS.gold, fontSize: isSmall ? 9.5 : 10.5 }}>({overrideLabel})</span>
+            <span style={{ fontWeight: 700, color: COLORS.goldText, fontSize: isSmall ? 9.5 : 10.5 }}>({overrideLabel})</span>
           )}
           <ChevronDown size={isSmall ? 10 : 11} style={{ opacity: 0.6, transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
         </button>

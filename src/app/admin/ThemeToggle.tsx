@@ -66,17 +66,26 @@ function SunMark({ size }: { size: number }) {
   );
 }
 
+// Riutilizzabile ovunque si voglia scatenare il cambio tema (es. click sulla
+// figura centrale oltre al pulsante in header). Il cambio si affida solo alle
+// transizioni CSS (colori, .theme-crossfade-img): la view transition nativa
+// del browser è stata tolta perché la sua "nuova" schermata è una foto
+// statica catturata a dissolvenza appena iniziata — per tutta la sua durata
+// mostra ancora il tema vecchio, e quando finisce "scatta" di colpo su quello
+// già cambiato sotto, dando l'impressione di un flash del tema precedente.
+export function toggleTheme() {
+  const theme = getSnapshot();
+  const next = theme === "dark" ? "light" : "dark";
+  applyTheme(next);
+}
+
 export function ThemeToggle({ size = 36 }: { size?: number }) {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-
-  function toggle() {
-    applyTheme(theme === "dark" ? "light" : "dark");
-  }
 
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={toggleTheme}
       title={theme === "dark" ? "Passa al tema chiaro" : "Passa al tema scuro"}
       aria-label={theme === "dark" ? "Passa al tema chiaro" : "Passa al tema scuro"}
       className="flex items-center justify-center rounded-lg flex-shrink-0"

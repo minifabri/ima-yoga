@@ -94,7 +94,7 @@ export function CapacityBar({
         <span style={{ color: labelColor, fontWeight: 700 }}>{label}</span>
         <span style={{ color: COLORS.inkSoft }}>
           {booked}/{capNum || "—"}
-          {waiting > 0 && !showWaitlistLabel && <span style={{ color: COLORS.gold, fontWeight: 700 }}> · {waiting} in attesa</span>}
+          {waiting > 0 && !showWaitlistLabel && <span style={{ color: COLORS.goldText, fontWeight: 700 }}> · {waiting} in attesa</span>}
         </span>
       </div>
     </div>

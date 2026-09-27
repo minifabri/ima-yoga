@@ -258,7 +258,7 @@ export function EarningsView({
           icon={<Wallet size={13} />}
           label="Potenziale"
           amount={potentialPeriod}
-          color={COLORS.gold}
+          color={COLORS.goldText}
           breakdown={`Lezioni €${classFigures.period.owed.toFixed(2)} · Pacchetti €${packageFigures.period.owed.toFixed(2)} · Eventi €${eventFigures.period.owed.toFixed(2)}`}
         />
         <StatCard

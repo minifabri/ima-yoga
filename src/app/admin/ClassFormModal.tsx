@@ -27,7 +27,7 @@ function paymentMeta(status: PaymentStatus) {
     case "paid":
       return { label: "Pagato", color: COLORS.success };
     case "partial":
-      return { label: "Parziale", color: COLORS.gold };
+      return { label: "Parziale", color: COLORS.goldText };
     case "package":
       return { label: "Pacchetto", color: COLORS.primary };
     default:
@@ -333,7 +333,7 @@ export function ClassFormModal({
           className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium mb-4"
           style={{
             border: `1px solid ${withAlpha(published ? COLORS.success : COLORS.gold, 33)}`,
-            color: published ? COLORS.success : COLORS.gold,
+            color: published ? COLORS.success : COLORS.goldText,
             background: withAlpha(published ? COLORS.success : COLORS.gold, 8),
           }}
         >
@@ -512,7 +512,7 @@ export function ClassFormModal({
 
           {waitlistClients.length > 0 && (
             <div className="mb-2">
-              <div className="flex items-center gap-1.5 mb-1.5" style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.gold }}>
+              <div className="flex items-center gap-1.5 mb-1.5" style={{ fontSize: 11.5, fontWeight: 700, color: COLORS.goldText }}>
                 <ListPlus size={13} /> Lista d&apos;attesa ({waitlistClients.length})
               </div>
               <div className="flex flex-wrap gap-1.5">

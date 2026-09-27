@@ -26,7 +26,7 @@ export function Logo({ kicker, size = 36 }: { kicker: string; size?: number }) {
     <div className="flex items-center gap-3">
       <LogoMark size={size} />
       <div>
-        <div style={{ fontWeight: 700, fontSize: 10, letterSpacing: 2.5, color: COLORS.gold, textTransform: "uppercase" }}>{kicker}</div>
+        <div style={{ fontWeight: 700, fontSize: 10, letterSpacing: 2.5, color: COLORS.goldText, textTransform: "uppercase" }}>{kicker}</div>
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 500, fontSize: 26, lineHeight: 1, color: COLORS.heading }}>ima yoga</div>
       </div>
     </div>

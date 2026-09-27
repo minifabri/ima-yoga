@@ -12,6 +12,8 @@ export const COLORS = {
   primary: "var(--primary)",
   primaryDark: "var(--primary-dark)",
   gold: "var(--gold)",
+  // Oro per testo: uguale a gold al buio, più profondo alla luce (contrasto leggibile).
+  goldText: "var(--gold-text)",
   success: "var(--success)",
   danger: "var(--danger)",
 };
