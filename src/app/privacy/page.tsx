@@ -19,11 +19,6 @@ export default function PrivacyPage() {
         </p>
 
         <div className="flex flex-col gap-5" style={{ fontSize: 14, lineHeight: 1.6, color: "var(--ink)" }}>
-          <p style={{ background: "var(--subtle)", borderRadius: 10, padding: "10px 14px", fontSize: 12.5, color: "var(--ink-soft)" }}>
-            Bozza informativa: se possibile, fai rivedere il testo da un professionista (commercialista o legale)
-            prima di considerarla definitiva.
-          </p>
-
           <Section title="1. Titolare del trattamento">
             <p>
               Fabrizia Binetti
