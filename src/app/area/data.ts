@@ -80,7 +80,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       id: string;
       class_date: string;
       class_time: string;
-      type_id: string;
+      type_id: string | null;
       level_id: string;
       capacity: number;
       description: string | null;
@@ -94,7 +94,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       id: r.id,
       date: r.class_date,
       time: (r.class_time || "").slice(0, 5),
-      typeId: r.type_id,
+      typeId: r.is_personal ? null : r.type_id,
       levelId: r.level_id,
       capacity: r.capacity,
       description: r.description ?? "",
@@ -146,7 +146,7 @@ type BookingRow = {
   classes: {
     class_date: string;
     class_time: string;
-    type_id: string;
+    type_id: string | null;
     level_id: string;
     is_free: boolean;
     personal_client_id: string | null;
@@ -168,7 +168,7 @@ export async function fetchMyBookings(supabase: DB): Promise<MyBooking[]> {
       classId: b.class_id,
       date: b.classes!.class_date,
       time: (b.classes!.class_time || "").slice(0, 5),
-      typeId: b.classes!.type_id,
+      typeId: b.classes!.personal_client_id != null ? null : b.classes!.type_id,
       levelId: b.classes!.level_id,
       isFree: b.classes!.is_free,
       status: b.status,

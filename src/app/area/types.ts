@@ -55,7 +55,8 @@ export type PublicClass = {
   id: string;
   date: string; // yyyy-mm-dd
   time: string; // HH:mm
-  typeId: string;
+  // Null per le lezioni individuali, che non hanno tipologia.
+  typeId: string | null;
   levelId: string;
   capacity: number;
   description: string;
@@ -80,7 +81,7 @@ export type MyBooking = {
   classId: string;
   date: string;
   time: string;
-  typeId: string;
+  typeId: string | null;
   levelId: string;
   isFree: boolean;
   status: "booked" | "waitlist";

@@ -73,7 +73,7 @@ export function ClassFormModal({
 
   const [date, setDate] = useState(editing ? base!.date : dateKey(data.date));
   const [time, setTime] = useState(editing ? base!.time || "" : defaultTime);
-  const [typeId, setTypeId] = useState(editing ? base!.typeId : classTypes[0]?.id || "");
+  const [typeId, setTypeId] = useState(editing ? base!.typeId ?? "" : classTypes[0]?.id || "");
   const [levelId, setLevelId] = useState(editing ? base!.levelId : levels[0]?.id || "");
   const [capacity, setCapacity] = useState<number | string>(editing ? base!.capacity ?? defaultCapacity : defaultCapacity);
   const [notes, setNotes] = useState(editing ? base!.notes || "" : "");

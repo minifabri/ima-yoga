@@ -162,10 +162,8 @@ export function CalendarContent() {
       {personalClassModal && (
         <PersonalClassFormModal
           data={personalClassModal}
-          classTypes={classTypes}
           levels={levels}
           clients={clients}
-          packages={packagesWithUsage}
           defaultTime={settings.time}
           singleClassPrice={settings.singleClassPrice}
           onClose={() => setPersonalClassModal(null)}
@@ -175,10 +173,6 @@ export function CalendarContent() {
           }}
           onDelete={(id) => setConfirmDeleteClass(id)}
           onAddClient={upsertClient}
-          onOpenSettings={() => {
-            setPersonalClassModal(null);
-            router.push("/admin/impostazioni");
-          }}
         />
       )}
 

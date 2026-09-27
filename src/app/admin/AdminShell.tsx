@@ -10,6 +10,7 @@ import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
 import { Logo } from "./Logo";
 import { dateKey, classEffectivePrice } from "./utils";
+import { classTitle } from "@/lib/classTitle";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { MoreMenu, type MoreMenuItem } from "./MoreMenu";
@@ -244,7 +245,7 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
     // gruppo che si riempie inaspettatamente.
     if (isFull && !wasFull && !item.isIndividual) {
       notifyClassFull({
-        className: typeById[item.typeId]?.name || "Classe",
+        className: classTitle(item.isIndividual, item.typeId, typeById),
         date: item.date,
         time: item.time,
         capacity: item.capacity,

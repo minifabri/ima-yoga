@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Wallet, PackagePlus, Euro, User, CheckSquare, Square, Check, Trash2, Plus, Pencil, Ticket, AlertCircle } from "lucide-react";
 import { Badge, Field, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
+import { classTitle } from "@/lib/classTitle";
 import { fetchAllEventBookings, fetchEvents, markEventBookingPaid } from "./data";
 import type { ClassItem, ClassType, ClientItem, EventBookingItem, EventItem, LedgerEntry, PackageWithUsage, Settings } from "./types";
 
@@ -104,7 +105,7 @@ export function PaymentsView({
   }
 
   const outstandingByClient = useMemo(() => {
-    const map: Record<string, { total: number; items: { classId: string; date: string; time: string; typeId: string; owed: number; status: string }[] }> = {};
+    const map: Record<string, { total: number; items: { classId: string; date: string; time: string; typeId: string | null; isIndividual: boolean; owed: number; status: string }[] }> = {};
     classes.forEach((c) => {
       Object.entries(c.payments || {}).forEach(([clientId, pay]) => {
         if (pay.status === "unpaid" || pay.status === "partial") {
@@ -112,7 +113,7 @@ export function PaymentsView({
           if (owed > 0) {
             if (!map[clientId]) map[clientId] = { total: 0, items: [] };
             map[clientId].total += owed;
-            map[clientId].items.push({ classId: c.id, date: c.date, time: c.time, typeId: c.typeId, owed, status: pay.status });
+            map[clientId].items.push({ classId: c.id, date: c.date, time: c.time, typeId: c.typeId, isIndividual: c.isIndividual, owed, status: pay.status });
           }
         }
       });
@@ -126,11 +127,11 @@ export function PaymentsView({
     .sort((a, b) => b.total - a.total);
 
   const linkedByPackage = useMemo(() => {
-    const map: Record<string, { date: string; time: string; typeId: string }[]> = {};
+    const map: Record<string, { date: string; time: string; typeId: string | null; isIndividual: boolean }[]> = {};
     classes.forEach((c) => {
       Object.entries(c.payments || {}).forEach(([, pay]) => {
         if (pay.status === "package" && pay.packageId) {
-          (map[pay.packageId] = map[pay.packageId] || []).push({ date: c.date, time: c.time, typeId: c.typeId });
+          (map[pay.packageId] = map[pay.packageId] || []).push({ date: c.date, time: c.time, typeId: c.typeId, isIndividual: c.isIndividual });
         }
       });
     });
@@ -144,7 +145,7 @@ export function PaymentsView({
 
   const linkableClasses = sellClientId
     ? classes
-        .filter((c) => c.clientIds.includes(sellClientId) && typeById[c.typeId]?.packageEligible && c.payments?.[sellClientId]?.status !== "package")
+        .filter((c) => c.clientIds.includes(sellClientId) && c.typeId && typeById[c.typeId]?.packageEligible && c.payments?.[sellClientId]?.status !== "package")
         .sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")))
     : [];
 
@@ -230,7 +231,7 @@ export function PaymentsView({
                       {o.items.map((it) => (
                         <div key={it.classId} className="flex items-center justify-between pt-2.5" style={{ fontSize: 12.5 }}>
                           <span>
-                            {it.date} {it.time && `· ${it.time}`} — {typeById[it.typeId]?.name || "Classe"} ·{" "}
+                            {it.date} {it.time && `· ${it.time}`} — {classTitle(it.isIndividual, it.typeId, typeById)} ·{" "}
                             <span style={{ color: COLORS.danger, fontWeight: 600 }}>€{it.owed.toFixed(2)}</span>
                           </span>
                           <button
@@ -373,7 +374,7 @@ export function PaymentsView({
                     return (
                       <button key={c.id} onClick={() => toggleLink(c.id)} className="flex items-center gap-1.5 text-left" style={{ fontSize: 12 }}>
                         {sel ? <CheckSquare size={13} color={COLORS.primary} /> : <Square size={13} color={COLORS.inkSoft} />}
-                        {c.date} {c.time && `· ${c.time}`} — {typeById[c.typeId]?.name || "Classe"}
+                        {c.date} {c.time && `· ${c.time}`} — {classTitle(c.isIndividual, c.typeId, typeById)}
                       </button>
                     );
                   })}
@@ -467,7 +468,7 @@ export function PaymentsView({
                     <div className="mb-2 flex flex-col gap-0.5">
                       {linked.map((l, i) => (
                         <span key={i} style={{ fontSize: 11, color: COLORS.inkSoft }}>
-                          · {l.date} {l.time && `· ${l.time}`} — {typeById[l.typeId]?.name || "Classe"}
+                          · {l.date} {l.time && `· ${l.time}`} — {classTitle(l.isIndividual, l.typeId, typeById)}
                         </span>
                       ))}
                     </div>
