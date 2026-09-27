@@ -12,6 +12,7 @@ import type {
   EventBookingItem,
   EventBudget,
   EventItem,
+  EventVisibility,
   Expense,
   HoldUnit,
   IndividualClassRequest,
@@ -817,6 +818,7 @@ function mapEvent(row: {
   allow_plus_one: boolean;
   bookings_open: boolean;
   published: boolean;
+  visibility: EventVisibility;
   archived: boolean;
   cancellation_disabled: boolean;
 }): EventItem {
@@ -836,6 +838,7 @@ function mapEvent(row: {
     allowPlusOne: row.allow_plus_one,
     bookingsOpen: row.bookings_open,
     published: row.published,
+    visibility: row.visibility ?? "public",
     archived: row.archived,
     cancellationDisabled: row.cancellation_disabled,
   };
@@ -866,6 +869,7 @@ export async function saveEvent(
     allow_plus_one: event.allowPlusOne,
     bookings_open: event.bookingsOpen,
     published: event.published,
+    visibility: event.visibility,
     cancellation_disabled: event.cancellationDisabled,
   };
   const query = event.id

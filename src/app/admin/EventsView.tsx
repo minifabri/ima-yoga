@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Bell, Check, Lock, LockOpen, Ban, Undo2, Archive, ArchiveRestore, Calculator, ArrowLeft } from "lucide-react";
+import { Plus, Users, Pencil, Eye, EyeOff, ExternalLink, Ticket, AlertCircle, Bell, Check, Lock, LockOpen, Ban, Undo2, Archive, ArchiveRestore, Calculator, ArrowLeft, UserRound } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { EventFormModal } from "./EventFormModal";
 import { EventBookingsPanel } from "./EventBookingsPanel";
@@ -182,9 +182,20 @@ export function EventsView({ supabase, clients }: { supabase: SupabaseClient; cl
                       Archiviato
                     </span>
                   ) : ev.published ? (
-                    <span title="Pubblicato" className="inline-flex">
-                      <Eye size={13} color={COLORS.success} />
-                    </span>
+                    <>
+                      <span title="Pubblicato" className="inline-flex">
+                        <Eye size={13} color={COLORS.success} />
+                      </span>
+                      {ev.visibility === "members" && (
+                        <span
+                          title="Visibile solo agli iscritti — non compare in copertina"
+                          className="inline-flex items-center gap-1 rounded-full"
+                          style={{ fontSize: 10, fontWeight: 700, color: COLORS.primaryDark, background: COLORS.subtle, padding: "1px 7px" }}
+                        >
+                          <UserRound size={10} /> Solo iscritti
+                        </span>
+                      )}
+                    </>
                   ) : (
                     <span title="Bozza" className="inline-flex">
                       <EyeOff size={13} color={COLORS.gold} />

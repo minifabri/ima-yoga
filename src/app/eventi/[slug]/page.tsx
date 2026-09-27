@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndProfile } from "@/lib/supabase/profile";
 import { EventPublicView } from "./EventPublicView";
@@ -20,6 +21,7 @@ type EventRpcRow = {
   allow_plus_one: boolean;
   bookings_open: boolean;
   published: boolean;
+  visibility: "public" | "members";
   cancellation_disabled: boolean;
   booked_seats: number;
   waitlist_count: number;
@@ -34,6 +36,9 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
   const { data } = await supabase.rpc("public_event", { p_slug: slug }).maybeSingle<EventRpcRow>();
 
   if (!data) {
+    // Gli eventi "solo iscritti" non arrivano a chi non ha fatto accesso: non
+    // diciamo se esistono, ma offriamo l'accesso nel caso il link sia per iscritti.
+    const { user } = await getCurrentUserAndProfile();
     return (
       <main className="flex-1 flex items-center justify-center p-5" style={{ background: "var(--bg)" }}>
         <div
@@ -56,6 +61,20 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
           <div style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
             La sfera di cristallo non lo vede: non esiste, non è ancora stato pubblicato, oppure è già tornato all&apos;universo.
           </div>
+          {!user && (
+            <>
+              <div style={{ fontSize: 13.5, color: "var(--ink-soft)" }} className="mt-3">
+                Se è un evento riservato agli iscritti, accedi per vederlo.
+              </div>
+              <Link
+                href={`/login?next=${encodeURIComponent(`/eventi/${slug}`)}`}
+                className="inline-block mt-3 px-4 py-2 rounded-lg text-sm font-semibold text-white"
+                style={{ background: "var(--primary)" }}
+              >
+                Accedi
+              </Link>
+            </>
+          )}
         </div>
       </main>
     );
@@ -79,6 +98,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
     allowPlusOne: data.allow_plus_one,
     bookingsOpen: data.bookings_open,
     published: data.published,
+    visibility: data.visibility,
     cancellationDisabled: data.cancellation_disabled,
     bookedSeats: data.booked_seats,
     waitlistCount: Number(data.waitlist_count),

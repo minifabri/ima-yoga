@@ -135,7 +135,6 @@ export const CARD_SECTIONS: CardSection[] = [
     cta: { label: "Scrivimi", href: "#contatti-form" },
   },
   {
-    // Testi provvisori: dimmi di cosa si tratta davvero e li aggiorno.
     id: "eventi",
     order: 5,
     label: "Eventi",
@@ -150,9 +149,23 @@ export const CARD_SECTIONS: CardSection[] = [
     imageLightHeight: 414,
     intro: "Incontri speciali, fuori dal calendario abituale.",
     paragraphs: ["Workshop a tema, eventi stagionali e serate speciali: le occasioni per praticare insieme in modo diverso."],
-    cta: { label: "Scopri gli eventi", href: "/calendario" },
+    // Sotto ai testi compare la lista dei prossimi eventi pubblici (CoverEvents);
+    // quelli riservati agli iscritti si vedono dopo l'accesso, nel calendario.
+    cta: { label: "Accedi per tutti gli eventi", href: "/login?next=/calendario" },
   },
 ];
+
+// Evento mostrato nella sezione "Eventi" della copertina (RPC cover_events).
+export type CoverEvent = {
+  slug: string;
+  name: string;
+  date: string; // yyyy-mm-dd
+  time: string; // HH:mm
+  location: string;
+  imageLightUrl: string | null;
+  imageDarkUrl: string | null;
+  bookingsOpen: boolean;
+};
 
 export function getSection(id: string | null): CardSection | undefined {
   return CARD_SECTIONS.find((s) => s.id === id);

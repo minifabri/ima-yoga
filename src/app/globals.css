@@ -985,6 +985,87 @@ body {
   color: var(--ink-soft);
 }
 
+/* Prossimi eventi pubblici nella sezione "Eventi" della copertina */
+.cover-events {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 52ch;
+}
+.cover-event {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--ink);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.cover-event:hover,
+.cover-event:focus-visible {
+  border-color: var(--gold-text);
+  transform: translateY(-2px);
+}
+.cover-event-thumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  color: var(--gold-text);
+}
+.cover-event-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cover-event-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cover-event-date {
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--gold-text);
+}
+.cover-event-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--heading);
+  line-height: 1.25;
+}
+.cover-event-meta {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.cover-event-arrow {
+  color: var(--gold-text);
+  flex-shrink: 0;
+}
+.cover-events-empty {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  font-style: italic;
+  margin: 4px 0 20px;
+  max-width: 52ch;
+}
+
 .cover-overlay-socials {
   display: flex;
   gap: 10px;

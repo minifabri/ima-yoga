@@ -1,14 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X, Trash2, Eye, EyeOff, ExternalLink, Lock, LockOpen, Ban, Undo2 } from "lucide-react";
+import { X, Trash2, Eye, EyeOff, ExternalLink, Lock, LockOpen, Ban, Undo2, Globe, UserRound } from "lucide-react";
 import { Modal, Field, Switch, inputStyle, ImageUploadField } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { slugify } from "./utils";
 import { RichTextEditor } from "./RichTextEditor";
 import { uploadEventImage } from "./data";
 import { createClient } from "@/lib/supabase/client";
-import type { EventItem } from "./types";
+import type { EventItem, EventVisibility } from "./types";
 
 type ModalData = { mode: "new" } | { mode: "edit"; event: EventItem };
 
@@ -43,6 +43,7 @@ export function EventFormModal({
   const [bookingsOpen, setBookingsOpen] = useState(base?.bookingsOpen ?? true);
   const [cancellationDisabled, setCancellationDisabled] = useState(base?.cancellationDisabled ?? false);
   const [published, setPublished] = useState(base?.published ?? false);
+  const [visibility, setVisibility] = useState<EventVisibility>(base?.visibility ?? "public");
   const [uploadingLight, setUploadingLight] = useState(false);
   const [uploadingDark, setUploadingDark] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -104,6 +105,7 @@ export function EventFormModal({
         bookingsOpen,
         cancellationDisabled,
         published,
+        visibility,
         archived: base?.archived ?? false,
       });
     } catch {
@@ -136,9 +138,43 @@ export function EventFormModal({
           }}
         >
           {published ? <Eye size={15} /> : <EyeOff size={15} />}
-          <span className="flex-1 text-left">{published ? "Pubblicato — visibile a tutti" : "Bozza — visibile solo a te"}</span>
+          <span className="flex-1 text-left">
+            {!published ? "Bozza — visibile solo a te" : visibility === "public" ? "Pubblicato — visibile a tutti" : "Pubblicato — visibile solo agli iscritti"}
+          </span>
           <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.8 }}>{published ? "Rendi bozza" : "Pubblica"}</span>
         </button>
+
+        <div className="mb-4" role="group" aria-label="Chi può vederlo e prenotarsi">
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft, marginBottom: 4 }}>Chi può vederlo e prenotarsi</div>
+          <div className="grid grid-cols-2 gap-2">
+            {(
+              [
+                { value: "public", Icon: Globe, title: "Tutti", hint: "Anche senza account: in copertina, prenotazione come ospite" },
+                { value: "members", Icon: UserRound, title: "Solo iscritti", hint: "Solo chi ha fatto accesso, che si prenota col proprio account" },
+              ] as const
+            ).map(({ value, Icon, title, hint }) => {
+              const active = visibility === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setVisibility(value)}
+                  aria-pressed={active}
+                  className="flex flex-col items-start gap-0.5 px-3 py-2 rounded-lg text-left"
+                  style={{
+                    border: `1px solid ${active ? COLORS.primary : COLORS.border}`,
+                    background: active ? withAlpha(COLORS.primary, 8) : "transparent",
+                  }}
+                >
+                  <span className="flex items-center gap-1.5" style={{ fontSize: 13, fontWeight: 600, color: active ? COLORS.primaryDark : COLORS.heading }}>
+                    <Icon size={14} /> {title}
+                  </span>
+                  <span style={{ fontSize: 11, color: COLORS.inkSoft, lineHeight: 1.35 }}>{hint}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <Field label="Nome evento">
           <input type="text" value={name} onChange={(e) => handleNameChange(e.target.value)} style={inputStyle} />

@@ -14,6 +14,7 @@ export type PublicEventData = {
   allowPlusOne: boolean;
   bookingsOpen: boolean;
   published: boolean;
+  visibility: "public" | "members"; // members = solo chi ha fatto accesso
   cancellationDisabled: boolean;
   bookedSeats: number;
   waitlistCount: number;

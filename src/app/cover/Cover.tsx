@@ -9,13 +9,13 @@ import { CosmicBackground } from "./CosmicBackground";
 import { Particles } from "./Particles";
 import { Footer } from "./Footer";
 import { InterestCallout } from "./InterestCallout";
-import { getSection } from "./data";
+import { getSection, type CoverEvent } from "./data";
 import { useReducedMotion, useScrollProgress } from "./hooks";
 
 const CLOSE_DURATION = 480;
 const FLIP_DURATION = 600;
 
-export function Cover() {
+export function Cover({ events }: { events: CoverEvent[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [flippingId, setFlippingId] = useState<string | null>(null);
   const [phase, setPhase] = useState<"open" | "closing">("open");
@@ -106,7 +106,7 @@ export function Cover() {
 
       <Footer />
 
-      {section && <SectionOverlay section={section} phase={phase} onClose={closeSection} />}
+      {section && <SectionOverlay section={section} events={events} phase={phase} onClose={closeSection} />}
     </main>
   );
 }

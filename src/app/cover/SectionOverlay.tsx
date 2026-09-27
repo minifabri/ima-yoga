@@ -3,20 +3,23 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { X, AtSign, MessageCircle, Mail } from "lucide-react";
-import type { CardSection } from "./data";
+import type { CardSection, CoverEvent } from "./data";
 import { CONTACT, sectionImage } from "./data";
 import { CosmicBackground } from "./CosmicBackground";
 import { ContactForm } from "./ContactForm";
 import { SectionCardImage } from "./SectionCardImage";
+import { CoverEvents } from "./CoverEvents";
 
 const isInternal = (href: string) => href.startsWith("/");
 
 export function SectionOverlay({
   section,
+  events,
   phase,
   onClose,
 }: {
   section: CardSection;
+  events: CoverEvent[];
   phase: "opening" | "open" | "closing";
   onClose: () => void;
 }) {
@@ -96,6 +99,8 @@ export function SectionOverlay({
                 ))}
               </ul>
             )}
+
+            {section.id === "eventi" && <CoverEvents events={events} />}
 
             {section.id === "contatti" && (
               <>

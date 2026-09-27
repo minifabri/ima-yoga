@@ -199,9 +199,14 @@ export type EventItem = {
   allowPlusOne: boolean;
   bookingsOpen: boolean;
   published: boolean;
+  visibility: EventVisibility;
   archived: boolean;
   cancellationDisabled: boolean;
 };
+
+// "public" = chiunque, anche senza account (compare in copertina, prenotazione
+// come ospite); "members" = solo chi ha fatto accesso.
+export type EventVisibility = "public" | "members";
 
 export type EventBookingItem = {
   id: string;

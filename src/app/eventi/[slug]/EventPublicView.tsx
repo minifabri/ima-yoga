@@ -393,13 +393,15 @@ export function EventPublicView({
               >
                 Registrati
               </Link>
-              <button
-                onClick={() => setShowGuestForm(true)}
-                className="w-full py-2.5 rounded-lg text-sm font-medium text-center"
-                style={{ color: COLORS.inkSoft }}
-              >
-                Continua come ospite
-              </button>
+              {event.visibility === "public" && (
+                <button
+                  onClick={() => setShowGuestForm(true)}
+                  className="w-full py-2.5 rounded-lg text-sm font-medium text-center"
+                  style={{ color: COLORS.inkSoft }}
+                >
+                  Continua come ospite
+                </button>
+              )}
             </div>
           </div>
         )}
