@@ -151,8 +151,19 @@ export function ClassFormModal({
     });
   }
 
+  // Pacchetto a cui l'iscritto era già collegato su questa classe (versione salvata).
+  // Il suo "remaining" conta già questa lezione, quindi può essere 0 anche se la
+  // lezione rientra a pieno titolo nel pacchetto: va sempre considerato disponibile.
+  function savedPackageFor(clientId: string) {
+    const saved = base?.payments?.[clientId];
+    if (saved?.status !== "package" || !saved.packageId) return null;
+    return packages.find((p) => p.id === saved.packageId) || null;
+  }
+
   function eligiblePackageFor(clientId: string) {
     if (!typeObj?.packageEligible) return null;
+    const saved = savedPackageFor(clientId);
+    if (saved) return saved;
     const candidates = packages
       .filter((p) => p.clientId === clientId && p.date <= date && p.remaining > 0)
       .sort((a, b) => a.date.localeCompare(b.date));
@@ -242,9 +253,11 @@ export function ClassFormModal({
       }
       if (status === "partial") next.packageId = undefined;
       if (status === "package") {
-        const pkg = packages
-          .filter((pp) => pp.clientId === id && pp.remaining > 0)
-          .sort((a, b) => a.date.localeCompare(b.date))[0];
+        const pkg =
+          savedPackageFor(id) ||
+          packages
+            .filter((pp) => pp.clientId === id && pp.remaining > 0)
+            .sort((a, b) => a.date.localeCompare(b.date))[0];
         next.packageId = pkg?.id;
         next.amount = cur.price;
       }
@@ -477,7 +490,10 @@ export function ClassFormModal({
             {bookedClients.map((c) => {
               const pay = payments[c.id] || { status: "unpaid" as const, amount: 0, price: effectivePrice() };
               const meta = paymentMeta(pay.status);
-              const hasPackage = typeObj?.packageEligible && packages.some((p) => p.clientId === c.id && p.remaining > 0);
+              const hasPackage =
+                pay.status === "package" ||
+                !!savedPackageFor(c.id) ||
+                (typeObj?.packageEligible && packages.some((p) => p.clientId === c.id && p.remaining > 0));
               return (
                 <div key={c.id} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg flex-wrap" style={{ background: COLORS.subtle }}>
                   <span style={{ fontSize: 12.5, flex: 1, minWidth: 70 }}>{c.name}</span>
