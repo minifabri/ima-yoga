@@ -638,6 +638,14 @@ body {
 .cover-card-slot.is-featured {
   z-index: 25;
 }
+/* Lo slot ha un transform e quindi crea un proprio stacking context: lo
+   z-index della carta in hover non basta a scavalcare le carte vicine. Su
+   schermi stretti le carte si sovrappongono di più, quindi in hover/focus
+   è lo slot intero a salire in primo piano (sopra anche la carta featured). */
+.cover-card-slot:has(.tarot-card:hover),
+.cover-card-slot:has(.tarot-card:focus-visible) {
+  z-index: 35;
+}
 .cover-card-slot.is-featured .tarot-card-img {
   box-shadow: 0 0 40px color-mix(in srgb, var(--gold) 35%, transparent);
 }
