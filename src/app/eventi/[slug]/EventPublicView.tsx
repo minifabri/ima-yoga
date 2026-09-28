@@ -202,21 +202,30 @@ export function EventPublicView({
         )}
 
         {imageUrl && (
-          <div
-            className="mb-5 rounded-2xl overflow-hidden flex items-center justify-center"
-            style={{ border: `1px solid ${COLORS.border}`, background: COLORS.subtle }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={imageUrl}
-              alt={event.name}
-              style={
-                event.imageFit === "cover"
-                  ? { width: "100%", height: 320, objectFit: "cover", display: "block" }
-                  : { maxWidth: "100%", maxHeight: 480, width: "auto", height: "auto", display: "block" }
-              }
-            />
-          </div>
+          event.imageFit === "cover" ? (
+            <div
+              className="mb-5 rounded-2xl overflow-hidden"
+              style={{ border: `1px solid ${COLORS.border}` }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl}
+                alt={event.name}
+                style={{ width: "100%", height: 320, objectFit: "cover", display: "block" }}
+              />
+            </div>
+          ) : (
+            // Senza cornice: l'immagine mantiene le sue proporzioni, qualunque formato abbia.
+            <div className="mb-5 flex justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl}
+                alt={event.name}
+                className="rounded-2xl"
+                style={{ maxWidth: "100%", maxHeight: 600, width: "auto", height: "auto", display: "block" }}
+              />
+            </div>
+          )
         )}
 
         <div className="text-center mb-2" style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 500, color: COLORS.heading }}>
