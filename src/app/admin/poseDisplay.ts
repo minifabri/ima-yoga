@@ -55,6 +55,15 @@ export function poseDisplayImage(pose: PoseCatalogItem, parent: PoseCatalogItem 
   return pose.imageUrl || parent?.imageUrl || null;
 }
 
+// Versione grande per il dettaglio. Se la posa ha un'immagine propria si usa
+// sempre quella (grande o, in mancanza, la miniatura), mai quella del padre:
+// una variante con la sua figura non deve mostrare nel dettaglio la figura
+// della posa principale.
+export function poseDisplayLargeImage(pose: PoseCatalogItem, parent: PoseCatalogItem | undefined): string | null {
+  if (pose.imageUrl) return pose.imageLargeUrl || pose.imageUrl;
+  return parent?.imageLargeUrl || parent?.imageUrl || null;
+}
+
 export function poseDisplayDrishti(pose: PoseCatalogItem, parent: PoseCatalogItem | undefined): Drishti | null {
   return pose.drishti || parent?.drishti || null;
 }

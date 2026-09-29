@@ -972,11 +972,14 @@ export async function uploadEventImage(supabase: DB, eventSlug: string, variant:
   return data.publicUrl;
 }
 
-// Carica la thumbnail generata (silhouette) su Supabase Storage (bucket
-// pubblico "pose-thumbnails", scrittura riservata all'admin via RLS).
-export async function uploadPoseThumbnail(supabase: DB, poseSlug: string, blob: Blob): Promise<string> {
-  const path = `${poseSlug}-${Date.now()}.png`;
-  const { error } = await supabase.storage.from("pose-thumbnails").upload(path, blob, { upsert: true, cacheControl: "3600", contentType: "image/png" });
+// Carica un'immagine della posa su Supabase Storage (bucket pubblico
+// "pose-thumbnails", scrittura riservata all'admin via RLS). `fileBase` è il
+// nome senza estensione: l'estensione segue il formato del blob (WebP, o PNG
+// sui browser che non sanno codificare WebP da canvas).
+export async function uploadPoseImage(supabase: DB, fileBase: string, blob: Blob): Promise<string> {
+  const ext = blob.type === "image/webp" ? "webp" : "png";
+  const path = `${fileBase}.${ext}`;
+  const { error } = await supabase.storage.from("pose-thumbnails").upload(path, blob, { upsert: true, cacheControl: "3600", contentType: blob.type || "image/png" });
   if (error) throw error;
   const { data } = supabase.storage.from("pose-thumbnails").getPublicUrl(path);
   return data.publicUrl;
@@ -1348,6 +1351,7 @@ function mapPoseCatalogItem(row: {
   category_id: string | null;
   tags: string[] | null;
   image_url: string | null;
+  image_large_url: string | null;
   parent_pose_id: string | null;
   variant_label: string | null;
   drishti: Drishti | null;
@@ -1362,6 +1366,7 @@ function mapPoseCatalogItem(row: {
     categoryId: row.category_id,
     tags: row.tags || [],
     imageUrl: row.image_url,
+    imageLargeUrl: row.image_large_url,
     parentPoseId: row.parent_pose_id,
     variantLabel: row.variant_label || "",
     drishti: row.drishti,
@@ -1387,6 +1392,7 @@ export async function savePose(
     category_id: pose.categoryId,
     tags: pose.tags,
     image_url: pose.imageUrl,
+    image_large_url: pose.imageLargeUrl,
     parent_pose_id: pose.parentPoseId,
     variant_label: pose.variantLabel || "",
     drishti: pose.drishti,
@@ -1418,6 +1424,7 @@ export async function bulkInsertPoses(
     category_id: p.categoryId,
     tags: p.tags,
     image_url: p.imageUrl,
+    image_large_url: p.imageLargeUrl,
     parent_pose_id: p.parentPoseId,
     variant_label: p.variantLabel || "",
     drishti: p.drishti,

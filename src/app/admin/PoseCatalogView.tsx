@@ -2,19 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { AlertCircle, ChevronDown, ChevronRight, LayoutGrid, List, Pencil, Plus, Search, Tag, Trash2, Upload } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronRight, LayoutGrid, List, Maximize2, Pencil, Plus, Search, Tag, Trash2, Upload } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { Field, IconButton, Modal, inputStyle } from "./ui";
 import { fetchPoseCatalog, savePose, deletePose, deletePoseThumbnail, fetchPoseCategories, savePoseCategory, deletePoseCategory } from "./data";
 import { PoseBulkImportModal } from "./PoseBulkImport";
-import { PoseThumbnailGenerator, type PoseThumbnailGeneratorHandle } from "./PoseThumbnailGenerator";
+import { PoseImageUploader, type PoseImageUploaderHandle } from "./PoseImageUploader";
+import { PoseDetailModal } from "./PoseDetailModal";
 import { DrishtiEyeIcon } from "./DrishtiEyeIcon";
 import { DrishtiPicker } from "./DrishtiPicker";
 import { poseDisplayName, poseDisplayNameIt, poseDisplayImage, poseDisplayDrishti, DRISHTI_LABELS } from "./poseDisplay";
 import type { PoseCatalogItem, PoseCategory, PoseMacro } from "./types";
 
 function emptyDraft(macro: PoseMacro): Omit<PoseCatalogItem, "id"> {
-  return { macro, name: "", nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null, parentPoseId: null, variantLabel: "", drishti: null };
+  return { macro, name: "", nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null, imageLargeUrl: null, parentPoseId: null, variantLabel: "", drishti: null };
 }
 
 function slugify(value: string): string {
@@ -44,6 +45,8 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showManualImageUrl, setShowManualImageUrl] = useState(false);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
+  // Posa aperta nel dettaglio di sola lettura (immagine grande).
+  const [detailPoseId, setDetailPoseId] = useState<string | null>(null);
   const [showAllTags, setShowAllTags] = useState(false);
   const [showManageCategories, setShowManageCategories] = useState(false);
 
@@ -126,7 +129,8 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   }, [poses, macro, poseById]);
 
   const editFormRef = useRef<HTMLDivElement>(null);
-  const thumbnailGeneratorRef = useRef<PoseThumbnailGeneratorHandle>(null);
+  const imageUploaderRef = useRef<PoseImageUploaderHandle>(null);
+  const [showImagePreview, setShowImagePreview] = useState(false);
 
   useEffect(() => {
     if (editingId) editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -148,6 +152,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
       categoryId: p.categoryId,
       tags: p.tags,
       imageUrl: p.imageUrl,
+      imageLargeUrl: p.imageLargeUrl,
       parentPoseId: p.parentPoseId,
       variantLabel: p.variantLabel,
       drishti: p.drishti,
@@ -259,15 +264,19 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         </div>
 
         {draft.imageUrl ? (
-          <div className="flex items-center gap-2 mb-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={draft.imageUrl} alt="" width={40} height={40} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
-            <button onClick={() => thumbnailGeneratorRef.current?.loadExisting()} className="text-xs font-medium" style={{ color: COLORS.primaryDark }}>
-              Modifica
+          <div className="flex items-center gap-3 mb-3">
+            <button type="button" onClick={() => setShowImagePreview(true)} title="Vedi l'immagine grande" className="flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={draft.imageUrl} alt="" width={72} height={72} style={{ borderRadius: 10, objectFit: "cover", background: COLORS.subtle, display: "block" }} />
             </button>
-            <button onClick={handleRemoveOwnImage} className="text-xs font-medium" style={{ color: COLORS.danger }}>
-              Rimuovi immagine
-            </button>
+            <div className="flex flex-col items-start gap-1">
+              <button onClick={() => imageUploaderRef.current?.loadExisting()} className="text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+                Modifica inquadratura
+              </button>
+              <button onClick={handleRemoveOwnImage} className="text-xs font-medium" style={{ color: COLORS.danger }}>
+                Rimuovi immagine
+              </button>
+            </div>
           </div>
         ) : (
           isVariant &&
@@ -277,13 +286,16 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
             </div>
           )
         )}
+        {showImagePreview && draft.imageUrl && (
+          <PoseDetailModal pose={{ id: "draft", ...draft }} parent={undefined} onClose={() => setShowImagePreview(false)} />
+        )}
         <div className="mb-3">
-          <PoseThumbnailGenerator
-            ref={thumbnailGeneratorRef}
+          <PoseImageUploader
+            ref={imageUploaderRef}
             supabase={supabase}
             poseSlug={slugify(draft.name || previewName || "posa")}
-            existingImageUrl={draft.imageUrl}
-            onGenerated={(url) => setDraft((d) => ({ ...d, imageUrl: url }))}
+            existingImageUrl={draft.imageLargeUrl || draft.imageUrl}
+            onUploaded={({ imageUrl, imageLargeUrl }) => setDraft((d) => ({ ...d, imageUrl, imageLargeUrl }))}
           />
         </div>
 
@@ -293,7 +305,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         {showManualImageUrl && (
           <div className="mb-3">
             <Field label="Immagine (percorso o URL)">
-              <input value={draft.imageUrl ?? ""} onChange={(e) => setDraft((d) => ({ ...d, imageUrl: e.target.value || null }))} placeholder="/asanas/mia-posa.png" style={inputStyle} />
+              <input value={draft.imageUrl ?? ""} onChange={(e) => setDraft((d) => ({ ...d, imageUrl: e.target.value || null, imageLargeUrl: null }))} placeholder="/asanas/mia-posa.png" style={inputStyle} />
             </Field>
           </div>
         )}
@@ -319,10 +331,11 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   // c'è niente da eliminare dallo storage — il file del padre resta intatto.
   async function handleRemoveOwnImage() {
     const url = draft.imageUrl;
+    const largeUrl = draft.imageLargeUrl;
     if (!url) return;
-    setDraft((d) => ({ ...d, imageUrl: null }));
+    setDraft((d) => ({ ...d, imageUrl: null, imageLargeUrl: null }));
     try {
-      await deletePoseThumbnail(supabase, url);
+      await Promise.all([deletePoseThumbnail(supabase, url), largeUrl ? deletePoseThumbnail(supabase, largeUrl) : Promise.resolve()]);
     } catch {
       // la rimozione dal form ha già avuto effetto; un file eventualmente
       // non cancellato dallo storage non blocca il resto del lavoro.
@@ -620,6 +633,13 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
           </div>
         </Modal>
       )}
+      {detailPoseId && poseById[detailPoseId] && (
+        <PoseDetailModal
+          pose={poseById[detailPoseId]}
+          parent={poseById[detailPoseId].parentPoseId ? poseById[poseById[detailPoseId].parentPoseId as string] : undefined}
+          onClose={() => setDetailPoseId(null)}
+        />
+      )}
     </div>
   );
 
@@ -639,8 +659,10 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         style={{ background: isEditing ? withAlpha(COLORS.primary, 6) : COLORS.card, border: `1.5px solid ${isEditing ? COLORS.primary : COLORS.border}` }}
       >
         {displayImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={displayImage} alt={displayName} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
+          <button onClick={() => setDetailPoseId(p.id)} title="Vedi dettaglio" className="flex-shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={displayImage} alt={displayName} width={36} height={36} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, display: "block" }} />
+          </button>
         ) : (
           <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.subtle, flexShrink: 0 }} />
         )}
@@ -712,6 +734,18 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
             <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.card }} />
           )}
           <div className="absolute flex items-center gap-1" style={{ top: 6, right: 6 }}>
+            {displayImage && (
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDetailPoseId(p.id);
+                }}
+                title="Vedi dettaglio"
+                style={{ width: 28, height: 28, background: withAlpha(COLORS.card, 85), color: COLORS.ink }}
+              >
+                <Maximize2 size={13} />
+              </IconButton>
+            )}
             <IconButton
               onClick={(e) => {
                 e.stopPropagation();
