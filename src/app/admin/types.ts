@@ -345,7 +345,11 @@ export type PoseCatalogItem = {
   description: string;
   categoryId: string | null;
   tags: string[];
+  // Miniatura (usata negli elenchi) e versione grande (mostrata nel
+  // dettaglio della posa). imageLargeUrl è null per le immagini caricate
+  // prima che esistesse: in quel caso il dettaglio ripiega sulla miniatura.
   imageUrl: string | null;
+  imageLargeUrl: string | null;
   parentPoseId: string | null;
   variantLabel: string;
   drishti: Drishti | null;

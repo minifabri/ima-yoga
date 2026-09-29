@@ -52,6 +52,7 @@ import { DrishtiPicker } from "./DrishtiPicker";
 import { EmailPreviewModal } from "./EmailPreviewModal";
 import { sequenceAssignedEmailHtml } from "@/lib/emailTemplates";
 import { poseDisplayName, poseDisplayNameIt, poseDisplayImage, poseDisplayDrishti, isAshtangaClassType } from "./poseDisplay";
+import { PoseDetailModal } from "./PoseDetailModal";
 import { PrintSheet, SheetItemRow, buildSheetText, printSequenceSheet, expandSheetItem, expandBlockSheetRows, type SheetRow } from "./sequenceSheet";
 
 function parentOfPose(poseById: Record<string, PoseCatalogItem>, pose: PoseCatalogItem | undefined): PoseCatalogItem | undefined {
@@ -252,6 +253,8 @@ export function SequenceEditor({
   const [isMobile, setIsMobile] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<{ sectionUid: string; blockUid: string | null; itemUid?: string } | null>(null);
   const [editingPose, setEditingPose] = useState<PoseCatalogItem | null>(null);
+  // Posa aperta nel dettaglio di sola lettura dall'anteprima scheda.
+  const [detailPoseId, setDetailPoseId] = useState<string | null>(null);
   // Voce custom ("+ voce libera", tipicamente da un'ingestione da sequenza
   // cartacea) che l'insegnante ha scelto di "promuovere" a posizione vera del
   // catalogo — es. per poterle assegnare una foto. Resta testo libero finché
@@ -1214,6 +1217,13 @@ export function SequenceEditor({
         />
       )}
 
+      {detailPoseId && poseById[detailPoseId] && (
+        <PoseDetailModal
+          pose={poseById[detailPoseId]}
+          parent={poseById[detailPoseId].parentPoseId ? poseById[poseById[detailPoseId].parentPoseId as string] : undefined}
+          onClose={() => setDetailPoseId(null)}
+        />
+      )}
       {editingPose && (
         <PoseEditModal
           supabase={supabase}
@@ -1308,7 +1318,7 @@ export function SequenceEditor({
                     <div className="flex flex-col gap-1.5">
                       {s.rows.map((r, rIdx) =>
                         r.kind === "item" ? (
-                          <SheetItemRow key={rIdx} item={r.item} />
+                          <SheetItemRow key={rIdx} item={r.item} onClick={r.item.poseId ? () => setDetailPoseId(r.item.poseId) : undefined} />
                         ) : r.items.length === 0 ? null : (
                           <div key={rIdx} className="pl-2.5" style={{ borderLeft: `2px solid ${withAlpha(COLORS.gold, 50)}` }}>
                             <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.primaryDark }} className="mb-1.5 flex items-center gap-1">
@@ -1316,7 +1326,7 @@ export function SequenceEditor({
                             </div>
                             <div className="flex flex-col gap-1.5">
                               {r.items.map((it, i2) => (
-                                <SheetItemRow key={i2} item={it} />
+                                <SheetItemRow key={i2} item={it} onClick={it.poseId ? () => setDetailPoseId(it.poseId) : undefined} />
                               ))}
                             </div>
                           </div>

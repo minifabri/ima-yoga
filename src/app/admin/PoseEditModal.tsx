@@ -5,13 +5,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { COLORS } from "./colors";
 import { Field, Modal, inputStyle } from "./ui";
 import { savePose, deletePoseThumbnail } from "./data";
-import { PoseThumbnailGenerator, type PoseThumbnailGeneratorHandle } from "./PoseThumbnailGenerator";
+import { PoseImageUploader, type PoseImageUploaderHandle } from "./PoseImageUploader";
+import { PoseDetailModal } from "./PoseDetailModal";
 import { DrishtiPicker } from "./DrishtiPicker";
 import { slugify } from "./utils";
 import type { PoseCatalogItem, PoseCategory, PoseMacro } from "./types";
 
 function emptyDraft(macro: PoseMacro, initialName: string): Omit<PoseCatalogItem, "id"> {
-  return { macro, name: initialName, nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null, parentPoseId: null, variantLabel: "", drishti: null };
+  return { macro, name: initialName, nameIt: "", nameEn: "", description: "", categoryId: null, tags: [], imageUrl: null, imageLargeUrl: null, parentPoseId: null, variantLabel: "", drishti: null };
 }
 
 // Stesso form di modifica di PoseCatalogView.tsx, estratto in un componente
@@ -52,6 +53,7 @@ export function PoseEditModal({
           categoryId: pose.categoryId,
           tags: pose.tags,
           imageUrl: pose.imageUrl,
+          imageLargeUrl: pose.imageLargeUrl,
           parentPoseId: pose.parentPoseId,
           variantLabel: pose.variantLabel,
           drishti: pose.drishti,
@@ -61,7 +63,8 @@ export function PoseEditModal({
   const [tagsInput, setTagsInput] = useState(pose?.tags.join(", ") ?? "");
   const [showManualImageUrl, setShowManualImageUrl] = useState(false);
   const [error, setError] = useState("");
-  const thumbnailGeneratorRef = useRef<PoseThumbnailGeneratorHandle>(null);
+  const imageUploaderRef = useRef<PoseImageUploaderHandle>(null);
+  const [showImagePreview, setShowImagePreview] = useState(false);
 
   const poseById = Object.fromEntries(poseCatalog.map((p) => [p.id, p]));
   const isVariant = Boolean(draft.parentPoseId);
@@ -73,10 +76,11 @@ export function PoseEditModal({
 
   async function handleRemoveOwnImage() {
     const url = draft.imageUrl;
+    const largeUrl = draft.imageLargeUrl;
     if (!url) return;
-    setDraft((d) => ({ ...d, imageUrl: null }));
+    setDraft((d) => ({ ...d, imageUrl: null, imageLargeUrl: null }));
     try {
-      await deletePoseThumbnail(supabase, url);
+      await Promise.all([deletePoseThumbnail(supabase, url), largeUrl ? deletePoseThumbnail(supabase, largeUrl) : Promise.resolve()]);
     } catch {
       // la rimozione dal form ha già avuto effetto; un file eventualmente
       // non cancellato dallo storage non blocca il resto del lavoro.
@@ -201,15 +205,19 @@ export function PoseEditModal({
         </div>
 
         {draft.imageUrl ? (
-          <div className="flex items-center gap-2 mb-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={draft.imageUrl} alt="" width={40} height={40} style={{ borderRadius: 8, objectFit: "cover", background: COLORS.subtle, flexShrink: 0 }} />
-            <button onClick={() => thumbnailGeneratorRef.current?.loadExisting()} className="text-xs font-medium" style={{ color: COLORS.primaryDark }}>
-              Modifica
+          <div className="flex items-center gap-3 mb-3">
+            <button type="button" onClick={() => setShowImagePreview(true)} title="Vedi l'immagine grande" className="flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={draft.imageUrl} alt="" width={72} height={72} style={{ borderRadius: 10, objectFit: "cover", background: COLORS.subtle, display: "block" }} />
             </button>
-            <button onClick={handleRemoveOwnImage} className="text-xs font-medium" style={{ color: COLORS.danger }}>
-              Rimuovi immagine
-            </button>
+            <div className="flex flex-col items-start gap-1">
+              <button onClick={() => imageUploaderRef.current?.loadExisting()} className="text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+                Modifica inquadratura
+              </button>
+              <button onClick={handleRemoveOwnImage} className="text-xs font-medium" style={{ color: COLORS.danger }}>
+                Rimuovi immagine
+              </button>
+            </div>
           </div>
         ) : (
           isVariant &&
@@ -219,13 +227,16 @@ export function PoseEditModal({
             </div>
           )
         )}
+        {showImagePreview && draft.imageUrl && (
+          <PoseDetailModal pose={{ id: "draft", ...draft }} parent={undefined} onClose={() => setShowImagePreview(false)} />
+        )}
         <div className="mb-3">
-          <PoseThumbnailGenerator
-            ref={thumbnailGeneratorRef}
+          <PoseImageUploader
+            ref={imageUploaderRef}
             supabase={supabase}
             poseSlug={slugify(draft.name || previewName || "posa")}
-            existingImageUrl={draft.imageUrl}
-            onGenerated={(url) => setDraft((d) => ({ ...d, imageUrl: url }))}
+            existingImageUrl={draft.imageLargeUrl || draft.imageUrl}
+            onUploaded={({ imageUrl, imageLargeUrl }) => setDraft((d) => ({ ...d, imageUrl, imageLargeUrl }))}
           />
         </div>
 
@@ -235,7 +246,7 @@ export function PoseEditModal({
         {showManualImageUrl && (
           <div className="mb-3">
             <Field label="Immagine (percorso o URL)">
-              <input value={draft.imageUrl ?? ""} onChange={(e) => setDraft((d) => ({ ...d, imageUrl: e.target.value || null }))} placeholder="/asanas/mia-posa.png" style={inputStyle} />
+              <input value={draft.imageUrl ?? ""} onChange={(e) => setDraft((d) => ({ ...d, imageUrl: e.target.value || null, imageLargeUrl: null }))} placeholder="/asanas/mia-posa.png" style={inputStyle} />
             </Field>
           </div>
         )}
