@@ -18,16 +18,17 @@ export function SequenceReadView({
   sequence,
   type,
   poseCatalog,
-  isAssigned,
-  isFavorite,
+  isAssigned = false,
+  isFavorite = false,
   onToggleFavorite,
 }: {
   sequence: Sequence;
   type: ClassType | undefined;
   poseCatalog: PoseCatalogItem[];
-  isAssigned: boolean;
-  isFavorite: boolean;
-  onToggleFavorite: () => void;
+  isAssigned?: boolean;
+  isFavorite?: boolean;
+  // Assente nell'anteprima admin: lì non c'è nessun preferito da salvare.
+  onToggleFavorite?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
@@ -72,7 +73,7 @@ export function SequenceReadView({
           <Badge color={type?.color ?? COLORS.inkSoft}>{type?.name ?? "Altro"}</Badge>
           {isAssigned ? <Badge color={COLORS.gold}>Assegnata</Badge> : isFavorite ? <Badge color={COLORS.primary}>Salvata</Badge> : null}
         </div>
-        {!isAssigned && (
+        {!isAssigned && onToggleFavorite && (
           <button
             type="button"
             onClick={onToggleFavorite}
