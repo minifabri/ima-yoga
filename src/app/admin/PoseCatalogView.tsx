@@ -293,7 +293,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
           )
         )}
         {showImagePreview && draft.imageUrl && (
-          <PoseDetailModal pose={{ id: "draft", ...draft }} parent={undefined} onClose={() => setShowImagePreview(false)} />
+          <PoseDetailModal pose={{ id: "draft", ...draft }} parent={undefined} originalsFrom={supabase} onClose={() => setShowImagePreview(false)} />
         )}
         <div className="mb-3">
           <PoseImageUploader
@@ -681,6 +681,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
         <PoseDetailModal
           pose={poseById[detailPoseId]}
           parent={poseById[detailPoseId].parentPoseId ? poseById[poseById[detailPoseId].parentPoseId as string] : undefined}
+          originalsFrom={supabase}
           onClose={() => setDetailPoseId(null)}
         />
       )}
