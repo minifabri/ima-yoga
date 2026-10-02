@@ -4,13 +4,15 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FlipHorizontal2, ImagePlus, Loader2, RotateCcw, Upload } from "lucide-react";
 import { COLORS } from "./colors";
-import { uploadPoseImage } from "./data";
+import { downloadPoseOriginal, uploadPoseImage, uploadPoseOriginal } from "./data";
+import { WATERMARKED_SUFFIX, canvasToBlob, drawWatermark, loadWatermarkFont } from "./poseWatermark";
 
 // Le immagini del catalogo arrivano già illustrate (es. generate con
 // ChatGPT nello stile della tavola): qui non c'è più alcuna elaborazione
 // della figura, solo l'inquadratura nel quadrato. Da un'unica sorgente si
 // producono due file: la miniatura per gli elenchi e la versione grande per
-// il dettaglio della posa.
+// il dettaglio della posa. Sulla versione grande viene stampato il watermark;
+// la stessa immagine senza watermark resta nel bucket privato degli originali.
 const THUMB_SIZE = 480;
 const LARGE_SIZE = 1024;
 const PREVIEW_SIZE = 240; // lato del canvas di anteprima (in CSS è 200px)
@@ -75,18 +77,10 @@ function renderFramed(img: HTMLImageElement, background: string, size: number, f
   return canvas;
 }
 
-// WebP pesa molto meno del PNG a parità di resa; i browser che non lo sanno
-// codificare da canvas restituiscono un PNG, e l'upload si adegua al tipo.
-function toBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Codifica immagine fallita"))), "image/webp", 0.9);
-  });
-}
-
 export type PoseImageUploaderHandle = {
   // Ricarica l'immagine già salvata per rifarne l'inquadratura, senza dover
-  // ricaricare il file originale.
-  loadExisting: () => void;
+  // ricaricare il file originale. Con `flip` parte già specchiata.
+  loadExisting: (opts?: { flip?: boolean }) => void;
 };
 
 export const PoseImageUploader = forwardRef<
@@ -105,6 +99,7 @@ export const PoseImageUploader = forwardRef<
   const [framing, setFraming] = useState<Framing>(DEFAULT_FRAMING);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [fontReady, setFontReady] = useState(false);
   const previewRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(null);
@@ -115,16 +110,21 @@ export const PoseImageUploader = forwardRef<
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, PREVIEW_SIZE, PREVIEW_SIZE);
     ctx.drawImage(renderFramed(sourceImg, background, PREVIEW_SIZE, framing), 0, 0);
-  }, [sourceImg, background, framing]);
+    drawWatermark(canvas);
+  }, [sourceImg, background, framing, fontReady]);
 
-  function applyImage(img: HTMLImageElement, existing: boolean) {
+  useEffect(() => {
+    loadWatermarkFont().then(() => setFontReady(true));
+  }, []);
+
+  function applyImage(img: HTMLImageElement, existing: boolean, flip = false) {
     try {
       setBackground(sampleBackground(img));
     } catch {
       // immagine remota senza CORS: resta lo sfondo crema di default
     }
     setEditingExisting(existing);
-    setFraming(existing ? { ...DEFAULT_FRAMING, margin: 0 } : DEFAULT_FRAMING);
+    setFraming(existing ? { ...DEFAULT_FRAMING, margin: 0, flip } : DEFAULT_FRAMING);
     setSourceImg(img);
     setError("");
   }
@@ -136,18 +136,21 @@ export const PoseImageUploader = forwardRef<
     img.src = URL.createObjectURL(file);
   }
 
-  function loadExistingImage(url: string) {
+  // Si riparte dall'originale pulito quando c'è, così il watermark non viene
+  // stampato due volte; per le immagini senza originale vale il file pubblico.
+  async function loadExistingImage(url: string, flip: boolean) {
     setError("");
+    const original = await downloadPoseOriginal(supabase, url);
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.onload = () => applyImage(img, true);
+    img.onload = () => applyImage(img, true, flip);
     img.onerror = () => setError("Impossibile caricare l'immagine attuale per la modifica.");
-    img.src = url;
+    img.src = original ? URL.createObjectURL(original) : url;
   }
 
   useImperativeHandle(ref, () => ({
-    loadExisting: () => {
-      if (existingImageUrl) loadExistingImage(existingImageUrl);
+    loadExisting: (opts) => {
+      if (existingImageUrl) loadExistingImage(existingImageUrl, Boolean(opts?.flip));
     },
   }));
 
@@ -182,14 +185,16 @@ export const PoseImageUploader = forwardRef<
     setError("");
     try {
       const base = `${poseSlug || "posa"}-${Date.now()}`;
-      const [thumbBlob, largeBlob] = await Promise.all([
-        toBlob(renderFramed(sourceImg, background, THUMB_SIZE, framing)),
-        toBlob(renderFramed(sourceImg, background, LARGE_SIZE, framing)),
-      ]);
+      const large = renderFramed(sourceImg, background, LARGE_SIZE, framing);
+      const [thumbBlob, originalBlob] = await Promise.all([canvasToBlob(renderFramed(sourceImg, background, THUMB_SIZE, framing)), canvasToBlob(large)]);
+      await loadWatermarkFont();
+      drawWatermark(large);
+      const largeBlob = await canvasToBlob(large);
       const [imageUrl, imageLargeUrl] = await Promise.all([
         uploadPoseImage(supabase, base, thumbBlob),
-        uploadPoseImage(supabase, `${base}-large`, largeBlob),
+        uploadPoseImage(supabase, `${base}-large${WATERMARKED_SUFFIX}`, largeBlob),
       ]);
+      await uploadPoseOriginal(supabase, imageLargeUrl, originalBlob);
       onUploaded({ imageUrl, imageLargeUrl });
       reset();
     } catch {
@@ -227,7 +232,7 @@ export const PoseImageUploader = forwardRef<
       </div>
       {!sourceImg && (
         <div style={{ fontSize: 10.5, color: COLORS.inkSoft }}>
-          Immagine quadrata, idealmente 1024×1024. Vengono salvate una miniatura per gli elenchi e una versione grande per il dettaglio.
+          Immagine quadrata, idealmente 1024×1024. Vengono salvate una miniatura per gli elenchi e una versione grande per il dettaglio, con il watermark «ima yoga» applicato in automatico.
         </div>
       )}
 

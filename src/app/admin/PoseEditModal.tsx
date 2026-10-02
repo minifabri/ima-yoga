@@ -214,6 +214,9 @@ export function PoseEditModal({
               <button onClick={() => imageUploaderRef.current?.loadExisting()} className="text-xs font-medium" style={{ color: COLORS.primaryDark }}>
                 Modifica inquadratura
               </button>
+              <button onClick={() => imageUploaderRef.current?.loadExisting({ flip: true })} className="text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+                Specchia in orizzontale
+              </button>
               <button onClick={handleRemoveOwnImage} className="text-xs font-medium" style={{ color: COLORS.danger }}>
                 Rimuovi immagine
               </button>

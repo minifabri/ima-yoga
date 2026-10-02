@@ -985,18 +985,43 @@ export async function uploadPoseImage(supabase: DB, fileBase: string, blob: Blob
   return data.publicUrl;
 }
 
-// Rimuove un file dal bucket "pose-thumbnails" dato il suo URL pubblico
+function poseThumbnailPath(url: string): string | null {
+  const marker = "/pose-thumbnails/";
+  const idx = url.indexOf(marker);
+  return idx === -1 ? null : url.slice(idx + marker.length);
+}
+
+// L'originale pulito (senza watermark) dell'immagine grande sta nel bucket
+// privato "pose-originals" (lettura e scrittura solo admin via RLS), con lo
+// stesso nome del file pubblico a cui corrisponde.
+export async function uploadPoseOriginal(supabase: DB, largeUrl: string, blob: Blob): Promise<void> {
+  const path = poseThumbnailPath(largeUrl);
+  if (!path) return;
+  const { error } = await supabase.storage.from("pose-originals").upload(path, blob, { upsert: true, contentType: blob.type || "image/webp" });
+  if (error) throw error;
+}
+
+// null se per quell'immagine non c'è un originale (caricata prima del
+// watermark, oppure URL esterno).
+export async function downloadPoseOriginal(supabase: DB, largeUrl: string): Promise<Blob | null> {
+  const path = poseThumbnailPath(largeUrl);
+  if (!path) return null;
+  const { data, error } = await supabase.storage.from("pose-originals").download(path);
+  return error ? null : data;
+}
+
+// Rimuove un file dal bucket "pose-thumbnails" dato il suo URL pubblico,
+// insieme all'eventuale originale omonimo in "pose-originals"
 // (chiamare SOLO quando l'immagine è quella caricata dalla posizione stessa,
 // mai per un'immagine ereditata da un padre — quel file resta suo). Se l'URL
 // non appartiene a questo bucket (es. percorso/URL esterno inserito a mano)
 // non fa nulla.
 export async function deletePoseThumbnail(supabase: DB, url: string): Promise<void> {
-  const marker = "/pose-thumbnails/";
-  const idx = url.indexOf(marker);
-  if (idx === -1) return;
-  const path = url.slice(idx + marker.length);
+  const path = poseThumbnailPath(url);
+  if (!path) return;
   const { error } = await supabase.storage.from("pose-thumbnails").remove([path]);
   if (error) throw error;
+  await supabase.storage.from("pose-originals").remove([path]);
 }
 
 function mapEventBudget(row: {
