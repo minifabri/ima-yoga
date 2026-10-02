@@ -1221,6 +1221,7 @@ export function SequenceEditor({
         <PoseDetailModal
           pose={poseById[detailPoseId]}
           parent={poseById[detailPoseId].parentPoseId ? poseById[poseById[detailPoseId].parentPoseId as string] : undefined}
+          originalsFrom={supabase}
           onClose={() => setDetailPoseId(null)}
         />
       )}

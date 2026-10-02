@@ -1,17 +1,52 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { X } from "lucide-react";
 import { COLORS } from "./colors";
 import { DRISHTI_LABELS, poseDisplayDrishti, poseDisplayLargeImage, poseDisplayName, poseDisplayNameEn, poseDisplayNameIt } from "./poseDisplay";
 import { DrishtiEyeIcon } from "./DrishtiEyeIcon";
+import { downloadPoseOriginal } from "./data";
 import type { PoseCatalogItem } from "./types";
 
 // Dettaglio di sola lettura di una posa, condiviso tra area allievo e admin:
 // a differenza della modale di modifica (PoseEditModal), niente campi
 // editabili, solo i dati utili a chi pratica (nomi, drishti, descrizione) e
 // l'immagine nella versione grande — negli elenchi resta la miniatura.
-export function PoseDetailModal({ pose, parent, onClose }: { pose: PoseCatalogItem; parent: PoseCatalogItem | undefined; onClose: () => void }) {
-  const image = poseDisplayLargeImage(pose, parent);
+// La versione grande pubblica ha il watermark: è quella che vede l'allievo.
+// In admin si passa `originalsFrom` per mostrare invece l'originale pulito
+// dal bucket privato (se non c'è, resta l'immagine pubblica).
+export function PoseDetailModal({
+  pose,
+  parent,
+  originalsFrom,
+  onClose,
+}: {
+  pose: PoseCatalogItem;
+  parent: PoseCatalogItem | undefined;
+  originalsFrom?: SupabaseClient;
+  onClose: () => void;
+}) {
+  const publicImage = poseDisplayLargeImage(pose, parent);
+  // undefined = originale ancora in caricamento: nel frattempo non si mostra
+  // la versione col watermark, per non vederla lampeggiare.
+  const [original, setOriginal] = useState<{ for: string; url: string | null } | undefined>(undefined);
+  useEffect(() => {
+    if (!originalsFrom || !publicImage) return;
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    downloadPoseOriginal(originalsFrom, publicImage).then((blob) => {
+      if (cancelled) return;
+      objectUrl = blob ? URL.createObjectURL(blob) : null;
+      setOriginal({ for: publicImage, url: objectUrl });
+    });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [originalsFrom, publicImage]);
+  const loadingOriginal = Boolean(originalsFrom && publicImage) && original?.for !== publicImage;
+  const image = originalsFrom && original?.for === publicImage ? original.url || publicImage : publicImage;
   const names = [poseDisplayNameIt(pose, parent), poseDisplayNameEn(pose, parent)].filter(Boolean).join(" · ");
   const drishti = poseDisplayDrishti(pose, parent);
 
@@ -35,7 +70,8 @@ export function PoseDetailModal({ pose, parent, onClose }: { pose: PoseCatalogIt
         >
           <X size={18} />
         </button>
-        {image && (
+        {image && loadingOriginal && <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: 12, background: COLORS.subtle, marginBottom: 14 }} />}
+        {image && !loadingOriginal && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={image}

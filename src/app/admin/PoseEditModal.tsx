@@ -231,7 +231,7 @@ export function PoseEditModal({
           )
         )}
         {showImagePreview && draft.imageUrl && (
-          <PoseDetailModal pose={{ id: "draft", ...draft }} parent={undefined} onClose={() => setShowImagePreview(false)} />
+          <PoseDetailModal pose={{ id: "draft", ...draft }} parent={undefined} originalsFrom={supabase} onClose={() => setShowImagePreview(false)} />
         )}
         <div className="mb-3">
           <PoseImageUploader
