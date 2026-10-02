@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Plus, ArrowLeft, AlertCircle, Settings2, Trash2, User, Route, Copy } from "lucide-react";
+import { Plus, ArrowLeft, AlertCircle, Settings2, Trash2, User, Route, Copy, Eye, Pencil } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { Badge, Modal } from "./ui";
 import { SequenceEditor } from "./SequenceEditor";
 import { SequenceTemplateEditor } from "./SequenceTemplateEditor";
+import { SequenceReadView } from "@/app/area/SequenceReadView";
 import { fetchSequences, deleteSequence, duplicateSequence, fetchPoseCatalog, fetchPoseCategories } from "./data";
 import type { ClassType, ClientItem, PoseCatalogItem, PoseCategory, Sequence } from "./types";
 
@@ -17,6 +18,7 @@ export function SequencesView({ supabase, clients, classTypes }: { supabase: Sup
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [editing, setEditing] = useState<Sequence | "new" | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [rowError, setRowError] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -61,6 +63,24 @@ export function SequencesView({ supabase, clients, classTypes }: { supabase: Sup
 
   const filtered = typeFilter === "all" ? sequences : sequences.filter((s) => s.classTypeId === typeFilter);
   const sorted = [...filtered].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+  const viewing = viewingId ? sequences.find((s) => s.id === viewingId) : undefined;
+
+  if (viewing && !editing) {
+    return (
+      <div>
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
+          <button onClick={() => setViewingId(null)} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: COLORS.inkSoft }}>
+            <ArrowLeft size={15} /> Torna alle sequenze
+          </button>
+          <button onClick={() => setEditing(viewing)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
+            <Pencil size={14} /> Modifica
+          </button>
+        </div>
+        <SequenceReadView sequence={viewing} type={typeById[viewing.classTypeId]} poseCatalog={poseCatalog} />
+      </div>
+    );
+  }
 
   if (editing) {
     return (
@@ -178,6 +198,14 @@ export function SequencesView({ supabase, clients, classTypes }: { supabase: Sup
                       <User size={11} /> {personLabel} · {activeCount} posizioni attive
                     </div>
                   </div>
+                </button>
+                <button
+                  onClick={() => setViewingId(s.id)}
+                  title="Visualizza come la vede l'allievo"
+                  className="flex items-center justify-center rounded-lg flex-shrink-0"
+                  style={{ width: 30, height: 30, color: COLORS.inkSoft }}
+                >
+                  <Eye size={14} />
                 </button>
                 <button
                   onClick={() => handleRowDuplicate(s)}
