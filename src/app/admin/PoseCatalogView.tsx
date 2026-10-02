@@ -9,6 +9,7 @@ import { fetchPoseCatalog, savePose, deletePose, deletePoseThumbnail, fetchPoseC
 import { PoseBulkImportModal } from "./PoseBulkImport";
 import { PoseImageUploader, type PoseImageUploaderHandle } from "./PoseImageUploader";
 import { PoseDetailModal } from "./PoseDetailModal";
+import { loadWatermarkFont, needsWatermark, watermarkExistingPose } from "./poseWatermark";
 import { DrishtiEyeIcon } from "./DrishtiEyeIcon";
 import { DrishtiPicker } from "./DrishtiPicker";
 import { poseDisplayName, poseDisplayNameIt, poseDisplayImage, poseDisplayDrishti, DRISHTI_LABELS } from "./poseDisplay";
@@ -49,6 +50,8 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   const [detailPoseId, setDetailPoseId] = useState<string | null>(null);
   const [showAllTags, setShowAllTags] = useState(false);
   const [showManageCategories, setShowManageCategories] = useState(false);
+  const [watermarkProgress, setWatermarkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [watermarkError, setWatermarkError] = useState("");
 
   function toggleTagFilter(tag: string) {
     setTagFilter((cur) => (cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag]));
@@ -273,6 +276,9 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
               <button onClick={() => imageUploaderRef.current?.loadExisting()} className="text-xs font-medium" style={{ color: COLORS.primaryDark }}>
                 Modifica inquadratura
               </button>
+              <button onClick={() => imageUploaderRef.current?.loadExisting({ flip: true })} className="text-xs font-medium" style={{ color: COLORS.primaryDark }}>
+                Specchia in orizzontale
+              </button>
               <button onClick={handleRemoveOwnImage} className="text-xs font-medium" style={{ color: COLORS.danger }}>
                 Rimuovi immagine
               </button>
@@ -404,6 +410,29 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
     }
   }
 
+  // Immagini grandi caricate prima del watermark: vanno messe in regola una
+  // volta sola, una alla volta così un errore a metà non perde il lavoro fatto.
+  const posesToWatermark = poses.filter(needsWatermark);
+
+  async function handleWatermarkExisting() {
+    const pending = posesToWatermark;
+    setWatermarkError("");
+    setWatermarkProgress({ done: 0, total: pending.length });
+    await loadWatermarkFont();
+    let failed = 0;
+    for (const [i, pose] of pending.entries()) {
+      try {
+        const saved = await watermarkExistingPose(supabase, pose);
+        setPoses((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
+      } catch {
+        failed++;
+      }
+      setWatermarkProgress({ done: i + 1, total: pending.length });
+    }
+    setWatermarkProgress(null);
+    if (failed) setWatermarkError(`${failed} immagini non elaborate: riprova.`);
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -428,6 +457,21 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
       <div className="mb-4" style={{ fontSize: 12.5, color: COLORS.inkSoft }}>
         Le posizioni (asana) e le tecniche (pranayama) usate nel costruttore di sequenze. Categorizzale e aggiungi tag per trovarle più facilmente durante la creazione di una sequenza.
       </div>
+
+      {(posesToWatermark.length > 0 || watermarkProgress || watermarkError) && (
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4 p-3 rounded-lg" style={{ border: `1px solid ${COLORS.border}`, background: COLORS.subtle, fontSize: 12.5, color: COLORS.ink }}>
+          <span>
+            {watermarkProgress
+              ? `Applico il watermark… ${watermarkProgress.done} di ${watermarkProgress.total}. Non chiudere la pagina.`
+              : watermarkError || `${posesToWatermark.length} immagini grandi sono ancora senza watermark.`}
+          </span>
+          {!watermarkProgress && posesToWatermark.length > 0 && (
+            <button onClick={handleWatermarkExisting} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ background: COLORS.primary }}>
+              Applica watermark
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-1.5 mb-4">
         <button onClick={() => setMacro("asana")} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: macro === "asana" ? COLORS.primary : COLORS.subtle, color: macro === "asana" ? "#fff" : COLORS.ink }}>
