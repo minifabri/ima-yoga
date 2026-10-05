@@ -21,6 +21,7 @@ import { ADMIN_ROUTE_BY_KEY } from "./routes";
 import type {
   AdminData,
   Announcement,
+  AnnouncementTarget,
   ClassItem,
   ClassType,
   ClientItem,
@@ -101,7 +102,7 @@ type AdminContextValue = {
   deleteLedgerEntry: (id: string) => void;
   addExpense: (args: { amount: number; note: string; date: string }) => Promise<void>;
   deleteExpense: (id: string) => void;
-  addAnnouncement: (message: string) => Promise<void>;
+  addAnnouncement: (message: string, target?: AnnouncementTarget) => Promise<void>;
   updateAnnouncement: (id: string, patch: Partial<Pick<Announcement, "message" | "active">>) => void;
   deleteAnnouncement: (id: string) => void;
   sendPersonalNotices: (clientIds: string[], message: string) => Promise<void>;
@@ -494,9 +495,9 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
   }
 
   // ---- avvisi per i clienti ----
-  async function addAnnouncement(message: string) {
+  async function addAnnouncement(message: string, target: AnnouncementTarget = null) {
     try {
-      const a = await db.addAnnouncement(supabase, message);
+      const a = await db.addAnnouncement(supabase, message, target);
       setAnnouncements((cur) => [a, ...cur]);
     } catch {
       showToast("Errore nel salvataggio dell'avviso.");

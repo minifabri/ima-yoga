@@ -282,6 +282,19 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
     });
   }
 
+  // Bottone "Prenota" di un avviso: apre la scheda della classe, da cui si
+  // prenota come dal calendario (che però ha in memoria solo il mese aperto).
+  async function openAnnouncementClass(a: Announcement) {
+    if (!a.classId || !a.classDate) return;
+    try {
+      const found = (await db.fetchPublicClasses(supabase, a.classDate, a.classDate)).find((c) => c.id === a.classId);
+      if (found) setSelected(found);
+      else showToast("Questa classe non è più disponibile.");
+    } catch {
+      showToast("Errore nel caricamento della classe.");
+    }
+  }
+
   function deleteNotice(id: string) {
     setMyNotices((cur) => cur.filter((n) => n.id !== id));
     db.deleteMyNotice(supabase, id).catch(() => {});
@@ -812,6 +825,24 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                 >
                   <Megaphone size={15} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 1 }} />
                   <span className="flex-1 rich-content" dangerouslySetInnerHTML={{ __html: a.message }} />
+                  {a.classId && (
+                    <button
+                      onClick={() => openAnnouncementClass(a)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                      style={{ background: COLORS.primary, flexShrink: 0 }}
+                    >
+                      Prenota
+                    </button>
+                  )}
+                  {a.eventSlug && (
+                    <Link
+                      href={`/eventi/${a.eventSlug}`}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                      style={{ background: COLORS.primary, flexShrink: 0 }}
+                    >
+                      Prenota
+                    </Link>
+                  )}
                   <button onClick={() => dismissAnnouncement(a.id)} title="Chiudi" style={{ color: COLORS.inkSoft, flexShrink: 0 }}>
                     <X size={14} />
                   </button>

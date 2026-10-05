@@ -104,7 +104,13 @@ export type Announcement = {
   id: string;
   message: string;
   active: boolean;
+  // Classe o evento collegato (al massimo uno): nell'area clienti l'avviso
+  // mostra il bottone "Prenota".
+  classId: string | null;
+  eventId: string | null;
 };
+
+export type AnnouncementTarget = { classId: string } | { eventId: string } | null;
 
 export type ClientNotice = {
   id: string;

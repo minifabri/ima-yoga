@@ -1,15 +1,26 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Bell, Megaphone, PackagePlus, Search, Send, Sparkles, Trash2, UserCheck, X } from "lucide-react";
+import { Bell, CalendarCheck, Megaphone, PackagePlus, Search, Send, Sparkles, Trash2, UserCheck, X } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { EmojiPicker } from "./EmojiPicker";
 import { RichTextEditor } from "./RichTextEditor";
 import { inputStyle } from "./ui";
-import type { Announcement, ClientItem, ClientNotice } from "./types";
+import { dateKey } from "./utils";
+import { classTitle } from "@/lib/classTitle";
+import type { Announcement, AnnouncementTarget, ClassItem, ClassType, ClientItem, ClientNotice, EventItem } from "./types";
+
+function formatTargetDate(date: string, time: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const day = new Date(y, m - 1, d).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" });
+  return `${day}, ${time}`;
+}
 
 export function NoticesView({
   clients,
+  classes,
+  events,
+  typeById,
   clientNotices,
   announcements,
   onSendNotice,
@@ -19,11 +30,14 @@ export function NoticesView({
   onRemoveAnnouncement,
 }: {
   clients: ClientItem[];
+  classes: ClassItem[];
+  events: EventItem[];
+  typeById: Record<string, ClassType>;
   clientNotices: ClientNotice[];
   announcements: Announcement[];
   onSendNotice: (clientIds: string[], message: string) => Promise<void>;
   onDeleteNotice: (id: string) => void;
-  onAddAnnouncement: (message: string) => Promise<void>;
+  onAddAnnouncement: (message: string, target?: AnnouncementTarget) => Promise<void>;
   onUpdateAnnouncement: (id: string, patch: Partial<Pick<Announcement, "message" | "active">>) => void;
   onRemoveAnnouncement: (id: string) => void;
 }) {
@@ -35,11 +49,58 @@ export function NoticesView({
   const [newAnnouncement, setNewAnnouncement] = useState("");
   const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
 
+  // "class:<id>" | "event:<id>" | "" (nessun bottone "Prenota")
+  const [newAnnouncementTarget, setNewAnnouncementTarget] = useState("");
+
+  // Classi ed eventi promuovibili: solo quelli futuri e visibili ai clienti.
+  const today = dateKey(new Date());
+  const promotableClasses = useMemo(
+    () =>
+      classes
+        .filter((c) => c.published && !c.isIndividual && c.date >= today)
+        .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)),
+    [classes, today]
+  );
+  const promotableEvents = useMemo(
+    () =>
+      events
+        .filter((e) => e.published && !e.archived && e.date >= today)
+        .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)),
+    [events, today]
+  );
+
+  function classLabel(c: ClassItem): string {
+    return `${classTitle(c.isIndividual, c.typeId, typeById)} — ${formatTargetDate(c.date, c.time)}`;
+  }
+  function eventLabel(e: EventItem): string {
+    return `${e.name} — ${formatTargetDate(e.date, e.time)}`;
+  }
+  function targetLabel(a: Announcement): string | null {
+    if (a.classId) {
+      const c = classes.find((x) => x.id === a.classId);
+      return c ? classLabel(c) : "classe";
+    }
+    if (a.eventId) {
+      const e = events.find((x) => x.id === a.eventId);
+      return e ? eventLabel(e) : "evento";
+    }
+    return null;
+  }
+
   function addAnnouncement() {
-    const html = newAnnouncement.trim();
+    const [kind, id] = newAnnouncementTarget.split(":");
+    const target: AnnouncementTarget = kind === "class" ? { classId: id } : kind === "event" ? { eventId: id } : null;
+    // Senza testo, l'avviso promozionale prende nome, data e ora di ciò che promuove.
+    const fallback = target
+      ? "classId" in target
+        ? promotableClasses.filter((c) => c.id === id).map(classLabel)[0]
+        : promotableEvents.filter((e) => e.id === id).map(eventLabel)[0]
+      : "";
+    const html = newAnnouncement.trim() || fallback || "";
     if (!html) return;
-    onAddAnnouncement(html);
+    onAddAnnouncement(html, target);
     setNewAnnouncement("");
+    setNewAnnouncementTarget("");
   }
 
   const activeClients = useMemo(() => clients.filter((c) => !c.disabled), [clients]);
@@ -75,11 +136,13 @@ export function NoticesView({
           <Megaphone size={17} /> Avviso generale
         </div>
         <div style={{ fontSize: 11.5, color: COLORS.inkSoft }} className="mb-3">
-          Appare come banner nell&apos;area clienti; ogni cliente può chiuderlo, resta comunque visibile agli altri finché non lo disattivi qui.
+          Appare come banner nell&apos;area clienti; ogni cliente può chiuderlo, resta comunque visibile agli altri finché non lo disattivi qui. Se
+          colleghi una classe o un evento, il banner mostra il bottone «Prenota» e sparisce da solo quando la data è passata.
         </div>
         <div className="flex flex-col gap-1.5 mb-3">
           {announcements.map((a) => {
             const isEditing = editingAnnouncementId === a.id;
+            const target = targetLabel(a);
             return (
               <div key={a.id} className="rounded-lg" style={{ border: `1px solid ${a.active ? withAlpha(COLORS.gold, 40) : COLORS.border}` }}>
                 <div className="flex items-center gap-2 px-2.5 py-2">
@@ -100,6 +163,11 @@ export function NoticesView({
                     <Trash2 size={14} />
                   </button>
                 </div>
+                {target && (
+                  <div className="flex items-center gap-1 px-2.5 pb-2" style={{ fontSize: 11, color: COLORS.inkSoft }}>
+                    <CalendarCheck size={12} /> Prenota: {target}
+                  </div>
+                )}
                 {isEditing && (
                   <div className="px-2.5 pb-2.5">
                     <RichTextEditor
@@ -118,9 +186,31 @@ export function NoticesView({
         </div>
         <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft, marginBottom: 4 }}>Nuovo avviso generale</div>
         <RichTextEditor value={newAnnouncement} onChange={setNewAnnouncement} minHeight={50} />
+        <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft, margin: "8px 0 4px" }}>Bottone «Prenota» (facoltativo)</div>
+        <select value={newAnnouncementTarget} onChange={(e) => setNewAnnouncementTarget(e.target.value)} style={inputStyle}>
+          <option value="">Nessun bottone</option>
+          {promotableClasses.length > 0 && (
+            <optgroup label="Classi">
+              {promotableClasses.map((c) => (
+                <option key={c.id} value={`class:${c.id}`}>
+                  {classLabel(c)}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          {promotableEvents.length > 0 && (
+            <optgroup label="Eventi">
+              {promotableEvents.map((e) => (
+                <option key={e.id} value={`event:${e.id}`}>
+                  {eventLabel(e)}
+                </option>
+              ))}
+            </optgroup>
+          )}
+        </select>
         <button
           onClick={addAnnouncement}
-          disabled={!newAnnouncement.trim()}
+          disabled={!newAnnouncement.trim() && !newAnnouncementTarget}
           className="mt-2 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
           style={{ background: COLORS.primary }}
         >

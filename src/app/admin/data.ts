@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AdminData,
   Announcement,
+  AnnouncementTarget,
   BudgetLineItem,
   ClassItem,
   ClassType,
@@ -301,7 +302,7 @@ export async function fetchAdminData(supabase: DB): Promise<AdminData> {
     packages: (packagesRes.data ?? []).map(mapPackage),
     ledger: (ledgerRes.data ?? []).map(mapLedgerEntry),
     expenses: (expensesRes.data ?? []).map(mapExpense),
-    announcements: (announcementsRes.data ?? []).map((a) => ({ id: a.id, message: a.message, active: a.active })),
+    announcements: (announcementsRes.data ?? []).map(mapAnnouncement),
     clientNotices: (clientNoticesRes.data ?? []).map(mapClientNotice),
     notifications: (notificationsRes.data ?? []).map(mapNotification),
   };
@@ -654,10 +655,22 @@ export async function deleteExpense(supabase: DB, id: string) {
 // ---------------------------------------------------------
 // Avvisi per i clienti
 // ---------------------------------------------------------
-export async function addAnnouncement(supabase: DB, message: string): Promise<Announcement> {
-  const { data, error } = await supabase.from("announcements").insert({ message }).select().single();
+function mapAnnouncement(a: { id: string; message: string; active: boolean; class_id: string | null; event_id: string | null }): Announcement {
+  return { id: a.id, message: a.message, active: a.active, classId: a.class_id, eventId: a.event_id };
+}
+
+export async function addAnnouncement(supabase: DB, message: string, target: AnnouncementTarget = null): Promise<Announcement> {
+  const { data, error } = await supabase
+    .from("announcements")
+    .insert({
+      message,
+      class_id: target && "classId" in target ? target.classId : null,
+      event_id: target && "eventId" in target ? target.eventId : null,
+    })
+    .select()
+    .single();
   if (error) throw error;
-  return { id: data.id, message: data.message, active: data.active };
+  return mapAnnouncement(data);
 }
 
 export async function updateAnnouncement(supabase: DB, id: string, patch: Partial<{ message: string; active: boolean }>) {
