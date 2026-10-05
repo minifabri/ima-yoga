@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bookmark, Check, Copy, Download, Repeat, Share2 } from "lucide-react";
+import { Bookmark, Check, Copy, Download, Play, Repeat, Share2 } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { Badge } from "@/app/admin/ui";
 import { PrintSheet, SheetItemRow, buildSheetText, printSequenceSheet, sheetSectionsFromSequence } from "@/app/admin/sequenceSheet";
 import { isAshtangaClassType } from "@/app/admin/poseDisplay";
 import { PoseDetailModal } from "@/app/admin/PoseDetailModal";
+import { SequencePracticeView } from "./SequencePracticeView";
 import type { PoseCatalogItem, Sequence } from "@/app/admin/types";
 import type { ClassType } from "./types";
 
@@ -33,6 +34,7 @@ export function SequenceReadView({
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
   const [selectedPoseId, setSelectedPoseId] = useState<string | null>(null);
+  const [practicing, setPracticing] = useState(false);
 
   useEffect(() => {
     // Rilevamento della Web Share API: deve avvenire dopo il mount (non nel
@@ -94,6 +96,11 @@ export function SequenceReadView({
       </div>
 
       <div className="flex items-center gap-2 mb-5 flex-wrap">
+        {totalActive > 0 && (
+          <button onClick={() => setPracticing(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: COLORS.primary }}>
+            <Play size={14} /> Pratica
+          </button>
+        )}
         <button onClick={handleCopy} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
           {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Copiato" : "Copia testo"}
         </button>
@@ -102,7 +109,7 @@ export function SequenceReadView({
             <Share2 size={14} /> Condividi
           </button>
         )}
-        <button onClick={handlePrint} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white" style={{ background: COLORS.primary }}>
+        <button onClick={handlePrint} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
           <Download size={14} /> Esporta PDF
         </button>
       </div>
@@ -142,6 +149,7 @@ export function SequenceReadView({
       )}
 
       <PrintSheet title={title} sheetSections={sheetSections} />
+      {practicing && <SequencePracticeView title={title} sheetSections={sheetSections} poseById={poseById} onClose={() => setPracticing(false)} />}
       {selectedPose && <PoseDetailModal pose={selectedPose} parent={selectedPoseParent} onClose={() => setSelectedPoseId(null)} />}
     </div>
   );
