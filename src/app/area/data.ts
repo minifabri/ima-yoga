@@ -32,8 +32,16 @@ export async function fetchBookingsOpen(supabase: DB): Promise<boolean> {
 }
 
 export async function fetchActiveAnnouncements(supabase: DB): Promise<Announcement[]> {
-  const { data } = await supabase.from("announcements").select("id, message").eq("active", true).order("created_at", { ascending: false });
-  return data ?? [];
+  // active_announcements() scarta da sola gli avvisi collegati a classi o eventi
+  // ormai passati (o non più pubblicati).
+  const { data } = await supabase.rpc("active_announcements");
+  return (data ?? []).map((a: { id: string; message: string; class_id: string | null; class_date: string | null; event_slug: string | null }) => ({
+    id: a.id,
+    message: a.message,
+    classId: a.class_id,
+    classDate: a.class_date,
+    eventSlug: a.event_slug,
+  }));
 }
 
 export async function fetchMyNotices(supabase: DB): Promise<ClientNotice[]> {

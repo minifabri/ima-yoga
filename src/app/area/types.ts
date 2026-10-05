@@ -13,6 +13,11 @@ export type Level = {
 export type Announcement = {
   id: string;
   message: string;
+  // Avviso promozionale: mostra il bottone "Prenota" per la classe o l'evento
+  // collegato (al massimo uno dei due).
+  classId: string | null;
+  classDate: string | null; // yyyy-mm-dd
+  eventSlug: string | null;
 };
 
 export type ClientNotice = {
