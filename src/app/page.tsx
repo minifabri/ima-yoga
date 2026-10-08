@@ -15,10 +15,14 @@ type CoverEventRow = {
   bookings_open: boolean;
 };
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ anteprima?: string }> }) {
   const { user, profile } = await getCurrentUserAndProfile();
 
-  if (user && profile?.role === "admin") redirect("/admin");
+  // L'admin loggata viene mandata dritta al gestionale; con ?anteprima=1
+  // (il link "Copertina" nell'header admin) vede invece la home pubblica.
+  const isAdmin = !!user && profile?.role === "admin";
+  const adminPreview = isAdmin && (await searchParams).anteprima === "1";
+  if (isAdmin && !adminPreview) redirect("/admin");
   if (user && profile?.role === "client") redirect("/area");
 
   const supabase = await createClient();
@@ -35,5 +39,5 @@ export default async function HomePage() {
     bookingsOpen: e.bookings_open,
   }));
 
-  return <Cover events={events} />;
+  return <Cover events={events} adminPreview={adminPreview} />;
 }
