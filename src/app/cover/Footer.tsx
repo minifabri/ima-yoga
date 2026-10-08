@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { AtSign, Mail, MessageCircle } from "lucide-react";
 import { Logo } from "./Logo";
-import { CONTACT } from "./data";
+import { CONTACT, type CoverAccess } from "./data";
 
-export function Footer() {
+export function Footer({ access }: { access: CoverAccess }) {
   return (
     <footer id="contatti" className="cover-footer">
       <Logo compact />
@@ -17,8 +17,8 @@ export function Footer() {
         <a href={`mailto:${CONTACT.email}`} className="cover-social" aria-label="Email">
           <Mail size={15} />
         </a>
-        <Link href="/login" className="cover-footer-link">
-          Accedi
+        <Link href={access.href} className="cover-footer-link">
+          {access.label}
         </Link>
       </div>
       <p className="cover-footer-copy">© {new Date().getFullYear()} ima yoga</p>

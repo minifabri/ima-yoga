@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, Route, BookOpen, ArrowLeft, ClipboardList, ScrollText, CalendarClock } from "lucide-react";
+import { Calendar as CalendarIcon, Users, Wallet, PiggyBank, Bell, History, BarChart3, Settings as SettingsIcon, Check, AlertCircle, Ticket, Calculator, Route, BookOpen, ArrowLeft, ClipboardList, ScrollText, CalendarClock, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
@@ -632,6 +632,15 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
                 </Link>
               )}
               <div className="flex items-center gap-1.5 flex-shrink-0">
+                <Link
+                  href="/?anteprima=1"
+                  title="Vai alla copertina del sito"
+                  aria-label="Vai alla copertina del sito"
+                  className="px-2.5 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5"
+                  style={{ border: `1px solid ${COLORS.border}`, color: COLORS.ink }}
+                >
+                  <Sparkles size={15} /> <span className="hidden sm:inline">Copertina</span>
+                </Link>
                 <div className="hidden md:block">
                   <NotificationsPanel notifications={notifications} onMarkRead={markNotificationRead} onMarkAllRead={markAllNotificationsRead} />
                 </div>

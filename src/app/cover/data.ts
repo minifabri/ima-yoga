@@ -156,6 +156,9 @@ export const CARD_SECTIONS: CardSection[] = [
 ];
 
 // Evento mostrato nella sezione "Eventi" della copertina (RPC cover_events).
+// Destinazione dei link "Accedi" della copertina (login, o gestionale in anteprima admin).
+export type CoverAccess = { href: string; label: string };
+
 export type CoverEvent = {
   slug: string;
   name: string;

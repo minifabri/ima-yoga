@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "../admin/ThemeToggle";
-import { CARD_SECTIONS } from "./data";
+import { CARD_SECTIONS, type CoverAccess } from "./data";
 
 type NavLink = { label: string; kind: "href"; href: string } | { label: string; kind: "section"; sectionId: string };
 
@@ -16,7 +16,7 @@ const NAV_LINKS: NavLink[] = [
   { label: "Contatti", kind: "section", sectionId: "contatti" },
 ];
 
-export function Header({ onOpenSection }: { onOpenSection: (id: string) => void }) {
+export function Header({ onOpenSection, access }: { onOpenSection: (id: string) => void; access: CoverAccess }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -43,8 +43,8 @@ export function Header({ onOpenSection }: { onOpenSection: (id: string) => void 
       </nav>
 
       <div className="cover-header-actions">
-        <Link href="/login" className="cover-nav-link cover-nav-login">
-          Accedi
+        <Link href={access.href} className="cover-nav-link cover-nav-login">
+          {access.label}
         </Link>
         <ThemeToggle size={34} />
         <button

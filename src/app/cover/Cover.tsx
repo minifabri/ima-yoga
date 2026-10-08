@@ -9,13 +9,18 @@ import { CosmicBackground } from "./CosmicBackground";
 import { Particles } from "./Particles";
 import { Footer } from "./Footer";
 import { InterestCallout } from "./InterestCallout";
-import { getSection, type CoverEvent } from "./data";
+import { getSection, type CoverAccess, type CoverEvent } from "./data";
 import { useReducedMotion, useScrollProgress } from "./hooks";
 
 const CLOSE_DURATION = 480;
 const FLIP_DURATION = 600;
 
-export function Cover({ events }: { events: CoverEvent[] }) {
+// In anteprima admin i link "Accedi" riportano al gestionale invece che al login.
+const LOGIN_ACCESS: CoverAccess = { href: "/login", label: "Accedi" };
+const ADMIN_ACCESS: CoverAccess = { href: "/admin", label: "Gestionale" };
+
+export function Cover({ events, adminPreview = false }: { events: CoverEvent[]; adminPreview?: boolean }) {
+  const access = adminPreview ? ADMIN_ACCESS : LOGIN_ACCESS;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [flippingId, setFlippingId] = useState<string | null>(null);
   const [phase, setPhase] = useState<"open" | "closing">("open");
@@ -91,10 +96,10 @@ export function Cover({ events }: { events: CoverEvent[] }) {
         <div className="cover-hero-sticky">
           {!reducedMotion && <Particles />}
 
-          <Header onOpenSection={openSection} />
+          <Header onOpenSection={openSection} access={access} />
 
           <div className={`cover-scene${selectedId ? " has-selection" : ""}`}>
-            <Hero scrollProgress={scrollProgress} onOrderCards={scrollToLine} />
+            <Hero scrollProgress={scrollProgress} onOrderCards={scrollToLine} access={access} />
             <FloatingCards selectedId={selectedId} flippingId={flippingId} onSelect={openSection} scrollProgress={scrollProgress} />
           </div>
         </div>
@@ -104,7 +109,7 @@ export function Cover({ events }: { events: CoverEvent[] }) {
         <InterestCallout source="home" />
       </section>
 
-      <Footer />
+      <Footer access={access} />
 
       {section && <SectionOverlay section={section} events={events} phase={phase} onClose={closeSection} />}
     </main>

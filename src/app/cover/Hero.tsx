@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ParallaxFigure } from "./ParallaxFigure";
+import type { CoverAccess } from "./data";
 
-export function Hero({ scrollProgress, onOrderCards }: { scrollProgress: number; onOrderCards: () => void }) {
+export function Hero({ scrollProgress, onOrderCards, access }: { scrollProgress: number; onOrderCards: () => void; access: CoverAccess }) {
   // La figura e il testo salgono e svaniscono nella prima parte dello scroll,
   // lasciando il posto alle carte che si raccolgono (vedi FloatingCards).
   const fadeT = Math.min(1, Math.max(0, scrollProgress / 0.4));
@@ -26,8 +27,8 @@ export function Hero({ scrollProgress, onOrderCards }: { scrollProgress: number;
             <span className="cover-hero-title-accent">Torna a te.</span>
           </h1>
           <p className="cover-hero-tagline">Movimento. Presenza. Pratica.</p>
-          <Link href="/login" className="cover-cta-ghost cover-hero-cta">
-            Accedi <span aria-hidden="true">✦</span>
+          <Link href={access.href} className="cover-cta-ghost cover-hero-cta">
+            {access.label} <span aria-hidden="true">✦</span>
           </Link>
         </div>
       </div>
