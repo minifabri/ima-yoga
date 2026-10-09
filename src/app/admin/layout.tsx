@@ -1,9 +1,19 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndProfile } from "@/lib/supabase/profile";
 import { claimAdmin } from "@/app/actions";
 import { AdminShell } from "./AdminShell";
 import { fetchAdminData } from "./data";
+
+// Il manifest è collegato solo qui, non nel layout radice: è quello che rende
+// il gestionale installabile sulla Home del telefono (icona, apertura a
+// schermo intero su /admin). Le pagine pubbliche e l'area clienti restano
+// senza, così chi le aggiunge alla Home non finisce su /admin.
+export const metadata: Metadata = {
+  manifest: "/admin.webmanifest",
+  appleWebApp: { capable: true, title: "ima yoga", statusBarStyle: "default" },
+};
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const { user, profile } = await getCurrentUserAndProfile();
