@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { AlertTriangle, BellRing, CalendarClock, CalendarPlus, CalendarX, Check, ClipboardCheck, Heart, UserPlus } from "lucide-react";
+import { AlertTriangle, BellRing, CalendarClock, CalendarPlus, CalendarX, Check, ClipboardCheck, Heart, UserPlus, Users } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import type { NotificationItem, NotificationType } from "./types";
 
@@ -13,6 +13,7 @@ export const TYPE_META: Record<NotificationType, { icon: typeof UserPlus; color:
   interest: { icon: Heart, color: COLORS.goldText },
   survey_response: { icon: ClipboardCheck, color: COLORS.primaryDark },
   individual_class_request: { icon: CalendarClock, color: COLORS.primary },
+  class_full: { icon: Users, color: COLORS.goldText },
 };
 
 export function formatWhen(iso: string): string {
