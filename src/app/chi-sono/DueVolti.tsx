@@ -15,7 +15,7 @@ export function DueVolti() {
         <div className="due-volti-reveal">
           <p className="cover-overlay-intro">Due mondi, la stessa persona.</p>
           <p className="cover-overlay-paragraph">
-            Insegno yoga e sono un&apos;ingegnera software. Corpo e tecnologia, percezione e logica: mondi
+            Insegno yoga e sono un ingegnere software. Corpo e tecnologia, percezione e logica: mondi
             apparentemente lontani che, nel mio modo di essere, finiscono spesso per incontrarsi.
           </p>
           <p className="cover-overlay-paragraph">
