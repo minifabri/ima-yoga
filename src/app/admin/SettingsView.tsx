@@ -5,6 +5,7 @@ import { Plus, Trash2, Eye, Lock, LockOpen } from "lucide-react";
 import { Field, IconButton, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { PALETTE } from "./utils";
+import { PushSettings } from "./PushSettings";
 import type { ClassItem, ClassType, Level, Settings } from "./types";
 
 export function SettingsView({
@@ -95,6 +96,8 @@ export function SettingsView({
             Controllo generale: quando sono chiuse, le clienti non possono prenotare nessuna classe.
           </div>
         </div>
+
+        <PushSettings />
 
         <div className="mb-6">
           <div style={{ fontSize: 13, fontWeight: 600 }} className="mb-2">
