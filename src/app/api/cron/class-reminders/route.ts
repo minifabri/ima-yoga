@@ -1,6 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { runClassRemindersJob } from "@/lib/classRemindersJob";
+import { runClassRemindersJob, sendTomorrowClassesPush } from "@/lib/classRemindersJob";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +29,18 @@ export async function GET(request: Request) {
   const jobName = onlyToday ? "class-reminders-same-day" : "class-reminders";
 
   const result = await runClassRemindersJob(adminClient, { jobName, onlyToday });
+
+  // Il riepilogo "lezioni di domani" per l'admin viaggia col giro serale ma
+  // non dipende dal suo esito: un errore nelle email alle clienti non deve
+  // toglierle il promemoria, e viceversa.
+  let adminPush: Awaited<ReturnType<typeof sendTomorrowClassesPush>> | undefined;
+  if (!onlyToday) {
+    adminPush = await sendTomorrowClassesPush(adminClient).catch((err) => ({ classes: 0, sent: 0, error: String(err) }));
+    if (adminPush.error) console.error(`[${jobName}] push lezioni di domani:`, adminPush.error);
+  }
+
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 500 });
   }
-  return NextResponse.json({ sent: result.sent, skipped: result.skipped });
+  return NextResponse.json({ sent: result.sent, skipped: result.skipped, adminPush });
 }
