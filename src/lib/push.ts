@@ -11,11 +11,15 @@ const URL_BY_TYPE: Record<string, string> = {
   registration: "/admin/clienti",
   enrollment: "/admin/calendario",
   cancellation: "/admin/calendario",
+  class_full: "/admin/calendario",
   survey_response: "/admin/sondaggi",
   individual_class_request: "/admin/lezioni-individuali",
 };
 
-export function pushUrlForType(type: string): string {
+// Prenotazioni e disdette degli eventi condividono il tipo con quelle delle
+// classi ("enrollment"/"cancellation"): a distinguerle è la tabella di origine.
+export function pushUrlFor(type: string, entityTable?: string | null): string {
+  if (entityTable === "event_bookings") return "/admin/eventi";
   return URL_BY_TYPE[type] ?? "/admin";
 }
 

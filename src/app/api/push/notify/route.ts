@@ -1,6 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { pushUrlForType, sendPush } from "@/lib/push";
+import { pushUrlFor, sendPush } from "@/lib/push";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "SUPABASE_SERVICE_ROLE_KEY non configurata." }, { status: 500 });
   }
 
-  const body = (await request.json().catch(() => null)) as { id?: string; type?: string; title?: string; message?: string } | null;
+  const body = (await request.json().catch(() => null)) as {
+    id?: string;
+    type?: string;
+    title?: string;
+    message?: string;
+    entity_table?: string | null;
+  } | null;
   if (!body?.title) {
     return NextResponse.json({ error: "Payload non valido." }, { status: 400 });
   }
@@ -31,7 +37,7 @@ export async function POST(request: Request) {
   const result = await sendPush(adminClient, {
     title: body.title,
     body: body.message ?? "",
-    url: pushUrlForType(body.type ?? ""),
+    url: pushUrlFor(body.type ?? "", body.entity_table),
     tag: body.id,
   });
   if (result.error) {
