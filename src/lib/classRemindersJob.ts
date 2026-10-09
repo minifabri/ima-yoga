@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendClassReminderEmail } from "@/lib/notifications";
 import { INDIVIDUAL_LESSON_TITLE } from "@/lib/classTitle";
+import { sendPush } from "@/lib/push";
 
 const ROME_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }); // yyyy-mm-dd
 const ROME_TIME = new Intl.DateTimeFormat("en-GB", {
@@ -112,4 +113,50 @@ export async function runClassRemindersJob(
     });
     return { ok: false, sent: 0, skipped: 0, error: message };
   }
+}
+
+// Promemoria per l'admin, non per le clienti: un push con le lezioni di
+// domani (orario, tipologia, iscritti). Parte solo dal cron serale — non dal
+// pulsante "Esegui ora" né dal giro del mattino — così arriva una volta al
+// giorno. Senza lezioni domani non manda nulla.
+export async function sendTomorrowClassesPush(adminClient: SupabaseClient): Promise<{ classes: number; sent: number; error?: string }> {
+  const [y, m, d] = ROME_DATE.format(new Date()).split("-").map(Number);
+  const tomorrowDate = ROME_DATE.format(new Date(Date.UTC(y, m - 1, d + 1)));
+
+  const { data, error } = await adminClient
+    .from("classes")
+    .select("class_time, capacity, is_individual, class_types(name), bookings(status, profiles(full_name))")
+    .eq("class_date", tomorrowDate)
+    .order("class_time");
+  if (error) return { classes: 0, sent: 0, error: error.message };
+
+  const lines: string[] = [];
+  for (const cls of data ?? []) {
+    const bookings = cls.bookings ?? [];
+    const booked = bookings.filter((b) => b.status === "booked");
+    const waitlist = bookings.length - booked.length;
+    const time = cls.class_time.slice(0, 5);
+
+    if (cls.is_individual) {
+      // Uno slot individuale senza prenotazione è solo una disponibilità, non una lezione.
+      if (booked.length === 0) continue;
+      const profile = Array.isArray(booked[0].profiles) ? booked[0].profiles[0] : booked[0].profiles;
+      lines.push(`${time} ${INDIVIDUAL_LESSON_TITLE}${profile?.full_name ? ` · ${profile.full_name}` : ""}`);
+      continue;
+    }
+
+    const classType = Array.isArray(cls.class_types) ? cls.class_types[0] : cls.class_types;
+    const count = cls.capacity > 0 ? `${booked.length}/${cls.capacity}` : `${booked.length}`;
+    lines.push(`${time} ${classType?.name || "Classe"} · ${count} iscritti${waitlist > 0 ? ` (+${waitlist} in attesa)` : ""}`);
+  }
+
+  if (lines.length === 0) return { classes: 0, sent: 0 };
+
+  const result = await sendPush(adminClient, {
+    title: lines.length === 1 ? "Domani: 1 lezione" : `Domani: ${lines.length} lezioni`,
+    body: lines.join("\n"),
+    url: "/admin/calendario",
+    tag: `tomorrow-classes-${tomorrowDate}`,
+  });
+  return { classes: lines.length, sent: result.sent, error: result.error };
 }
