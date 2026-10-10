@@ -94,13 +94,14 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const parentOf = (p: PoseCatalogItem) => (p.parentPoseId ? poseById[p.parentPoseId] : undefined);
     return poses
       .filter((p) => p.macro === macro)
       .filter((p) => categoryFilter === "all" || p.categoryId === categoryFilter)
       .filter((p) => tagFilter.length === 0 || p.tags.some((t) => tagFilter.includes(t)))
       .filter((p) => {
         if (!q) return true;
-        const parent = p.parentPoseId ? poseById[p.parentPoseId] : undefined;
+        const parent = parentOf(p);
         const displayName = poseDisplayName(p, parent);
         const displayNameIt = poseDisplayNameIt(p, parent);
         return (
@@ -110,7 +111,7 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
           p.tags.some((t) => t.toLowerCase().includes(q))
         );
       })
-      .sort((a, b) => poseDisplayName(a, undefined).localeCompare(poseDisplayName(b, undefined)));
+      .sort((a, b) => poseDisplayName(a, parentOf(a)).localeCompare(poseDisplayName(b, parentOf(b))));
   }, [poses, macro, categoryFilter, tagFilter, query, poseById]);
 
   // Fuori dalla ricerca, le varianti si annidano sotto la loro posizione base
@@ -644,7 +645,9 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
               <div key={p.id}>
                 {renderPoseRow(
                   p,
-                  undefined,
+                  // In ricerca anche le varianti sono righe di primo livello: senza
+                  // il padre il nome ereditato non si compone ("Senza nome").
+                  p.parentPoseId ? poseById[p.parentPoseId] : undefined,
                   () => {
                     setExpandedIds((cur) => new Set(cur).add(p.id));
                     startNew(p.id);
@@ -751,9 +754,10 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
   }
 
   function renderPoseCard(p: PoseCatalogItem, variants: PoseCatalogItem[]) {
-    const displayName = poseDisplayName(p, undefined);
-    const displayImage = poseDisplayImage(p, undefined);
-    const displayDrishti = poseDisplayDrishti(p, undefined);
+    const parent = p.parentPoseId ? poseById[p.parentPoseId] : undefined;
+    const displayName = poseDisplayName(p, parent);
+    const displayImage = poseDisplayImage(p, parent);
+    const displayDrishti = poseDisplayDrishti(p, parent);
     const isEditingSelf = editingId === p.id;
     const isCardHighlighted = isEditingSelf || variants.some((v) => v.id === editingId);
     return (
