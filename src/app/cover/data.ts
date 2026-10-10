@@ -180,4 +180,7 @@ export const CONTACT = {
   instagram: "@ima.yo.ga",
   instagramUrl: "https://instagram.com/ima.yo.ga",
   whatsappUrl: "https://wa.me/393358290919",
+  // Link PayPal.Me per le donazioni (es. "https://paypal.me/tuonome").
+  // Vuoto = il riquadro "Sostieni Ima Yoga" della copertina resta nascosto.
+  paypalUrl: "",
 };
