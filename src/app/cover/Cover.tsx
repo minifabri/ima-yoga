@@ -9,6 +9,7 @@ import { CosmicBackground } from "./CosmicBackground";
 import { Particles } from "./Particles";
 import { Footer } from "./Footer";
 import { InterestCallout } from "./InterestCallout";
+import { DonationCallout } from "./DonationCallout";
 import { getSection, type CoverAccess, type CoverEvent } from "./data";
 import { useReducedMotion, useScrollProgress } from "./hooks";
 
@@ -107,6 +108,7 @@ export function Cover({ events, adminPreview = false }: { events: CoverEvent[]; 
 
       <section className="cover-interest-section">
         <InterestCallout source="home" />
+        <DonationCallout />
       </section>
 
       <Footer access={access} />

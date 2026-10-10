@@ -1302,6 +1302,9 @@ body {
   margin: 0 auto;
   max-width: 640px;
 }
+.cover-interest-section .online-callout + .online-callout {
+  margin-top: 24px;
+}
 
 .online-callout {
   margin-top: 48px;
