@@ -182,5 +182,5 @@ export const CONTACT = {
   whatsappUrl: "https://wa.me/393358290919",
   // Link PayPal.Me per le donazioni (es. "https://paypal.me/tuonome").
   // Vuoto = il riquadro "Sostieni Ima Yoga" della copertina resta nascosto.
-  paypalUrl: "",
+  paypalUrl: "https://paypal.me/fabriziabinetti",
 };
