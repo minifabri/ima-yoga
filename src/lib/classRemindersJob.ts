@@ -17,6 +17,9 @@ const ROME_TIME = new Intl.DateTimeFormat("en-GB", {
 // invio sono identici, cambia solo la finestra di date e il job_name con
 // cui l'esito finisce in cron_job_logs. reminder_sent_at su bookings evita
 // i doppi invii sia tra le due schedule sia per i rilanci manuali.
+// Insieme all'email parte anche il push sui telefoni della cliente che ha
+// attivato le notifiche: segue l'email (stesso momento, stessa marcatura),
+// così non può arrivare due volte se l'email fallisce e viene ritentata.
 export async function runClassRemindersJob(
   adminClient: SupabaseClient,
   opts: { jobName: string; onlyToday?: boolean }
@@ -44,6 +47,7 @@ export async function runClassRemindersJob(
 
     let sent = 0;
     let skipped = 0;
+    let pushed = 0;
 
     for (const booking of bookings ?? []) {
       const profile = Array.isArray(booking.profiles) ? booking.profiles[0] : booking.profiles;
@@ -86,19 +90,32 @@ export async function runClassRemindersJob(
       if (ok) {
         await adminClient.from("bookings").update({ reminder_sent_at: new Date().toISOString() }).eq("id", booking.id);
         sent++;
+
+        const time = cls.class_time.slice(0, 5);
+        const push = await sendPush(
+          adminClient,
+          {
+            title: `Ci vediamo ${isToday ? "oggi" : "domani"} 🤍`,
+            body: `${className.charAt(0).toUpperCase()}${className.slice(1)} alle ${time}. Se non riesci a venire, cancella dalla tua area.`,
+            url: "/area/prenotazioni",
+            tag: `class-reminder-${booking.id}`,
+          },
+          { authUserId: profile.auth_user_id }
+        ).catch(() => ({ sent: 0 }));
+        if (push.sent > 0) pushed++;
       } else {
         skipped++;
       }
     }
 
-    console.log(`[${opts.jobName}] today=${todayDate} until=${untilDate} sent=${sent} skipped=${skipped}`);
+    console.log(`[${opts.jobName}] today=${todayDate} until=${untilDate} sent=${sent} skipped=${skipped} pushed=${pushed}`);
     await adminClient.from("cron_job_logs").insert({
       job_name: opts.jobName,
       status: "ok",
       started_at: startedAt.toISOString(),
       sent,
       skipped,
-      details: { today: todayDate, until: untilDate, onlyToday: !!opts.onlyToday },
+      details: { today: todayDate, until: untilDate, onlyToday: !!opts.onlyToday, pushed },
     });
 
     return { ok: true, sent, skipped };
