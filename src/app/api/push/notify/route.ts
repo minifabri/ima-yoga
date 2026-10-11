@@ -4,8 +4,10 @@ import { pushUrlFor, sendPush } from "@/lib/push";
 
 export const dynamic = "force-dynamic";
 
-// Chiamata dal database (trigger su public.notifications, via pg_net) a ogni
-// nuova notifica admin: la inoltra come push ai dispositivi registrati.
+// Chiamata dal database (via pg_net) a ogni nuova notifica: quelle dell'admin
+// (trigger su public.notifications) vanno ai dispositivi dell'admin, quelle
+// delle clienti (trigger su public.client_notices, riconoscibili da client_id)
+// solo ai dispositivi di quella cliente.
 // A differenza del cron, qui il segreto è obbligatorio: senza, chiunque
 // conosca l'URL potrebbe far comparire notifiche a piacere sul telefono dell'admin.
 export async function POST(request: Request) {
@@ -28,18 +30,46 @@ export async function POST(request: Request) {
     title?: string;
     message?: string;
     entity_table?: string | null;
+    client_id?: string;
+    link_path?: string | null;
   } | null;
-  if (!body?.title) {
+  if (!body || (!body.title && !body.client_id)) {
     return NextResponse.json({ error: "Payload non valido." }, { status: 400 });
   }
 
   const adminClient = createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
-  const result = await sendPush(adminClient, {
-    title: body.title,
-    body: body.message ?? "",
-    url: pushUrlFor(body.type ?? "", body.entity_table),
-    tag: body.id,
-  });
+
+  if (body.client_id) {
+    const { data: client } = await adminClient.from("profiles").select("auth_user_id").eq("id", body.client_id).maybeSingle();
+    // cliente senza account di accesso: non ha dispositivi a cui mandarlo
+    if (!client?.auth_user_id) return NextResponse.json({ sent: 0, failed: 0 });
+
+    const result = await sendPush(
+      adminClient,
+      {
+        title: "ima yoga",
+        body: body.message ?? "",
+        url: body.link_path?.startsWith("/") ? body.link_path : "/area",
+        tag: body.id,
+      },
+      { authUserId: client.auth_user_id }
+    );
+    if (result.error) {
+      return NextResponse.json({ error: result.error }, { status: 500 });
+    }
+    return NextResponse.json({ sent: result.sent, failed: result.failed });
+  }
+
+  const result = await sendPush(
+    adminClient,
+    {
+      title: body.title ?? "ima yoga",
+      body: body.message ?? "",
+      url: pushUrlFor(body.type ?? "", body.entity_table),
+      tag: body.id,
+    },
+    { admins: true }
+  );
   if (result.error) {
     return NextResponse.json({ error: result.error }, { status: 500 });
   }

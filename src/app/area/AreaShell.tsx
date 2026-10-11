@@ -31,6 +31,7 @@ import { logout } from "@/app/actions";
 import { deleteOwnAccount, type DeleteAccountState } from "./actions";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { ThemeToggle } from "@/app/admin/ThemeToggle";
+import { PushOwnershipSync, PushSettings } from "@/app/admin/PushSettings";
 import { Logo } from "@/app/admin/Logo";
 import { dateKey, getCalendarDays } from "@/app/admin/utils";
 import * as db from "./data";
@@ -178,6 +179,7 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
   const [justCancelledId, setJustCancelledId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [pushSettingsOpen, setPushSettingsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -785,6 +787,16 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                       <button
                         onClick={() => {
                           setProfileMenuOpen(false);
+                          setPushSettingsOpen(true);
+                        }}
+                        className="w-full text-left py-1.5 text-sm font-medium"
+                        style={{ color: COLORS.ink }}
+                      >
+                        Notifiche sul telefono
+                      </button>
+                      <button
+                        onClick={() => {
+                          setProfileMenuOpen(false);
                           setChangePasswordOpen(true);
                         }}
                         className="w-full text-left py-1.5 text-sm font-medium"
@@ -1022,6 +1034,26 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                   {selected.capacity > 0 && selected.bookedCount >= selected.capacity ? "Aggiungimi in lista d'attesa" : "Prenota"}
                 </button>
               )}
+            </div>
+          </div>
+        )}
+
+        <PushOwnershipSync audience="client" />
+
+        {pushSettingsOpen && (
+          <div
+            className="fixed inset-0 flex items-center justify-center p-4"
+            style={{ background: "rgba(74,58,115,0.35)", zIndex: 50 }}
+            onMouseDown={(e) => e.target === e.currentTarget && setPushSettingsOpen(false)}
+          >
+            <div className="w-full p-5" style={{ maxWidth: 340, background: COLORS.card, borderRadius: 18, boxShadow: "0 16px 44px rgba(74,58,115,0.16)" }}>
+              <div className="flex items-center justify-between mb-3">
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>Notifiche</div>
+                <button onClick={() => setPushSettingsOpen(false)}>
+                  <X size={18} />
+                </button>
+              </div>
+              <PushSettings audience="client" />
             </div>
           </div>
         )}

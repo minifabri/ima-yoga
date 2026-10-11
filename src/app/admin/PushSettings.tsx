@@ -4,6 +4,23 @@ import { useEffect, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { removePushSubscription, savePushSubscription, sendTestPush } from "./actions";
+import { removeMyPushSubscription, saveMyPushSubscription, sendMyTestPush } from "@/app/area/actions";
+
+// Lo stesso pannello serve al gestionale e all'area clienti: cambiano solo le
+// server action (ognuna controlla il proprio ruolo) e il testo di spiegazione.
+type Audience = "admin" | "client";
+
+const ACTIONS = {
+  admin: { save: savePushSubscription, remove: removePushSubscription, test: sendTestPush },
+  client: { save: saveMyPushSubscription, remove: removeMyPushSubscription, test: sendMyTestPush },
+};
+
+const DESCRIPTION: Record<Audience, string> = {
+  admin:
+    "Iscrizioni, disdette, richieste di lezione individuale e gli altri avvisi della campanella arrivano anche come notifica sul telefono. Va attivato su ogni dispositivo.",
+  client:
+    "Gli avvisi della campanella — un posto che si libera, una nuova sequenza, un sondaggio — arrivano anche come notifica sul telefono. Va attivato su ogni dispositivo.",
+};
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
@@ -30,7 +47,24 @@ function registerServiceWorker() {
   return navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
 }
 
-export function PushSettings() {
+// Da montare nella shell: se questo dispositivo ha già una sottoscrizione, la
+// riassegna a chi è loggato adesso. Serve quando sullo stesso browser entrano
+// account diversi (es. admin e cliente): l'endpoint è uno solo e deve seguire
+// l'utente corrente, altrimenti riceverebbe gli avvisi di un altro.
+export function PushOwnershipSync({ audience }: { audience: Audience }) {
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    (async () => {
+      const registration = await navigator.serviceWorker.getRegistration("/");
+      const subscription = await registration?.pushManager.getSubscription();
+      if (subscription) await ACTIONS[audience].save(JSON.parse(JSON.stringify(subscription)), navigator.userAgent);
+    })().catch(() => {});
+  }, [audience]);
+  return null;
+}
+
+export function PushSettings({ audience = "admin" }: { audience?: Audience }) {
+  const actions = ACTIONS[audience];
   const [status, setStatus] = useState<Status>("loading");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -74,7 +108,7 @@ export function PushSettings() {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
-      const result = await savePushSubscription(JSON.parse(JSON.stringify(subscription)), navigator.userAgent);
+      const result = await actions.save(JSON.parse(JSON.stringify(subscription)), navigator.userAgent);
       if (!result.ok) {
         await subscription.unsubscribe().catch(() => {});
         setMessage(result.error ?? "Non sono riuscita a salvare la sottoscrizione.");
@@ -95,7 +129,7 @@ export function PushSettings() {
       const registration = await navigator.serviceWorker.getRegistration("/");
       const subscription = await registration?.pushManager.getSubscription();
       if (subscription) {
-        await removePushSubscription(subscription.endpoint);
+        await actions.remove(subscription.endpoint);
         await subscription.unsubscribe();
       }
       setStatus("off");
@@ -116,7 +150,7 @@ export function PushSettings() {
         setStatus("off");
         return;
       }
-      const result = await sendTestPush(subscription.endpoint);
+      const result = await actions.test(subscription.endpoint);
       setMessage(result.ok ? "Notifica di prova inviata." : result.error ?? "Invio non riuscito.");
     } finally {
       setPending(false);
@@ -127,7 +161,7 @@ export function PushSettings() {
   const color = on ? COLORS.success : COLORS.inkSoft;
 
   return (
-    <div className="mb-6">
+    <div className={audience === "admin" ? "mb-6" : undefined}>
       <div style={{ fontSize: 13, fontWeight: 600 }} className="mb-2">
         Notifiche su questo dispositivo
       </div>
@@ -161,8 +195,7 @@ export function PushSettings() {
             )}
           </div>
           <div style={{ fontSize: 11.5, color: COLORS.inkSoft }} className="mt-1.5">
-            {message ??
-              "Iscrizioni, disdette, richieste di lezione individuale e gli altri avvisi della campanella arrivano anche come notifica sul telefono. Va attivato su ogni dispositivo."}
+            {message ?? DESCRIPTION[audience]}
           </div>
         </>
       )}

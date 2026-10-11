@@ -1,0 +1,17 @@
+{
+  "id": "/area",
+  "name": "ima yoga",
+  "short_name": "ima yoga",
+  "description": "Calendario, prenotazioni e sequenze di ima yoga",
+  "lang": "it",
+  "start_url": "/area",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1c1830",
+  "theme_color": "#1c1830",
+  "icons": [
+    { "src": "/icons/admin-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/admin-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/admin-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

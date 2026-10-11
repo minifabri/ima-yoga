@@ -6,10 +6,9 @@ import { claimAdmin } from "@/app/actions";
 import { AdminShell } from "./AdminShell";
 import { fetchAdminData } from "./data";
 
-// Il manifest è collegato solo qui, non nel layout radice: è quello che rende
-// il gestionale installabile sulla Home del telefono (icona, apertura a
-// schermo intero su /admin). Le pagine pubbliche e l'area clienti restano
-// senza, così chi le aggiunge alla Home non finisce su /admin.
+// Manifest del gestionale, al posto di quello dell'area clienti ereditato dal
+// layout radice: è quello che fa aprire l'app installata dall'admin su /admin
+// invece che su /area.
 export const metadata: Metadata = {
   manifest: "/admin.webmanifest",
   appleWebApp: { capable: true, title: "ima yoga", statusBarStyle: "default" },

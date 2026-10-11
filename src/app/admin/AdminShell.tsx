@@ -13,6 +13,7 @@ import { dateKey, classEffectivePrice } from "./utils";
 import { classTitle } from "@/lib/classTitle";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsPanel } from "./NotificationsPanel";
+import { PushOwnershipSync } from "./PushSettings";
 import { MoreMenu, type MoreMenuItem } from "./MoreMenu";
 import * as db from "./data";
 import { adminResetClientPassword, adminGetClientAuthStatus, adminResendActivationEmail, adminResendPasswordReset } from "./actions";
@@ -591,6 +592,7 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
   return (
     <AdminContext.Provider value={value}>
       <div style={{ fontFamily: "var(--font-body)", background: COLORS.bg, color: COLORS.ink, minHeight: "100vh" }}>
+        <PushOwnershipSync audience="admin" />
         <div className="p-5" style={{ maxWidth: 980, margin: "0 auto" }}>
           <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
             <Logo kicker="Gestionale" />
