@@ -1032,6 +1032,10 @@ export async function downloadPoseOriginal(supabase: DB, largeUrl: string): Prom
 export async function deletePoseThumbnail(supabase: DB, url: string): Promise<void> {
   const path = poseThumbnailPath(url);
   if (!path) return;
+  // Più posizioni possono condividere lo stesso file (es. i pranayama usano
+  // tutti la stessa figura seduta): finché un'altra lo usa, resta dov'è.
+  const { count } = await supabase.from("poses").select("id", { count: "exact", head: true }).or(`image_url.eq.${url},image_large_url.eq.${url}`);
+  if ((count ?? 0) > 1) return;
   const { error } = await supabase.storage.from("pose-thumbnails").remove([path]);
   if (error) throw error;
   await supabase.storage.from("pose-originals").remove([path]);

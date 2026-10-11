@@ -1344,6 +1344,9 @@ export function SequenceEditor({
           poseCatalog={poseCatalog}
           poseCategories={poseCategories}
           mode={pickerTarget.itemUid ? "replace" : "add"}
+          // Dalla sezione Pranayama il picker si apre già sulle tecniche di
+          // respirazione, invece che sulle asana.
+          initialMacro={sections.find((s) => s.uid === pickerTarget.sectionUid)?.kind === "pranayama" ? "pranayama" : "asana"}
           onPoseCatalogUpdated={onPoseCatalogUpdated}
           onClose={() => setPickerTarget(null)}
           onPick={(pose) => {
@@ -2504,8 +2507,8 @@ function MobileSectionCard({
   );
 }
 
-function usePoseFilter(poseCatalog: PoseCatalogItem[], poseCategories: PoseCategory[]) {
-  const [macro, setMacro] = useState<PoseMacro>("asana");
+function usePoseFilter(poseCatalog: PoseCatalogItem[], poseCategories: PoseCategory[], initialMacro: PoseMacro = "asana") {
+  const [macro, setMacro] = useState<PoseMacro>(initialMacro);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [query, setQuery] = useState("");
 
@@ -2600,6 +2603,7 @@ function PosePickerSheet({
   poseCatalog,
   poseCategories,
   mode = "add",
+  initialMacro,
   onPoseCatalogUpdated,
   onPick,
   onClose,
@@ -2608,11 +2612,12 @@ function PosePickerSheet({
   poseCatalog: PoseCatalogItem[];
   poseCategories: PoseCategory[];
   mode?: "add" | "replace";
+  initialMacro?: PoseMacro;
   onPoseCatalogUpdated: (pose: PoseCatalogItem) => void;
   onPick: (pose: PoseCatalogItem) => void;
   onClose: () => void;
 }) {
-  const { macro, setMacro, categoryFilter, setCategoryFilter, query, setQuery, categoriesForMacro, filtered } = usePoseFilter(poseCatalog, poseCategories);
+  const { macro, setMacro, categoryFilter, setCategoryFilter, query, setQuery, categoriesForMacro, filtered } = usePoseFilter(poseCatalog, poseCategories, initialMacro);
   const [creatingPose, setCreatingPose] = useState(false);
   return (
     <>
