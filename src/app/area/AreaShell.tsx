@@ -40,6 +40,7 @@ import { downloadIcsFile } from "@/lib/ics";
 import { classTitle } from "@/lib/classTitle";
 import { notifyClassFull, notifyIndividualClassRequest } from "@/lib/notifications";
 import { RequestIndividualClassModal } from "./RequestIndividualClassModal";
+import { InstallApp } from "./InstallApp";
 import { availabilityLabel, canStillCancel, errorMessage, formatNoticeDate, isPastClass } from "./helpers";
 import type {
   Announcement,
@@ -180,6 +181,7 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
   const [pending, setPending] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [pushSettingsOpen, setPushSettingsOpen] = useState(false);
+  const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -797,6 +799,16 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                       <button
                         onClick={() => {
                           setProfileMenuOpen(false);
+                          setInstallGuideOpen(true);
+                        }}
+                        className="w-full text-left py-1.5 text-sm font-medium"
+                        style={{ color: COLORS.ink }}
+                      >
+                        Installa l&apos;app
+                      </button>
+                      <button
+                        onClick={() => {
+                          setProfileMenuOpen(false);
                           setChangePasswordOpen(true);
                         }}
                         className="w-full text-left py-1.5 text-sm font-medium"
@@ -826,6 +838,14 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
               </div>
             </div>
           </div>
+
+          <InstallApp
+            showNudge={isHome}
+            guideOpen={installGuideOpen}
+            onGuideOpenChange={setInstallGuideOpen}
+            onOpenPushSettings={() => setPushSettingsOpen(true)}
+            pushSettingsOpen={pushSettingsOpen}
+          />
 
           {visibleAnnouncements.length > 0 && (
             <div className="flex flex-col gap-2 mb-4">
