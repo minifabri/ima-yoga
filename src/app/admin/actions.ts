@@ -14,7 +14,7 @@ import {
   sendSurveyReminderEmail,
 } from "@/lib/notifications";
 import { runClassRemindersJob } from "@/lib/classRemindersJob";
-import { sendPush } from "@/lib/push";
+import { sendPush, storePushSubscription, type PushSubscriptionInput } from "@/lib/push";
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
@@ -460,26 +460,18 @@ export async function runClassRemindersNow(
 // Notifiche push (vedi PushSettings.tsx e src/lib/push.ts)
 // ---------------------------------------------------------
 export async function savePushSubscription(
-  subscription: { endpoint?: string; keys?: { p256dh?: string; auth?: string } },
+  subscription: PushSubscriptionInput,
   userAgent: string
 ): Promise<{ ok: boolean; error?: string }> {
   const { ctx, error } = await requireAdminContext();
   if (!ctx) return { ok: false, error };
 
-  const endpoint = subscription.endpoint;
-  const p256dh = subscription.keys?.p256dh;
-  const auth = subscription.keys?.auth;
-  if (!endpoint || !p256dh || !auth) return { ok: false, error: "Sottoscrizione non valida." };
-
   const {
     data: { user },
   } = await ctx.supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Non autenticato." };
 
-  const { error: upsertError } = await ctx.adminClient
-    .from("push_subscriptions")
-    .upsert({ endpoint, p256dh, auth, auth_user_id: user?.id ?? null, user_agent: userAgent.slice(0, 300) }, { onConflict: "endpoint" });
-  if (upsertError) return { ok: false, error: upsertError.message };
-  return { ok: true };
+  return storePushSubscription(ctx.adminClient, subscription, user.id, userAgent);
 }
 
 export async function removePushSubscription(endpoint: string): Promise<{ ok: boolean; error?: string }> {
@@ -498,6 +490,7 @@ export async function sendTestPush(endpoint: string): Promise<{ ok: boolean; err
   const result = await sendPush(
     ctx.adminClient,
     { title: "ima yoga", body: "Le notifiche su questo dispositivo funzionano.", url: "/admin/impostazioni", tag: "push-test" },
+    { admins: true },
     endpoint
   );
   if (result.error) return { ok: false, error: result.error };

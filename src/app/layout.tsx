@@ -15,9 +15,15 @@ const montserrat = Montserrat({
   subsets: ["latin"],
 });
 
+// Il manifest di tutto il sito è quello dell'area clienti: chi aggiunge ima
+// yoga alla Home (da qualunque pagina, login compreso) apre l'app su /area,
+// che da sola rimanda al login chi non è entrato. Il gestionale lo sostituisce
+// con il proprio in admin/layout.tsx.
 export const metadata: Metadata = {
   title: "ima yoga",
   description: "Calendario classi, prenotazioni e gestionale — ima yoga",
+  manifest: "/app.webmanifest",
+  appleWebApp: { capable: true, title: "ima yoga", statusBarStyle: "default" },
 };
 
 // Il tema scuro è quello di default (bare :root in globals.css): basta impostare

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { sendPush, storePushSubscription, type PushSubscriptionInput } from "@/lib/push";
 
 const DELETE_CONFIRM_WORD = "UTTHITA HASTA PADANGUSTHASANA";
 
@@ -31,4 +32,61 @@ export async function deleteOwnAccount(_prevState: DeleteAccountState, formData:
 
   await supabase.auth.signOut();
   redirect("/login?account_deleted=1");
+}
+
+// ---------------------------------------------------------
+// Notifiche push della cliente (vedi admin/PushSettings.tsx e src/lib/push.ts)
+// ---------------------------------------------------------
+// push_subscriptions non ha policy RLS per le clienti: si scrive con la chiave
+// di servizio, sempre e solo sulle righe dell'utente loggato.
+async function requireUserContext() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ctx: null, error: "Non autenticato." };
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return { ctx: null, error: "Notifiche non ancora configurate sul server." };
+
+  const adminClient = createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
+  return { ctx: { user, adminClient }, error: undefined as string | undefined };
+}
+
+export async function saveMyPushSubscription(
+  subscription: PushSubscriptionInput,
+  userAgent: string
+): Promise<{ ok: boolean; error?: string }> {
+  const { ctx, error } = await requireUserContext();
+  if (!ctx) return { ok: false, error };
+
+  return storePushSubscription(ctx.adminClient, subscription, ctx.user.id, userAgent);
+}
+
+export async function removeMyPushSubscription(endpoint: string): Promise<{ ok: boolean; error?: string }> {
+  const { ctx, error } = await requireUserContext();
+  if (!ctx) return { ok: false, error };
+
+  const { error: deleteError } = await ctx.adminClient
+    .from("push_subscriptions")
+    .delete()
+    .eq("endpoint", endpoint)
+    .eq("auth_user_id", ctx.user.id);
+  if (deleteError) return { ok: false, error: deleteError.message };
+  return { ok: true };
+}
+
+export async function sendMyTestPush(endpoint: string): Promise<{ ok: boolean; error?: string }> {
+  const { ctx, error } = await requireUserContext();
+  if (!ctx) return { ok: false, error };
+
+  const result = await sendPush(
+    ctx.adminClient,
+    { title: "ima yoga", body: "Le notifiche su questo dispositivo funzionano.", url: "/area", tag: "push-test" },
+    { authUserId: ctx.user.id },
+    endpoint
+  );
+  if (result.error) return { ok: false, error: result.error };
+  if (result.sent === 0) return { ok: false, error: "Invio non riuscito: prova a disattivare e riattivare le notifiche." };
+  return { ok: true };
 }

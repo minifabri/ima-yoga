@@ -152,11 +152,15 @@ export async function sendTomorrowClassesPush(adminClient: SupabaseClient): Prom
 
   if (lines.length === 0) return { classes: 0, sent: 0 };
 
-  const result = await sendPush(adminClient, {
-    title: lines.length === 1 ? "Domani: 1 lezione" : `Domani: ${lines.length} lezioni`,
-    body: lines.join("\n"),
-    url: "/admin/calendario",
-    tag: `tomorrow-classes-${tomorrowDate}`,
-  });
+  const result = await sendPush(
+    adminClient,
+    {
+      title: lines.length === 1 ? "Domani: 1 lezione" : `Domani: ${lines.length} lezioni`,
+      body: lines.join("\n"),
+      url: "/admin/calendario",
+      tag: `tomorrow-classes-${tomorrowDate}`,
+    },
+    { admins: true }
+  );
   return { classes: lines.length, sent: result.sent, error: result.error };
 }
