@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, UserPlus, User, ClipboardPaste, LayoutGrid, List, Lock, EyeOff, GripVertical, CalendarClock, Download, Gift } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, UserPlus, User, ClipboardPaste, LayoutGrid, List, Lock, EyeOff, GripVertical, CalendarClock, Download, Gift, Music } from "lucide-react";
 import { IconButton, CapacityBar } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay, getCalendarDays, isPastClass } from "./utils";
 import { downloadIcsFile } from "@/lib/ics";
 import { classTitle, individualLessonIcsTitle } from "@/lib/classTitle";
+import { playlistServiceName } from "@/lib/playlist";
 import type { ClassItem, ClassType, ClientItem, EventItem, Level } from "./types";
 
 type ClassClipboard = {
@@ -17,6 +18,35 @@ type ClassClipboard = {
   notes: string;
   bookingsOpen: boolean;
 };
+
+// Nota musicale sulle card delle classi con una playlist collegata: un tocco
+// la apre direttamente, senza passare dalla scheda della classe. È uno span e
+// non un link perché vive dentro il bottone (trascinabile) della card.
+function PlaylistLink({ url, size }: { url: string; size: number }) {
+  const service = playlistServiceName(url);
+  return (
+    <span
+      role="link"
+      tabIndex={0}
+      title={service ? `Apri la playlist su ${service}` : "Apri la playlist"}
+      aria-label="Apri la playlist"
+      className="inline-flex items-center justify-center rounded-full"
+      style={{ padding: 2, margin: -2, cursor: "pointer", color: COLORS.primary, flexShrink: 0 }}
+      onClick={(e) => {
+        e.stopPropagation();
+        window.open(url, "_blank", "noopener,noreferrer");
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter") return;
+        e.stopPropagation();
+        e.preventDefault();
+        window.open(url, "_blank", "noopener,noreferrer");
+      }}
+    >
+      <Music size={size} />
+    </span>
+  );
+}
 
 function typeInitials(name?: string): string {
   if (!name) return "?";
@@ -336,6 +366,7 @@ export function CalendarView({
                               {!c.bookingsOpen && !c.isIndividual && <Lock size={8} color={COLORS.inkSoft} />}
                               {c.isFree && <Gift size={8} color={COLORS.gold} />}
                               {c.isIndividual && <User size={8} color={COLORS.primary} />}
+                              {c.playlistUrl && <Music size={8} color={COLORS.primary} />}
                               {typeInitials(classTitle(c.isIndividual, c.typeId, typeById))}
                             </span>
                             <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
@@ -507,6 +538,7 @@ export function CalendarView({
                             )}
                             {!c.bookingsOpen && !c.isIndividual && <Lock size={11} color={COLORS.inkSoft} />}
                             {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
+                            {c.playlistUrl && <PlaylistLink url={c.playlistUrl} size={12} />}
                           </div>
                           <div style={{ fontSize: 11, color: COLORS.inkSoft }}>
                             {assignedClient ? assignedClient.name : level?.name}
@@ -606,6 +638,7 @@ function ClassCard({
         {!c.bookingsOpen && !isPersonal && <Lock size={9} color={COLORS.inkSoft} />}
         {c.isFree && <Gift size={9} color={COLORS.gold} />}
         {isPersonal && <User size={9} color={COLORS.primary} />}
+        {c.playlistUrl && <PlaylistLink url={c.playlistUrl} size={10} />}
       </button>
     );
   }
@@ -634,6 +667,7 @@ function ClassCard({
           {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
         </span>
         <span className="flex items-center gap-1">
+          {c.playlistUrl && <PlaylistLink url={c.playlistUrl} size={12} />}
           {!c.bookingsOpen && !isPersonal && <Lock size={11} color={COLORS.inkSoft} />}
           <GripVertical size={12} color={COLORS.inkSoft} style={{ opacity: 0.6 }} />
         </span>

@@ -65,6 +65,7 @@ export type PublicClass = {
   levelId: string;
   capacity: number;
   description: string;
+  playlistUrl: string;
   bookingsOpen: boolean;
   isFree: boolean;
   bookedCount: number;

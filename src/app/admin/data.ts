@@ -178,6 +178,7 @@ function mapClass(row: {
   capacity: number;
   notes: string | null;
   description: string | null;
+  playlist_url: string | null;
   bookings_open: boolean;
   price_override: number | null;
   is_free: boolean;
@@ -208,6 +209,7 @@ function mapClass(row: {
     capacity: row.capacity,
     notes: row.notes ?? "",
     description: row.description ?? "",
+    playlistUrl: row.playlist_url ?? "",
     bookingsOpen: row.bookings_open,
     priceOverride: row.price_override != null ? Number(row.price_override) : null,
     isFree: row.is_free,
@@ -321,6 +323,7 @@ export async function saveClass(supabase: DB, item: ClassItem) {
     capacity: item.capacity,
     notes: item.notes || null,
     description: item.description || null,
+    playlist_url: item.playlistUrl || null,
     bookings_open: item.bookingsOpen,
     price_override: item.priceOverride,
     is_free: item.isFree,
