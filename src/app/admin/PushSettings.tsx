@@ -63,6 +63,22 @@ export function PushOwnershipSync({ audience }: { audience: Audience }) {
   return null;
 }
 
+// Da chiamare prima del logout: toglie dal server la riga di questo
+// dispositivo, così chi esce smette di ricevere notifiche qui. La
+// sottoscrizione del browser resta: al prossimo accesso PushOwnershipSync la
+// riassegna a chi entra, senza dover riattivare nulla. Un errore non deve mai
+// impedire di uscire.
+export async function detachPushSubscription(audience: Audience) {
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    const subscription = await registration?.pushManager.getSubscription();
+    if (subscription) await ACTIONS[audience].remove(subscription.endpoint);
+  } catch {
+    // vedi commento sopra
+  }
+}
+
 export function PushSettings({ audience = "admin" }: { audience?: Audience }) {
   const actions = ACTIONS[audience];
   const [status, setStatus] = useState<Status>("loading");

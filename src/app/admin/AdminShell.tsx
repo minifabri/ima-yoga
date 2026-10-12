@@ -13,7 +13,7 @@ import { dateKey, classEffectivePrice } from "./utils";
 import { classTitle } from "@/lib/classTitle";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsPanel } from "./NotificationsPanel";
-import { PushOwnershipSync } from "./PushSettings";
+import { detachPushSubscription, PushOwnershipSync } from "./PushSettings";
 import { MoreMenu, type MoreMenuItem } from "./MoreMenu";
 import * as db from "./data";
 import { adminResetClientPassword, adminGetClientAuthStatus, adminResendActivationEmail, adminResendPasswordReset } from "./actions";
@@ -647,7 +647,12 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
                   <NotificationsPanel notifications={notifications} onMarkRead={markNotificationRead} onMarkAllRead={markAllNotificationsRead} />
                 </div>
                 <ThemeToggle />
-                <form action={logout}>
+                <form
+                  action={async () => {
+                    await detachPushSubscription("admin");
+                    await logout();
+                  }}
+                >
                   <button type="submit" className="text-sm font-medium px-1.5" style={{ color: COLORS.inkSoft }}>
                     Esci
                   </button>

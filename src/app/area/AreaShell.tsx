@@ -31,7 +31,7 @@ import { logout } from "@/app/actions";
 import { deleteOwnAccount, type DeleteAccountState } from "./actions";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { ThemeToggle } from "@/app/admin/ThemeToggle";
-import { PushOwnershipSync, PushSettings } from "@/app/admin/PushSettings";
+import { detachPushSubscription, PushOwnershipSync, PushSettings } from "@/app/admin/PushSettings";
 import { Logo } from "@/app/admin/Logo";
 import { dateKey, getCalendarDays } from "@/app/admin/utils";
 import * as db from "./data";
@@ -827,7 +827,12 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                       >
                         Elimina account
                       </button>
-                      <form action={logout}>
+                      <form
+                        action={async () => {
+                          await detachPushSubscription("client");
+                          await logout();
+                        }}
+                      >
                         <button type="submit" className="w-full text-left py-1.5 text-sm font-medium" style={{ color: COLORS.danger }}>
                           Esci
                         </button>
