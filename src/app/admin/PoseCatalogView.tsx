@@ -316,9 +316,9 @@ export function PoseCatalogView({ supabase }: { supabase: SupabaseClient }) {
             </Field>
           </div>
         )}
-        <div className="grid sm:grid-cols-2 gap-3 mb-3">
+        <div className="mb-3">
           <Field label="Descrizione (facoltativa)">
-            <input value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} style={inputStyle} />
+            <textarea value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} rows={4} style={{ ...inputStyle, resize: "vertical" }} />
           </Field>
         </div>
         <div className="flex items-center gap-2">
