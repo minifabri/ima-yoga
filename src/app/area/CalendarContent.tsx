@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarCheck, CalendarClock, ChevronLeft, ChevronRight, Gift, LayoutGrid, List, Lock, Sparkles, User } from "lucide-react";
+import { CalendarCheck, CalendarClock, ChevronLeft, ChevronRight, Gift, LayoutGrid, List, Lock, Music, Sparkles, User } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { WEEKDAYS, MONTHS, dateKey, isSameDay } from "@/app/admin/utils";
 import { classTitle } from "@/lib/classTitle";
@@ -252,6 +252,7 @@ export function CalendarContent() {
                               {c.time}
                               {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={10} color={COLORS.gold} /></span>}
                               {c.isPersonal && <span title="Lezione individuale" className="inline-flex"><User size={10} color={COLORS.primary} /></span>}
+                              {c.playlistUrl && <span title="Con playlist" className="inline-flex"><Music size={10} color={COLORS.primary} /></span>}
                             </div>
                             <div>{classTitle(c.isPersonal, c.typeId, typeById)}</div>
                             <div style={{ color: avail.color, fontWeight: 600 }}>{avail.text}</div>
@@ -303,6 +304,7 @@ export function CalendarContent() {
                             {c.time} · {classTitle(c.isPersonal, c.typeId, typeById)}
                             {c.isFree && <span title="Classe gratuita" className="inline-flex"><Gift size={11} color={COLORS.gold} /></span>}
                             {c.isPersonal && <span title="Lezione individuale" className="inline-flex"><User size={11} color={COLORS.primary} /></span>}
+                            {c.playlistUrl && <span title="Con playlist" className="inline-flex"><Music size={11} color={COLORS.primary} /></span>}
                           </div>
                           <div style={{ fontSize: 11, color: COLORS.inkSoft }}>{levelById[c.levelId]?.name}</div>
                         </div>

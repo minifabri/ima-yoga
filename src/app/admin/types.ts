@@ -18,6 +18,8 @@ export type ClassItem = {
   capacity: number;
   notes: string;
   description: string;
+  // Link alla playlist della lezione (visibile anche ai clienti); "" = nessuna.
+  playlistUrl: string;
   bookingsOpen: boolean;
   priceOverride: number | null;
   isFree: boolean;

@@ -4,7 +4,9 @@ import { useRef, useState } from "react";
 import { X, Plus, Trash2, Search, Download, Gift, Eye, EyeOff, User } from "lucide-react";
 import { downloadIcsFile } from "@/lib/ics";
 import { INDIVIDUAL_LESSON_TITLE, individualLessonIcsTitle } from "@/lib/classTitle";
+import { normalizePlaylistUrl } from "@/lib/playlist";
 import { Modal, Field, inputStyle } from "./ui";
+import { PlaylistField } from "./PlaylistField";
 import { COLORS, withAlpha } from "./colors";
 import { genId, dateKey } from "./utils";
 import type { ClassItem, ClientItem, Level, Payment, PaymentStatus } from "./types";
@@ -78,6 +80,7 @@ export function PersonalClassFormModal({
   const [levelId, setLevelId] = useState(editing ? base!.levelId : levels[0]?.id || "");
   const [notes, setNotes] = useState(editing ? base!.notes || "" : "");
   const [description, setDescription] = useState(editing ? base!.description || "" : "");
+  const [playlistUrl, setPlaylistUrl] = useState(editing ? base!.playlistUrl || "" : "");
   const [priceOverride, setPriceOverride] = useState<number | string>(editing ? base!.priceOverride ?? "" : "");
   const [isFree, setIsFree] = useState(editing ? base!.isFree : false);
   const [published, setPublished] = useState(editing ? base!.published : false);
@@ -141,6 +144,7 @@ export function PersonalClassFormModal({
       capacity: 1,
       notes: notes.trim(),
       description: description.trim(),
+      playlistUrl: normalizePlaylistUrl(playlistUrl) ?? "",
       bookingsOpen: false,
       priceOverride: priceOverride === "" ? null : Number(priceOverride) || 0,
       isFree,
@@ -250,6 +254,8 @@ export function PersonalClassFormModal({
             style={{ ...inputStyle, resize: "vertical", background: COLORS.card }}
           />
         </div>
+
+        <PlaylistField value={playlistUrl} onChange={setPlaylistUrl} audience="il cliente la troverà aprendo questa lezione" />
 
         <div className="pt-1" style={{ borderTop: `1px solid ${COLORS.border}` }}>
           <div style={{ fontSize: 13, fontWeight: 600 }} className="mt-3 mb-2">

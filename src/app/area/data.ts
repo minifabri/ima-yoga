@@ -98,6 +98,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       waitlist_count: number;
       my_status: "booked" | "waitlist" | null;
       is_personal: boolean;
+      playlist_url: string | null;
     }) => ({
       id: r.id,
       date: r.class_date,
@@ -106,6 +107,7 @@ export async function fetchPublicClasses(supabase: DB, from: string, to: string)
       levelId: r.level_id,
       capacity: r.capacity,
       description: r.description ?? "",
+      playlistUrl: r.playlist_url ?? "",
       bookingsOpen: r.bookings_open,
       isFree: r.is_free,
       bookedCount: Number(r.booked_count),

@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Plus, Trash2, Search, Check, ListPlus, CheckSquare, Square, Copy, Lock, LockOpen, Eye, EyeOff, Download, Gift } from "lucide-react";
 import { downloadIcsFile } from "@/lib/ics";
+import { normalizePlaylistUrl } from "@/lib/playlist";
 import { Modal, Field, CapacityBar, inputStyle } from "./ui";
+import { PlaylistField } from "./PlaylistField";
 import { COLORS, withAlpha } from "./colors";
 import { genId, dateKey } from "./utils";
 import type { ClassItem, ClassType, ClientItem, Level, PackageWithUsage, Payment, PaymentStatus } from "./types";
@@ -17,6 +19,7 @@ type ClassClipboard = {
   capacity: number;
   notes: string;
   description: string;
+  playlistUrl: string;
   bookingsOpen: boolean;
   priceOverride: number | null;
   isFree: boolean;
@@ -78,6 +81,7 @@ export function ClassFormModal({
   const [capacity, setCapacity] = useState<number | string>(editing ? base!.capacity ?? defaultCapacity : defaultCapacity);
   const [notes, setNotes] = useState(editing ? base!.notes || "" : "");
   const [description, setDescription] = useState(editing ? base!.description || "" : "");
+  const [playlistUrl, setPlaylistUrl] = useState(editing ? base!.playlistUrl || "" : "");
   const [bookingsOpen, setBookingsOpen] = useState(editing ? base!.bookingsOpen : true);
   const [priceOverride, setPriceOverride] = useState<number | string>(editing ? base!.priceOverride ?? "" : "");
   const [isFree, setIsFree] = useState(editing ? base!.isFree : false);
@@ -285,6 +289,7 @@ export function ClassFormModal({
       capacity: capNum,
       notes: notes.trim(),
       description: description.trim(),
+      playlistUrl: normalizePlaylistUrl(playlistUrl) ?? "",
       bookingsOpen,
       priceOverride: priceOverride === "" ? null : Number(priceOverride) || 0,
       isFree,
@@ -304,6 +309,7 @@ export function ClassFormModal({
       capacity: capNum,
       notes: notes.trim(),
       description: description.trim(),
+      playlistUrl: normalizePlaylistUrl(playlistUrl) ?? "",
       bookingsOpen,
       priceOverride: priceOverride === "" ? null : Number(priceOverride) || 0,
       isFree,
@@ -463,6 +469,8 @@ export function ClassFormModal({
             <Eye size={11} /> I clienti la vedranno aprendo questa classe.
           </div>
         </div>
+
+        <PlaylistField value={playlistUrl} onChange={setPlaylistUrl} audience="i clienti la troveranno aprendo questa classe" />
 
         <button
           type="button"

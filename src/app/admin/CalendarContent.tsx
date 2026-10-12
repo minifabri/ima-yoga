@@ -19,6 +19,7 @@ type ClassClipboard = {
   capacity: number;
   notes: string;
   description: string;
+  playlistUrl: string;
   bookingsOpen: boolean;
   priceOverride: number | null;
   isFree: boolean;

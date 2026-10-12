@@ -14,9 +14,11 @@ import {
   ClipboardList,
   Clock,
   Download,
+  ExternalLink,
   Gift,
   Megaphone,
   MessageCircle,
+  Music,
   PackagePlus,
   Route,
   Sparkles,
@@ -37,6 +39,7 @@ import { dateKey, getCalendarDays } from "@/app/admin/utils";
 import * as db from "./data";
 import { fetchVisibleSequences, fetchPoseCatalog } from "@/app/admin/data";
 import { downloadIcsFile } from "@/lib/ics";
+import { playlistServiceName } from "@/lib/playlist";
 import { classTitle } from "@/lib/classTitle";
 import { notifyClassFull, notifyIndividualClassRequest } from "@/lib/notifications";
 import { RequestIndividualClassModal } from "./RequestIndividualClassModal";
@@ -481,6 +484,7 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
   const levelById = useMemo(() => Object.fromEntries(levels.map((l) => [l.id, l])), [levels]);
   const selectedTitle = selected ? classTitle(selected.isPersonal, selected.typeId, typeById) : "";
   // Le lezioni individuali non hanno tipologia (e quindi nemmeno la sua descrizione).
+  const selectedPlaylistService = selected?.playlistUrl ? playlistServiceName(selected.playlistUrl) : null;
   const selectedTypeDescription = selected && !selected.isPersonal && selected.typeId ? typeById[selected.typeId]?.description : undefined;
 
   async function goToNextClass() {
@@ -972,6 +976,20 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                     <div className={selectedTypeDescription ? "mt-1.5" : ""}>{selected.description}</div>
                   )}
                 </div>
+              )}
+              {selected.playlistUrl && (
+                <a
+                  href={selected.playlistUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full mb-3"
+                  style={{ fontSize: 12, fontWeight: 600, color: COLORS.primaryDark, background: withAlpha(COLORS.primary, 10), border: `1px solid ${withAlpha(COLORS.primary, 25)}`, padding: "4px 10px" }}
+                >
+                  <Music size={13} color={COLORS.primary} />
+                  Playlist della lezione
+                  {selectedPlaylistService && <span style={{ fontWeight: 500, color: COLORS.inkSoft }}>· {selectedPlaylistService}</span>}
+                  <ExternalLink size={11} color={COLORS.inkSoft} />
+                </a>
               )}
               <div className="mb-4" style={{ fontSize: 12.5, fontWeight: 600, color: availabilityLabel(selected).color }}>
                 {availabilityLabel(selected).text}
