@@ -45,6 +45,9 @@ export type ClientItem = {
   notes: string;
   disabled: boolean;
   hasAccount: boolean;
+  // Consensi dati dalla cliente in "Privacy e consensi" (area clienti).
+  healthConsent?: boolean;
+  marketingEmails?: boolean;
 };
 
 export type ClassType = {

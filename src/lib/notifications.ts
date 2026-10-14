@@ -6,6 +6,7 @@ import {
   sequenceAssignedEmailHtml,
   surveyPublishedEmailHtml,
   surveyReminderEmailHtml,
+  withUnsubscribeFooter,
 } from "./emailTemplates";
 
 // Campi comuni a tutte le email in uscita. Il mittente (noreply@imayoga.app)
@@ -16,6 +17,13 @@ import {
 //   di non rispondere a queste email.
 // - reply_to, se configurato, manda a una casella vera chi risponde a mano
 //   (le email dicono "scrivimi direttamente").
+// Intestazioni per la disiscrizione con un clic dai client di posta
+// (Gmail, Apple Mail) — vedi src/app/api/unsubscribe/route.ts.
+function unsubscribeHeaders(unsubscribeUrl: string | null | undefined): Record<string, string> {
+  if (!unsubscribeUrl) return {};
+  return { "List-Unsubscribe": `<${unsubscribeUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" };
+}
+
 function commonEmailFields() {
   return {
     from: process.env.RESEND_FROM_EMAIL || "ima yoga <onboarding@resend.dev>",
@@ -208,6 +216,7 @@ export async function sendSurveyPublishedEmail(details: {
   fullName: string;
   surveyTitle: string;
   surveyUrl: string;
+  unsubscribeUrl?: string | null;
 }): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !details.to) return false;
@@ -218,9 +227,10 @@ export async function sendSurveyPublishedEmail(details: {
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         ...commonEmailFields(),
+        headers: { ...commonEmailFields().headers, ...unsubscribeHeaders(details.unsubscribeUrl) },
         to: details.to,
         subject: `Nuovo sondaggio — ${details.surveyTitle}`,
-        html: surveyPublishedEmailHtml(details),
+        html: withUnsubscribeFooter(surveyPublishedEmailHtml(details), details.unsubscribeUrl),
       }),
     });
     return res.ok;
@@ -238,6 +248,7 @@ export async function sendSurveyReminderEmail(details: {
   fullName: string;
   surveyTitle: string;
   surveyUrl: string;
+  unsubscribeUrl?: string | null;
 }): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !details.to) return false;
@@ -248,9 +259,10 @@ export async function sendSurveyReminderEmail(details: {
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         ...commonEmailFields(),
+        headers: { ...commonEmailFields().headers, ...unsubscribeHeaders(details.unsubscribeUrl) },
         to: details.to,
         subject: `Il sondaggio "${details.surveyTitle}" aspetta ancora 🤍`,
-        html: surveyReminderEmailHtml(details),
+        html: withUnsubscribeFooter(surveyReminderEmailHtml(details), details.unsubscribeUrl),
       }),
     });
     return res.ok;
@@ -267,6 +279,7 @@ export async function sendEventReminderEmail(details: {
   fullName: string;
   eventName: string;
   eventUrl: string;
+  unsubscribeUrl?: string | null;
 }): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !details.to) return false;
@@ -277,9 +290,10 @@ export async function sendEventReminderEmail(details: {
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         ...commonEmailFields(),
+        headers: { ...commonEmailFields().headers, ...unsubscribeHeaders(details.unsubscribeUrl) },
         to: details.to,
         subject: `${details.eventName} si avvicina e... 🤍`,
-        html: eventReminderEmailHtml(details),
+        html: withUnsubscribeFooter(eventReminderEmailHtml(details), details.unsubscribeUrl),
       }),
     });
     return res.ok;

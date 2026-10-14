@@ -366,6 +366,10 @@ export function EventPublicView({
             {event.allowPlusOne && (
               <PlusOneFields plusOne={plusOne} setPlusOne={setPlusOne} plusOneName={plusOneName} setPlusOneName={setPlusOneName} />
             )}
+            <div className="mb-3" style={{ fontSize: 11.5, color: COLORS.inkSoft, lineHeight: 1.5 }}>
+              Usiamo nome ed email solo per gestire questa prenotazione e scriverti sull&apos;evento.{" "}
+              <Link href="/privacy" style={{ textDecoration: "underline" }}>Informativa privacy</Link>
+            </div>
             {error && <ErrorBox>{error}</ErrorBox>}
             <TotalRow price={event.price} plusOne={plusOne} />
             <div className="flex gap-2">

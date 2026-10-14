@@ -94,6 +94,9 @@ export function EventReminderModal({
                 <Eye size={12} /> Anteprima email
               </button>
             </div>
+            <div className="mb-2" style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
+              L&apos;email arriva solo a chi ha acconsentito a ricevere email su eventi e sondaggi.
+            </div>
             {bookedCount > 0 && (
               <div className="mb-2" style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
                 {bookedCount} {bookedCount === 1 ? "cliente si è" : "clienti si sono"} già prenotat{bookedCount === 1 ? "o" : "i"} e{" "}

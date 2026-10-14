@@ -73,6 +73,9 @@ export function ContactForm() {
           onChange={(e) => setAzienda(e.target.value)}
         />
       </label>
+      <p className="cover-contact-privacy">
+        Uso i tuoi dati solo per risponderti. <a href="/privacy">Informativa privacy</a>
+      </p>
       {status === "error" && <p className="cover-contact-error">{errorMessage}</p>}
       <button type="submit" className="cover-cta-ghost" disabled={status === "sending"}>
         {status === "sending" ? "Invio…" : "Scrivimi"} <span aria-hidden="true">✦</span>

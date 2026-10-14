@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { sendPush, storePushSubscription, type PushSubscriptionInput } from "@/lib/push";
@@ -32,6 +33,30 @@ export async function deleteOwnAccount(_prevState: DeleteAccountState, formData:
 
   await supabase.auth.signOut();
   redirect("/login?account_deleted=1");
+}
+
+// ---------------------------------------------------------
+// Consensi (età, email su eventi/sondaggi, dati sulla salute) — vedi la
+// funzione set_my_consents nel database, che aggiorna solo il proprio profilo.
+// ---------------------------------------------------------
+export async function confirmMyAge() {
+  const supabase = await createClient();
+  await supabase.rpc("set_my_consents", { p_age_confirmed: true });
+  revalidatePath("/area", "layout");
+}
+
+export async function updateMyConsents(consents: {
+  marketingEmails: boolean;
+  healthConsent: boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_my_consents", {
+    p_marketing_emails: consents.marketingEmails,
+    p_health_consent: consents.healthConsent,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/area", "layout");
+  return { ok: true };
 }
 
 // ---------------------------------------------------------

@@ -37,6 +37,11 @@ export async function GET(request: Request) {
   if (!onlyToday) {
     adminPush = await sendTomorrowClassesPush(adminClient).catch((err) => ({ classes: 0, sent: 0, error: String(err) }));
     if (adminPush.error) console.error(`[${jobName}] push lezioni di domani:`, adminPush.error);
+
+    // Tempi di conservazione dell'informativa privacy (IP nei log 12 mesi,
+    // statistiche visite 25 mesi): indipendente dall'esito dei promemoria.
+    const { error: purgeError } = await adminClient.rpc("purge_expired_personal_data");
+    if (purgeError) console.error(`[${jobName}] pulizia dati scaduti:`, purgeError.message);
   }
 
   if (!result.ok) {

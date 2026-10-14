@@ -42,10 +42,14 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   const password = String(formData.get("password") || "");
   const fullName = String(formData.get("full_name") || "").trim();
   const phone = String(formData.get("phone") || "").trim();
-  const visitorId = String(formData.get("visitor_id") || "").trim();
+  const ageConfirmed = formData.get("age_confirmed") === "on";
+  const marketingEmails = formData.get("marketing_emails") === "on";
 
   if (!fullName) {
     return { error: "Inserisci nome e cognome.", needsConfirmation: false };
+  }
+  if (!ageConfirmed) {
+    return { error: "Per registrarti devi confermare di avere almeno 16 anni.", needsConfirmation: false };
   }
   if (password.length < 6) {
     return { error: "La password deve avere almeno 6 caratteri.", needsConfirmation: false };
@@ -54,20 +58,14 @@ export async function signup(_prevState: SignupState, formData: FormData): Promi
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { full_name: fullName, phone } },
+    // age_confirmed e marketing_emails li legge il trigger handle_new_user
+    // e li salva sul profilo con la data della dichiarazione.
+    options: { data: { full_name: fullName, phone, age_confirmed: true, marketing_emails: marketingEmails } },
   });
 
   if (error) {
     await logAuthEvent(supabase, "signup_failed", email, `Tentativo di registrazione fallito per ${email}: ${error.message}`);
     return { error: error.message, needsConfirmation: false };
-  }
-
-  if (visitorId) {
-    try {
-      await supabase.rpc("track_page_view", { p_path: "/signup", p_visitor_id: visitorId, p_kind: "signup_completed" });
-    } catch {
-      // il tracciamento non deve mai bloccare la registrazione
-    }
   }
 
   // Se la conferma email è attiva su Supabase, signUp non crea subito una

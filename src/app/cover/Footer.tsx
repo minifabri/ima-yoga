@@ -21,7 +21,16 @@ export function Footer({ access }: { access: CoverAccess }) {
           {access.label}
         </Link>
       </div>
-      <p className="cover-footer-copy">© {new Date().getFullYear()} ima yoga</p>
+      <p className="cover-footer-copy">
+        © {new Date().getFullYear()} ima yoga ·{" "}
+        <Link href="/privacy" className="cover-footer-legal">
+          Privacy
+        </Link>{" "}
+        ·{" "}
+        <Link href="/termini" className="cover-footer-legal">
+          Termini
+        </Link>
+      </p>
     </footer>
   );
 }

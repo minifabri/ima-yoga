@@ -35,13 +35,13 @@ function GoogleIcon() {
   );
 }
 
-function GoogleForm({ label }: { label: string }) {
+function GoogleForm({ label, disabled }: { label: string; disabled?: boolean }) {
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
   return (
     <form action={signInWithGoogle}>
       {next && <input type="hidden" name="next" value={next} />}
-      <button type="submit" className="py-2.5 rounded-lg text-sm font-semibold" style={buttonStyle}>
+      <button type="submit" disabled={disabled} className="py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60" style={buttonStyle}>
         <GoogleIcon />
         {label}
       </button>
@@ -49,7 +49,7 @@ function GoogleForm({ label }: { label: string }) {
   );
 }
 
-export function GoogleSignInButton({ label }: { label: string }) {
+export function GoogleSignInButton({ label, disabled }: { label: string; disabled?: boolean }) {
   return (
     <Suspense
       fallback={
@@ -59,7 +59,7 @@ export function GoogleSignInButton({ label }: { label: string }) {
         </button>
       }
     >
-      <GoogleForm label={label} />
+      <GoogleForm label={label} disabled={disabled} />
     </Suspense>
   );
 }

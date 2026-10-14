@@ -9,6 +9,9 @@ export type Profile = {
   notes: string | null;
   disabled: boolean;
   created_at: string;
+  age_confirmed_at: string | null;
+  marketing_emails: boolean;
+  health_consent_at: string | null;
 };
 
 export async function getCurrentUserAndProfile() {
