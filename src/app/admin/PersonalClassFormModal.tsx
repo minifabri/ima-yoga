@@ -158,7 +158,7 @@ export function PersonalClassFormModal({
   }
 
   return (
-    <Modal onClose={onClose} width={460}>
+    <Modal onClose={onClose} width={460} pageOnMobile>
       <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
         <div className="flex items-center gap-2" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>
           <User size={16} color={COLORS.primary} />
@@ -169,7 +169,7 @@ export function PersonalClassFormModal({
         </button>
       </div>
 
-      <div className="p-5 overflow-y-auto" style={{ flex: 1 }}>
+      <div className="p-5 overflow-y-auto" style={{ flex: 1, minHeight: 0 }}>
         <button
           type="button"
           onClick={() => setPublished((v) => !v)}
