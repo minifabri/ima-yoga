@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Wallet, PackagePlus, Euro, User, CheckSquare, Square, Check, Trash2, Plus, Pencil, Ticket, AlertCircle } from "lucide-react";
+import { Wallet, PackagePlus, Moon, User, CheckSquare, Square, Check, Trash2, Plus, Pencil, Ticket, AlertCircle } from "lucide-react";
 import { Badge, Field, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { classTitle } from "@/lib/classTitle";
+import { formatLune } from "./utils";
 import { fetchAllEventBookings, fetchEvents, markEventBookingPaid } from "./data";
 import type { ClassItem, ClassType, ClientItem, EventBookingItem, EventItem, LedgerEntry, PackageWithUsage, Settings } from "./types";
 
@@ -224,7 +225,7 @@ export function PaymentsView({
                 <div key={o.clientId} className="rounded-xl overflow-hidden" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
                   <button onClick={() => setExpandedClientId(isOpen ? null : o.clientId)} className="w-full flex items-center justify-between px-4 py-3 text-left">
                     <span style={{ fontSize: 14, fontWeight: 600 }}>{o.name}</span>
-                    <Badge color={COLORS.danger}>€{o.total.toFixed(2)}</Badge>
+                    <Badge color={COLORS.danger}>{formatLune(o.total)}</Badge>
                   </button>
                   {isOpen && (
                     <div className="px-4 pb-3 flex flex-col gap-1.5" style={{ borderTop: `1px solid ${COLORS.border}` }}>
@@ -232,7 +233,7 @@ export function PaymentsView({
                         <div key={it.classId} className="flex items-center justify-between pt-2.5" style={{ fontSize: 12.5 }}>
                           <span>
                             {it.date} {it.time && `· ${it.time}`} — {classTitle(it.isIndividual, it.typeId, typeById)} ·{" "}
-                            <span style={{ color: COLORS.danger, fontWeight: 600 }}>€{it.owed.toFixed(2)}</span>
+                            <span style={{ color: COLORS.danger, fontWeight: 600 }}>{formatLune(it.owed)}</span>
                           </span>
                           <button
                             onClick={() => onMarkClassPaymentPaid(it.classId, o.clientId)}
@@ -278,9 +279,9 @@ export function PaymentsView({
                       <span style={{ fontSize: 11.5, color: COLORS.inkSoft }}> · {g.event!.date}</span>
                     </div>
                     {g.owed > 0 ? (
-                      <Badge color={COLORS.danger}>€{g.owed.toFixed(2)} da riscuotere</Badge>
+                      <Badge color={COLORS.danger}>{formatLune(g.owed)} da riscuotere</Badge>
                     ) : (
-                      <Badge color={COLORS.success}>Saldato · €{g.paid.toFixed(2)}</Badge>
+                      <Badge color={COLORS.success}>Saldato · {formatLune(g.paid)}</Badge>
                     )}
                   </button>
                   {isOpen && (
@@ -290,7 +291,7 @@ export function PaymentsView({
                           <span>
                             {b.displayName}
                             {b.plusOne && " (+1)"} —{" "}
-                            <span style={{ fontWeight: 600 }}>€{(b.price * (b.plusOne ? 2 : 1)).toFixed(2)}</span>
+                            <span style={{ fontWeight: 600 }}>{formatLune(b.price * (b.plusOne ? 2 : 1))}</span>
                           </span>
                           <button
                             onClick={() => toggleEventBookingPaid(b)}
@@ -360,7 +361,7 @@ export function PaymentsView({
                   </div>
                 )}
               </div>
-              <input type="number" min={0} value={sellPaid} onChange={(e) => setSellPaid(e.target.value)} placeholder={`Pagato ora (€, def. ${defaults.packagePrice})`} style={inputStyle} />
+              <input type="number" min={0} value={sellPaid} onChange={(e) => setSellPaid(e.target.value)} placeholder={`Pagato ora (lune, def. ${defaults.packagePrice})`} style={inputStyle} />
             </div>
 
             {sellClientId && linkableClasses.length > 0 && (
@@ -384,7 +385,7 @@ export function PaymentsView({
 
             <div className="flex items-center justify-between">
               <span style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
-                {defaults.packageSize} lezioni · €{defaults.packagePrice}
+                {defaults.packageSize} lezioni · {formatLune(defaults.packagePrice)}
               </span>
               <button onClick={confirmSell} className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white" style={{ background: COLORS.primary }}>
                 Registra
@@ -434,7 +435,7 @@ export function PaymentsView({
                             style={{ ...inputStyle, fontSize: 12 }}
                           />
                         </Field>
-                        <Field label="Pagato (€)">
+                        <Field label="Pagato (lune)">
                           <input
                             type="number"
                             min={0}
@@ -477,7 +478,7 @@ export function PaymentsView({
                   {!isEditing && (
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <span style={{ fontSize: 12, fontWeight: 600, color: debt > 0 ? COLORS.danger : COLORS.success }}>
-                        {debt > 0 ? `Debito €${debt.toFixed(2)} di €${p.price}` : `Saldato · €${p.price}`}
+                        {debt > 0 ? `Debito ${formatLune(debt)} di ${formatLune(p.price)}` : `Saldato · ${formatLune(p.price)}`}
                       </span>
                       {debt > 0 && (
                         <div className="flex items-center gap-1.5">
@@ -486,7 +487,7 @@ export function PaymentsView({
                             min={0}
                             value={payAmounts[p.id] ?? ""}
                             onChange={(e) => setPayAmounts((a) => ({ ...a, [p.id]: e.target.value }))}
-                            placeholder="€"
+                            placeholder="lune"
                             style={{ width: 60, fontSize: 12, border: `1px solid ${COLORS.border}`, borderRadius: 6, padding: "3px 6px" }}
                           />
                           <button
@@ -513,7 +514,7 @@ export function PaymentsView({
       <div>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Euro size={16} color={COLORS.heading} />
+            <Moon size={16} color={COLORS.heading} />
             <div style={{ fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 600, color: COLORS.heading }}>Crediti e debiti</div>
           </div>
           <button onClick={() => setLedgerOpen((v) => !v)} className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg text-white" style={{ background: COLORS.primary }}>
@@ -574,7 +575,7 @@ export function PaymentsView({
                   Credito
                 </button>
               </div>
-              <input type="number" min={0} value={ledgerAmount} onChange={(e) => setLedgerAmount(e.target.value)} placeholder="Importo (€)" style={inputStyle} />
+              <input type="number" min={0} value={ledgerAmount} onChange={(e) => setLedgerAmount(e.target.value)} placeholder="Importo (lune)" style={inputStyle} />
             </div>
             <input value={ledgerNote} onChange={(e) => setLedgerNote(e.target.value)} placeholder="Nota (facoltativa)" style={{ ...inputStyle, marginBottom: 8 }} />
             <div className="flex justify-end">
@@ -599,7 +600,7 @@ export function PaymentsView({
                     <span style={{ fontWeight: 600 }}>{clientById[e.clientId]?.name || "Cliente"}</span>
                     {" · "}
                     <span style={{ color: e.kind === "debt" ? COLORS.danger : COLORS.success, fontWeight: 600 }}>
-                      {e.kind === "debt" ? "Debito" : "Credito"} €{e.amount.toFixed(2)}
+                      {e.kind === "debt" ? "Debito" : "Credito"} {formatLune(e.amount)}
                     </span>
                     {e.note && <span style={{ color: COLORS.inkSoft }}> — {e.note}</span>}
                     <span style={{ color: COLORS.inkSoft }}> · {e.date}</span>

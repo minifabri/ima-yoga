@@ -10,11 +10,11 @@ import { EventReminderModal } from "./EventReminderModal";
 import { EventBudgetCalculator, computeTotals } from "./EventBudgetCalculator";
 import { deleteEvent, fetchEventBudgets, fetchEvents, saveEvent, setEventArchived, setEventBookingsOpen, setEventCancellationDisabled } from "./data";
 import { notifyEventReminder } from "./actions";
+import { formatLune, formatLuneRounded } from "./utils";
 import type { ClientItem, EventBudget, EventItem } from "./types";
 
 type ModalState = { mode: "new" } | { mode: "edit"; event: EventItem } | null;
 
-const fmtEUR = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
 export function EventsView({ supabase, clients }: { supabase: SupabaseClient; clients: ClientItem[] }) {
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -204,7 +204,7 @@ export function EventsView({ supabase, clients }: { supabase: SupabaseClient; cl
                 </div>
                 <div style={{ fontSize: 12, color: COLORS.inkSoft }}>
                   {ev.date} · {ev.time}
-                  {ev.location ? ` · ${ev.location}` : ""} · €{ev.price.toFixed(2)} {ev.capacity > 0 ? `· ${ev.capacity} posti` : "· posti illimitati"}
+                  {ev.location ? ` · ${ev.location}` : ""} · {formatLune(ev.price)} {ev.capacity > 0 ? `· ${ev.capacity} posti` : "· posti illimitati"}
                 </div>
                 {budgetByEventId[ev.id] &&
                   (() => {
@@ -212,7 +212,7 @@ export function EventsView({ supabase, clients }: { supabase: SupabaseClient; cl
                     const t = computeTotals(b.items, b.days, b.ticketPrice, b.participants);
                     return (
                       <div className="mt-1 inline-flex items-center gap-1" style={{ fontSize: 11, fontWeight: 600, color: t.profit >= 0 ? COLORS.success : COLORS.danger }}>
-                        <Calculator size={11} /> Preventivo: guadagno netto {fmtEUR.format(t.profit)}
+                        <Calculator size={11} /> Preventivo: guadagno netto {formatLuneRounded(t.profit)}
                       </div>
                     );
                   })()}

@@ -6,10 +6,9 @@ import { Plus, Trash2, AlertCircle, Link2, Unlink } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { Field, inputStyle } from "./ui";
 import { saveEventBudget, deleteEventBudget } from "./data";
+import { formatLune, formatLuneRounded } from "./utils";
 import type { BudgetLineItem, EventBudget, EventItem } from "./types";
 
-const fmtEUR = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
-const fmtEUR1 = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
 const fmtNum = new Intl.NumberFormat("it-IT");
 
 function genLineId(): string {
@@ -112,7 +111,7 @@ function ScenarioTable({ items, days, ticketPrice, totals }: { items: BudgetLine
                   borderBottom: `1px solid ${COLORS.border}`,
                 }}
               >
-                {fmtEUR.format(price)}
+                {formatLuneRounded(price)}
               </th>
             ))}
           </tr>
@@ -141,7 +140,7 @@ function ScenarioTable({ items, days, ticketPrice, totals }: { items: BudgetLine
                         borderBottom: `1px solid ${COLORS.border}`,
                       }}
                     >
-                      {fmtEUR.format(profit)}
+                      {formatLuneRounded(profit)}
                     </td>
                   );
                 })}
@@ -219,9 +218,9 @@ function ProfitChart({ items, days, ticketPrice, totals }: { items: BudgetLineIt
       ctx!.font = "11px sans-serif";
       ctx!.textAlign = "right";
       ctx!.textBaseline = "middle";
-      ctx!.fillText(fmtEUR.format(maxProfit - rangePad), padding.left - 8, padding.top + 4);
-      ctx!.fillText(fmtEUR.format(0), padding.left - 8, zeroY);
-      ctx!.fillText(fmtEUR.format(minProfit + rangePad), padding.left - 8, padding.top + plotH - 4);
+      ctx!.fillText(formatLuneRounded(maxProfit - rangePad), padding.left - 8, padding.top + 4);
+      ctx!.fillText(formatLuneRounded(0), padding.left - 8, zeroY);
+      ctx!.fillText(formatLuneRounded(minProfit + rangePad), padding.left - 8, padding.top + plotH - 4);
 
       ctx!.textAlign = "center";
       ctx!.textBaseline = "top";
@@ -425,7 +424,7 @@ export function EventBudgetCalculator({
         <Field label="Partecipanti previsti">
           <input type="number" min={0} value={participants} onChange={(e) => setParticipants(Number(e.target.value) || 0)} style={inputStyle} />
         </Field>
-        <Field label="Prezzo biglietto (€)">
+        <Field label="Prezzo biglietto (lune)">
           <input type="number" min={0} value={ticketPrice} onChange={(e) => setTicketPrice(Number(e.target.value) || 0)} style={inputStyle} />
         </Field>
       </div>
@@ -482,12 +481,12 @@ export function EventBudgetCalculator({
       </button>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-        <Kpi label="Incasso totale" value={fmtEUR.format(totals.revenue)} />
-        <Kpi label="Spese totali" value={fmtEUR.format(totals.costs)} />
+        <Kpi label="Incasso totale" value={formatLuneRounded(totals.revenue)} />
+        <Kpi label="Spese totali" value={formatLuneRounded(totals.costs)} />
         <Kpi
           label="Guadagno netto"
-          value={fmtEUR.format(totals.profit)}
-          note={totals.participants > 0 ? `${fmtEUR1.format(totals.profit / totals.participants)} a persona` : "—"}
+          value={formatLuneRounded(totals.profit)}
+          note={totals.participants > 0 ? `${formatLune(totals.profit / totals.participants)} a persona` : "—"}
           tone={totals.profit >= 0 ? "positive" : "negative"}
         />
         <Kpi label="Pareggio" value={totals.breakeven === null ? "mai" : fmtNum.format(totals.breakeven)} note="partecipanti minimi" />

@@ -419,7 +419,7 @@ export function ClassFormModal({
               </button>
             </div>
           </Field>
-          <Field label={`Prezzo (default €${Number(singleClassPrice) || 0})`}>
+          <Field label={`Prezzo (default ${Number(singleClassPrice) || 0} lune)`}>
             <input
               type="number"
               min={0}
@@ -511,7 +511,7 @@ export function ClassFormModal({
                       min={0}
                       value={pay.amount}
                       onChange={(e) => handlePartialAmount(c.id, e.target.value)}
-                      placeholder="€"
+                      placeholder="lune"
                       style={{ width: 50, fontSize: 11, border: `1px solid ${COLORS.border}`, borderRadius: 6, padding: "3px 5px", background: COLORS.card }}
                     />
                   )}

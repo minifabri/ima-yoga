@@ -1,14 +1,8 @@
 import { COLORS } from "@/app/admin/colors";
-import { WEEKDAYS, MONTHS, isPastClass } from "@/app/admin/utils";
+import { WEEKDAYS, MONTHS, isPastClass, formatLune } from "@/app/admin/utils";
 import type { PublicClass } from "./types";
 
-export { isPastClass };
-
-export function formatLune(amount: number): string {
-  const rounded = Math.round(amount * 100) / 100;
-  const label = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
-  return `${label} lune`;
-}
+export { isPastClass, formatLune };
 
 export function formatNoticeDate(iso: string): string {
   const d = new Date(iso);

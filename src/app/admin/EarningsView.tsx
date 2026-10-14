@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Wallet, Receipt, Plus, Trash2 } from "lucide-react";
 import { IconButton, inputStyle } from "./ui";
 import { COLORS } from "./colors";
-import { MONTHS } from "./utils";
+import { MONTHS, formatLune } from "./utils";
 import { fetchAllEventBookings, fetchEventBudgets, fetchEvents } from "./data";
 import { computeTotals } from "./EventBudgetCalculator";
 import type { ClassItem, EventBookingItem, EventBudget, EventItem, Expense, PackageItem } from "./types";
@@ -39,7 +39,7 @@ function StatCard({
         {icon} {label}
       </div>
       <div style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 600, color }}>
-        €{amount.toFixed(2)}
+        {formatLune(amount)}
       </div>
       {breakdown && (
         <div style={{ fontSize: 11, color: COLORS.inkSoft }} className="mt-0.5">
@@ -252,21 +252,21 @@ export function EarningsView({
           label="Incassato"
           amount={collectedPeriod}
           color={COLORS.success}
-          breakdown={`Lezioni €${classFigures.period.collected.toFixed(2)} · Pacchetti €${packageFigures.period.collected.toFixed(2)} · Eventi €${eventFigures.period.collected.toFixed(2)}`}
+          breakdown={`Lezioni ${formatLune(classFigures.period.collected)} · Pacchetti ${formatLune(packageFigures.period.collected)} · Eventi ${formatLune(eventFigures.period.collected)}`}
         />
         <StatCard
           icon={<Wallet size={13} />}
           label="Potenziale"
           amount={potentialPeriod}
           color={COLORS.goldText}
-          breakdown={`Lezioni €${classFigures.period.owed.toFixed(2)} · Pacchetti €${packageFigures.period.owed.toFixed(2)} · Eventi €${eventFigures.period.owed.toFixed(2)}`}
+          breakdown={`Lezioni ${formatLune(classFigures.period.owed)} · Pacchetti ${formatLune(packageFigures.period.owed)} · Eventi ${formatLune(eventFigures.period.owed)}`}
         />
         <StatCard
           icon={<Receipt size={13} />}
           label="Spese"
           amount={expensesPeriodTotal}
           color={COLORS.danger}
-          breakdown={`Manuali €${manualExpensesPeriodTotal.toFixed(2)} · Conti eventi €${eventBudgetFigures.period.toFixed(2)}`}
+          breakdown={`Manuali ${formatLune(manualExpensesPeriodTotal)} · Conti eventi ${formatLune(eventBudgetFigures.period)}`}
         />
         <StatCard
           icon={<TrendingDown size={13} />}
@@ -279,8 +279,8 @@ export function EarningsView({
 
       {periodMode !== "total" && (
         <div className="mb-6 px-1" style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
-          Totale complessivo: incassato €{collectedAll.toFixed(2)} · potenziale €{potentialAll.toFixed(2)} · spese €{expensesAllTotal.toFixed(2)} · netto{" "}
-          <span style={{ fontWeight: 700, color: netAll >= 0 ? COLORS.success : COLORS.danger }}>€{netAll.toFixed(2)}</span>
+          Totale complessivo: incassato {formatLune(collectedAll)} · potenziale {formatLune(potentialAll)} · spese {formatLune(expensesAllTotal)} · netto{" "}
+          <span style={{ fontWeight: 700, color: netAll >= 0 ? COLORS.success : COLORS.danger }}>{formatLune(netAll)}</span>
         </div>
       )}
 
@@ -299,7 +299,7 @@ export function EarningsView({
           <div className="mb-3 p-3 rounded-xl" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <input type="date" value={expDate} onChange={(e) => setExpDate(e.target.value)} style={inputStyle} />
-              <input type="number" min={0} value={expAmount} onChange={(e) => setExpAmount(e.target.value)} placeholder="Importo (€)" style={inputStyle} />
+              <input type="number" min={0} value={expAmount} onChange={(e) => setExpAmount(e.target.value)} placeholder="Importo (lune)" style={inputStyle} />
             </div>
             <input value={expNote} onChange={(e) => setExpNote(e.target.value)} placeholder="Descrizione (es. affitto sala, materiale…)" style={{ ...inputStyle, marginBottom: 8 }} />
             <div className="flex justify-end">
@@ -319,7 +319,7 @@ export function EarningsView({
             {sortedExpenses.map((e) => (
               <div key={e.id} className="flex items-center justify-between px-3 py-2 rounded-lg flex-wrap gap-1.5" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
                 <div style={{ fontSize: 12.5 }}>
-                  <span style={{ fontWeight: 600, color: COLORS.danger }}>€{e.amount.toFixed(2)}</span>
+                  <span style={{ fontWeight: 600, color: COLORS.danger }}>{formatLune(e.amount)}</span>
                   {e.note && <span style={{ color: COLORS.ink }}> — {e.note}</span>}
                   <span style={{ color: COLORS.inkSoft }}> · {e.date}</span>
                 </div>
