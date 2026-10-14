@@ -101,33 +101,37 @@ export function CapacityBar({
   );
 }
 
+// `pageOnMobile`: sotto i 640px il modale diventa una pagina a tutto schermo
+// (niente bordi, niente sfondo cliccabile, intestazione e pulsanti sempre
+// visibili). Pensato per i form lunghi, come quello della classe, che in un
+// riquadro stretto al centro dello schermo risultavano schiacciati.
 export function Modal({
   onClose,
   children,
   width = 480,
+  pageOnMobile = false,
 }: {
   onClose: () => void;
   children: ReactNode;
   width?: number;
+  pageOnMobile?: boolean;
 }) {
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center p-4"
+      className={pageOnMobile ? "fixed inset-0 flex items-stretch justify-center sm:items-center sm:p-4" : "fixed inset-0 flex items-center justify-center p-4"}
       style={{ background: "rgba(74,58,115,0.35)", zIndex: 50 }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="w-full overflow-hidden"
+        className={pageOnMobile ? "modal-page w-full overflow-hidden flex flex-col" : "w-full overflow-hidden flex flex-col"}
         style={{
           maxWidth: width,
           background: COLORS.card,
           borderRadius: 18,
           boxShadow: "0 16px 44px rgba(74,58,115,0.16)",
           maxHeight: "88dvh",
-          display: "flex",
-          flexDirection: "column",
         }}
       >
         {children}
@@ -198,7 +202,7 @@ export function Switch({
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="block mb-1">
+    <label className="block mb-1 min-w-0">
       <div style={{ fontSize: 11.5, fontWeight: 600, color: COLORS.inkSoft, marginBottom: 4 }}>{label}</div>
       {children}
     </label>

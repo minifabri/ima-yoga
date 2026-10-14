@@ -1615,3 +1615,38 @@ body {
 .rich-content ol {
   padding-left: 1.3em;
 }
+
+/* Campi data/ora su iOS: Safari dà loro una larghezza intrinseca che ignora
+   width:100%, così in una griglia a due colonne sbordano e si sovrappongono
+   al campo accanto. Togliendo l'aspetto nativo tornano a riempire la cella. */
+input[type="date"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  min-height: 35px;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+/* Modale "pagina" su mobile (Modal con pageOnMobile): occupa tutto lo schermo,
+   rispetta notch e barra home, e porta i campi a 16px così iOS non zooma
+   la pagina quando se ne tocca uno. */
+@media (max-width: 639px) {
+  .modal-page {
+    max-width: none !important;
+    max-height: none !important;
+    height: 100dvh;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .modal-page input,
+  .modal-page select,
+  .modal-page textarea {
+    font-size: 16px !important;
+  }
+}

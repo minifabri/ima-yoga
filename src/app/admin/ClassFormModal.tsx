@@ -335,7 +335,7 @@ export function ClassFormModal({
   }
 
   return (
-    <Modal onClose={onClose} width={500}>
+    <Modal onClose={onClose} width={500} pageOnMobile>
       <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
         <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: COLORS.heading }}>
           {editing ? "Modifica classe" : "Nuova classe"}
@@ -345,7 +345,7 @@ export function ClassFormModal({
         </button>
       </div>
 
-      <div className="p-5 overflow-y-auto" style={{ flex: 1 }}>
+      <div className="p-5 overflow-y-auto" style={{ flex: 1, minHeight: 0 }}>
         <button
           type="button"
           onClick={() => setPublished((v) => !v)}
@@ -391,7 +391,7 @@ export function ClassFormModal({
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="grid grid-cols-2 gap-3 mb-3 items-end">
           <Field label="Massimo iscritti">
             <div className="flex items-center gap-1.5">
               <button
@@ -407,7 +407,7 @@ export function ClassFormModal({
                 min={0}
                 value={capacity}
                 onChange={(e) => setCapacity(e.target.value)}
-                style={{ ...inputStyle, textAlign: "center" }}
+                style={{ ...inputStyle, textAlign: "center", minWidth: 0 }}
               />
               <button
                 type="button"
