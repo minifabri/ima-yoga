@@ -14,6 +14,7 @@ import {
   sendSurveyReminderEmail,
 } from "@/lib/notifications";
 import { runClassRemindersJob } from "@/lib/classRemindersJob";
+import { unsubscribeUrl } from "@/lib/unsubscribe";
 import { sendPush, storePushSubscription, type PushSubscriptionInput } from "@/lib/push";
 
 function generateTempPassword(): string {
@@ -157,7 +158,7 @@ export async function notifySurveyPublished(
 
   const { data: allClientProfiles, error: clientsErr } = await ctx.supabase
     .from("profiles")
-    .select("id, auth_user_id, full_name")
+    .select("id, auth_user_id, full_name, marketing_emails")
     .eq("role", "client")
     .eq("disabled", false);
   if (clientsErr) return { ok: false, error: clientsErr.message };
@@ -183,11 +184,18 @@ export async function notifySurveyPublished(
 
   if (opts.sendEmail && clientProfiles) {
     for (const profile of clientProfiles) {
-      if (!profile.auth_user_id) continue;
+      // Email non transazionale: solo a chi ha dato il consenso.
+      if (!profile.auth_user_id || !profile.marketing_emails) continue;
       const { data: userData } = await ctx.adminClient.auth.admin.getUserById(profile.auth_user_id);
       const email = userData?.user?.email;
       if (!email) continue;
-      const ok = await sendSurveyPublishedEmail({ to: email, fullName: profile.full_name || "", surveyTitle, surveyUrl });
+      const ok = await sendSurveyPublishedEmail({
+        to: email,
+        fullName: profile.full_name || "",
+        surveyTitle,
+        surveyUrl,
+        unsubscribeUrl: unsubscribeUrl(origin || "https://ima-yoga.vercel.app", profile.id),
+      });
       if (ok) emailsSent++;
     }
   }
@@ -287,7 +295,7 @@ export async function notifySurveyReminder(
 
   const { data: clientProfiles, error: clientsErr } = await ctx.supabase
     .from("profiles")
-    .select("id, auth_user_id, full_name")
+    .select("id, auth_user_id, full_name, marketing_emails")
     .in("id", opts.clientIds)
     .eq("disabled", false);
   if (clientsErr) return { ok: false, error: clientsErr.message };
@@ -299,11 +307,18 @@ export async function notifySurveyReminder(
 
   let emailsSent = 0;
   for (const profile of recipients) {
-    if (!profile.auth_user_id) continue;
+    // Email non transazionale: solo a chi ha dato il consenso.
+    if (!profile.auth_user_id || !profile.marketing_emails) continue;
     const { data: userData } = await ctx.adminClient.auth.admin.getUserById(profile.auth_user_id);
     const email = userData?.user?.email;
     if (!email) continue;
-    const ok = await sendSurveyReminderEmail({ to: email, fullName: profile.full_name || "", surveyTitle, surveyUrl });
+    const ok = await sendSurveyReminderEmail({
+      to: email,
+      fullName: profile.full_name || "",
+      surveyTitle,
+      surveyUrl,
+      unsubscribeUrl: unsubscribeUrl(origin || "https://ima-yoga.vercel.app", profile.id),
+    });
     if (ok) emailsSent++;
   }
 
@@ -343,7 +358,7 @@ export async function notifyEventReminder(
 
   const { data: clientProfiles, error: clientsErr } = await ctx.supabase
     .from("profiles")
-    .select("id, auth_user_id, full_name")
+    .select("id, auth_user_id, full_name, marketing_emails")
     .in("id", opts.clientIds)
     .eq("disabled", false);
   if (clientsErr) return { ok: false, error: clientsErr.message };
@@ -355,11 +370,19 @@ export async function notifyEventReminder(
 
   let emailsSent = 0;
   for (const profile of recipients) {
-    if (!profile.auth_user_id) continue;
+    // Invito a un evento non prenotato = email promozionale: solo a chi ha
+    // dato il consenso.
+    if (!profile.auth_user_id || !profile.marketing_emails) continue;
     const { data: userData } = await ctx.adminClient.auth.admin.getUserById(profile.auth_user_id);
     const email = userData?.user?.email;
     if (!email) continue;
-    const ok = await sendEventReminderEmail({ to: email, fullName: profile.full_name || "", eventName, eventUrl });
+    const ok = await sendEventReminderEmail({
+      to: email,
+      fullName: profile.full_name || "",
+      eventName,
+      eventUrl,
+      unsubscribeUrl: unsubscribeUrl(origin || "https://ima-yoga.vercel.app", profile.id),
+    });
     if (ok) emailsSent++;
   }
 

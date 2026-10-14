@@ -334,6 +334,10 @@ export function SurveyPublicView({
                 Preferisco rispondere in anonimo
               </span>
             </button>
+            <div className="mb-3" style={{ fontSize: 11.5, color: COLORS.inkSoft, lineHeight: 1.5 }}>
+              Le risposte servono solo a migliorare le lezioni.{" "}
+              <a href="/privacy" style={{ textDecoration: "underline" }}>Informativa privacy</a>
+            </div>
             <div className="flex gap-2">
               <button onClick={() => setPhase("gate")} className="px-3.5 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
                 Indietro

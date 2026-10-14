@@ -213,6 +213,7 @@ export function SurveyFormModal({
                 <label className="flex items-center gap-2" style={{ fontSize: 12.5, color: COLORS.ink }}>
                   <input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} />
                   <Mail size={13} /> Notifica via email
+                  <span style={{ fontSize: 11, color: COLORS.inkSoft }}>(solo a chi ha acconsentito)</span>
                 </label>
                 {notifyEmail && (
                   <button

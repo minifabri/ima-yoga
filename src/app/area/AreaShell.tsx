@@ -31,6 +31,7 @@ import { createClient } from "@/lib/supabase/client";
 import { trackPageView } from "@/lib/track";
 import { logout } from "@/app/actions";
 import { deleteOwnAccount, type DeleteAccountState } from "./actions";
+import { PrivacySettingsModal, type Consents } from "./PrivacySettingsModal";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { ThemeToggle } from "@/app/admin/ThemeToggle";
 import { detachPushSubscription, PushOwnershipSync, PushSettings } from "@/app/admin/PushSettings";
@@ -127,7 +128,19 @@ export function useArea() {
   return ctx;
 }
 
-export function AreaShell({ fullName, email, clientId, children }: { fullName: string; email: string; clientId: string; children: ReactNode }) {
+export function AreaShell({
+  fullName,
+  email,
+  clientId,
+  consents,
+  children,
+}: {
+  fullName: string;
+  email: string;
+  clientId: string;
+  consents: Consents;
+  children: ReactNode;
+}) {
   const supabase = useMemo(() => createClient(), []);
   const pathname = usePathname();
   const isHome = pathname === "/area";
@@ -195,6 +208,7 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportPending, setReportPending] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [privacySettingsOpen, setPrivacySettingsOpen] = useState(false);
   const [deleteConfirmWord, setDeleteConfirmWord] = useState("");
   const [deleteAccountState, deleteAccountFormAction, deleteAccountPending] = useActionState<DeleteAccountState, FormData>(
     deleteOwnAccount,
@@ -823,6 +837,16 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
                       <button
                         onClick={() => {
                           setProfileMenuOpen(false);
+                          setPrivacySettingsOpen(true);
+                        }}
+                        className="w-full text-left py-1.5 text-sm font-medium"
+                        style={{ color: COLORS.ink }}
+                      >
+                        Privacy e consensi
+                      </button>
+                      <button
+                        onClick={() => {
+                          setProfileMenuOpen(false);
                           setDeleteConfirmWord("");
                           setDeleteAccountOpen(true);
                         }}
@@ -1207,6 +1231,8 @@ export function AreaShell({ fullName, email, clientId, children }: { fullName: s
             onSubmit={submitIndividualClassRequest}
           />
         )}
+
+        {privacySettingsOpen && <PrivacySettingsModal initial={consents} onClose={() => setPrivacySettingsOpen(false)} />}
 
         {deleteAccountOpen && (
           <div

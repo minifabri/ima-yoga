@@ -202,6 +202,12 @@ export function ClientsView({
                           ) : (
                             <Badge color={COLORS.danger}>Email non verificata</Badge>
                           )}
+                          {c.healthConsent ? (
+                            <Badge color={COLORS.success}>Consenso dati salute</Badge>
+                          ) : (
+                            <Badge color={COLORS.inkSoft}>Nessun consenso dati salute</Badge>
+                          )}
+                          {c.marketingEmails && <Badge color={COLORS.primaryDark}>Email eventi/sondaggi</Badge>}
                         </div>
                       ) : (
                         <div style={{ fontSize: 12, color: COLORS.inkSoft }}>Stato account non disponibile.</div>

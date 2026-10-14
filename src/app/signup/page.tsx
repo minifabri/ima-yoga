@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { signup, type SignupState } from "@/app/actions";
 import { GoogleSignInButton } from "@/app/GoogleSignInButton";
 import { createClient } from "@/lib/supabase/client";
-import { getVisitorId, trackPageView } from "@/lib/track";
+import { trackPageView } from "@/lib/track";
 
 const initialState: SignupState = { error: null, needsConfirmation: false };
 
@@ -29,7 +29,9 @@ function LoginLink() {
 export default function SignupPage() {
   const [state, formAction, pending] = useActionState(signup, initialState);
   const supabase = useMemo(() => createClient(), []);
-  const [visitorId] = useState<string | null>(() => getVisitorId());
+  // La dichiarazione sull'età vale anche per la registrazione con Google:
+  // il pulsante resta disattivo finché non è spuntata.
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   useEffect(() => {
     trackPageView(supabase, "/signup");
   }, [supabase]);
@@ -55,8 +57,19 @@ export default function SignupPage() {
           </div>
         ) : (
           <>
+            <label className="flex items-start gap-2 mb-4" style={checkboxLabelStyle}>
+              <input
+                type="checkbox"
+                checked={ageConfirmed}
+                onChange={(e) => setAgeConfirmed(e.target.checked)}
+                style={{ marginTop: 2 }}
+              />
+              <span>
+                Dichiaro di avere almeno 16 anni <span style={{ color: "var(--danger)" }}>*</span>
+              </span>
+            </label>
             <div className="mb-4">
-              <GoogleSignInButton label="Registrati con Google" />
+              <GoogleSignInButton label="Registrati con Google" disabled={!ageConfirmed} />
             </div>
             <div className="flex items-center gap-3 mb-4" style={{ color: "var(--ink-soft)" }}>
               <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
@@ -65,7 +78,7 @@ export default function SignupPage() {
             </div>
 
             <form action={formAction} className="flex flex-col gap-3">
-            <input type="hidden" name="visitor_id" value={visitorId ?? ""} />
+            <input type="hidden" name="age_confirmed" value={ageConfirmed ? "on" : ""} />
             <Suspense fallback={null}>
               <NextField />
             </Suspense>
@@ -89,6 +102,13 @@ export default function SignupPage() {
               />
             </Field>
 
+            <label className="flex items-start gap-2" style={checkboxLabelStyle}>
+              <input type="checkbox" name="marketing_emails" style={{ marginTop: 2 }} />
+              <span>
+                Voglio ricevere email su eventi e sondaggi di ima yoga (facoltativo, puoi disiscriverti quando vuoi)
+              </span>
+            </label>
+
             {state.error && (
               <div className="text-sm rounded-lg px-3 py-2" style={{ background: "color-mix(in srgb, var(--danger) 14%, transparent)", color: "var(--danger)" }}>
                 {state.error}
@@ -97,7 +117,7 @@ export default function SignupPage() {
 
             <button
               type="submit"
-              disabled={pending}
+              disabled={pending || !ageConfirmed}
               className="mt-1 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
               style={{ background: "var(--primary)" }}
             >
@@ -114,7 +134,11 @@ export default function SignupPage() {
           </Suspense>
         </div>
         <div className="mt-2 text-center" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
-          Registrandoti accetti la nostra{" "}
+          Registrandoti accetti i{" "}
+          <Link href="/termini" style={{ color: "var(--ink-soft)", textDecoration: "underline" }}>
+            Termini del servizio
+          </Link>{" "}
+          e dichiari di aver letto l&apos;
           <Link href="/privacy" style={{ color: "var(--ink-soft)", textDecoration: "underline" }}>
             Informativa Privacy
           </Link>
@@ -132,6 +156,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
+
+const checkboxLabelStyle: React.CSSProperties = { fontSize: 12, lineHeight: 1.45, color: "var(--ink-soft)", cursor: "pointer" };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",

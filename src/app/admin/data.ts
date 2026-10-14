@@ -300,6 +300,8 @@ export async function fetchAdminData(supabase: DB): Promise<AdminData> {
       notes: p.notes ?? "",
       disabled: p.disabled,
       hasAccount: p.auth_user_id != null,
+      healthConsent: p.health_consent_at != null,
+      marketingEmails: p.marketing_emails ?? false,
     })),
     packages: (packagesRes.data ?? []).map(mapPackage),
     ledger: (ledgerRes.data ?? []).map(mapLedgerEntry),

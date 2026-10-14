@@ -94,6 +94,9 @@ export function SurveyReminderModal({
                 <Eye size={12} /> Anteprima email
               </button>
             </div>
+            <div className="mb-2" style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
+              L&apos;email arriva solo a chi ha acconsentito a ricevere email su eventi e sondaggi.
+            </div>
             {respondedCount > 0 && (
               <div className="mb-2" style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
                 {respondedCount} {respondedCount === 1 ? "cliente ha" : "clienti hanno"} già risposto e{" "}

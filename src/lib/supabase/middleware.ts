@@ -3,8 +3,9 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Pagine/rotte sempre raggiungibili anche a sito bloccato (manutenzione o
 // coming soon): /login e /auth/callback servono all'admin per autenticarsi
-// (anche via Google SSO), /api/* copre il cron dei promemoria lezione.
-const MAINTENANCE_EXEMPT_PATHS = ["/manutenzione", "/coming-soon", "/login", "/auth/callback"];
+// (anche via Google SSO), /api/* copre il cron dei promemoria lezione e la
+// disiscrizione dalle email; privacy e termini devono restare sempre leggibili.
+const MAINTENANCE_EXEMPT_PATHS = ["/manutenzione", "/coming-soon", "/login", "/auth/callback", "/privacy", "/termini"];
 
 function isMaintenanceExempt(pathname: string) {
   return MAINTENANCE_EXEMPT_PATHS.includes(pathname) || pathname.startsWith("/api/");

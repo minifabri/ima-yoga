@@ -2,6 +2,18 @@
 // (in notifications.ts, "use server") così che l'admin possa importarlo da
 // un componente client per l'anteprima senza toccare Resend.
 
+const FOOTER_SPAN = `<span style="font-size:11px; color:#867CA0;">ima yoga</span>`;
+
+// Email non legate a una prenotazione (inviti a eventi e sondaggi): per legge
+// ognuna deve permettere di disiscriversi, con un link nel piè di pagina.
+export function withUnsubscribeFooter(html: string, unsubscribeUrl: string | null | undefined): string {
+  if (!unsubscribeUrl) return html;
+  return html.replace(
+    FOOTER_SPAN,
+    `${FOOTER_SPAN}<br /><a href="${unsubscribeUrl}" style="font-size:11px; color:#867CA0; text-decoration:underline;">Non voglio più ricevere email su eventi e sondaggi</a>`
+  );
+}
+
 export function surveyPublishedEmailHtml(details: { fullName: string; surveyTitle: string; surveyUrl: string }): string {
   const firstName = details.fullName.split(" ")[0] || "!";
   return `

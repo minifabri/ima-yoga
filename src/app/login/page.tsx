@@ -132,6 +132,10 @@ export default function LoginPage() {
           <Link href="/privacy" style={{ color: "var(--ink-soft)", textDecoration: "underline" }}>
             Informativa Privacy
           </Link>
+          {" · "}
+          <Link href="/termini" style={{ color: "var(--ink-soft)", textDecoration: "underline" }}>
+            Termini del servizio
+          </Link>
         </div>
       </div>
     </main>
