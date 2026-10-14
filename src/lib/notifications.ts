@@ -3,6 +3,7 @@
 import {
   eventReminderEmailHtml,
   individualClassRejectedEmailHtml,
+  newClassesEmailHtml,
   sequenceAssignedEmailHtml,
   surveyPublishedEmailHtml,
   surveyReminderEmailHtml,
@@ -294,6 +295,55 @@ export async function sendEventReminderEmail(details: {
         to: details.to,
         subject: `${details.eventName} si avvicina e... 🤍`,
         html: withUnsubscribeFooter(eventReminderEmailHtml(details), details.unsubscribeUrl),
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Avviso di nuove classi pubblicate — inviato in blocco dal job
+// announce_new_classes nel database (vedi app/api/new-classes/notify), solo a
+// chi ha acconsentito alle email non transazionali.
+export async function sendNewClassesEmail(details: {
+  to: string;
+  fullName: string;
+  classes: { date: string; time: string; name: string }[]; // date yyyy-mm-dd, time HH:mm
+  calendarUrl: string;
+  unsubscribeUrl?: string | null;
+}): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !details.to || details.classes.length === 0) return false;
+
+  // stesso fuso esplicito (UTC) del resto del file, vedi notifyClassFull
+  const classes = details.classes.map((c) => ({
+    ...c,
+    dateLabel: new Date(`${c.date}T00:00:00Z`).toLocaleDateString("it-IT", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      timeZone: "UTC",
+    }),
+  }));
+  const subject =
+    classes.length === 1
+      ? `Nuova classe — ${classes[0].name}, ${classes[0].dateLabel}`
+      : `${classes.length} nuove classi in calendario 🤍`;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...commonEmailFields(),
+        headers: { ...commonEmailFields().headers, ...unsubscribeHeaders(details.unsubscribeUrl) },
+        to: details.to,
+        subject,
+        html: withUnsubscribeFooter(
+          newClassesEmailHtml({ fullName: details.fullName, classes, calendarUrl: details.calendarUrl }),
+          details.unsubscribeUrl
+        ),
       }),
     });
     return res.ok;

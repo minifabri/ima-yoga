@@ -95,7 +95,7 @@ export function EventReminderModal({
               </button>
             </div>
             <div className="mb-2" style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
-              L&apos;email arriva solo a chi ha acconsentito a ricevere email su eventi e sondaggi.
+              L&apos;email arriva solo a chi ha acconsentito a ricevere email su nuove classi, eventi e sondaggi.
             </div>
             {bookedCount > 0 && (
               <div className="mb-2" style={{ fontSize: 11.5, color: COLORS.inkSoft }}>

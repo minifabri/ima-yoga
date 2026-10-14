@@ -35,7 +35,7 @@ export default function PrivacyPage() {
             <p><strong>Richieste e segnalazioni.</strong> Quando chiedi una lezione individuale o ci segnali un problema, salviamo le note e i messaggi che scrivi, per poterti rispondere.</p>
             <p><strong>Sondaggi.</strong> Se rispondi a un sondaggio con il tuo account, le risposte sono collegate al tuo profilo. Senza account puoi lasciare il tuo nome oppure rispondere in forma anonima.</p>
             <p><strong>Sequenze personalizzate e informazioni sulla salute.</strong> La tua insegnante può preparare per te sequenze di pratica personalizzate. Se le racconti di infortuni, dolori, gravidanza o altre condizioni fisiche, può annotarle per adattare la pratica. Sono dati particolari (art. 9 GDPR): li usiamo solo se dai il consenso dalla tua area, alla voce «Privacy e consensi». Sono visibili solo a te e alla tua insegnante, non vengono mai condivisi con altri allievi e puoi revocare il consenso in qualsiasi momento.</p>
-            <p><strong>Email su eventi e sondaggi.</strong> Solo se lo scegli (alla registrazione o in «Privacy e consensi») ti scriviamo per invitarti a nuovi eventi e sondaggi. Ogni email contiene un link per non riceverle più. Le email legate alle tue prenotazioni (conferme, promemoria delle lezioni) fanno parte del servizio e arrivano comunque.</p>
+            <p><strong>Email su nuove classi, eventi e sondaggi.</strong> Solo se lo scegli (alla registrazione o in «Privacy e consensi») ti scriviamo quando pubblichiamo nuove classi e per invitarti a nuovi eventi e sondaggi. Ogni email contiene un link per non riceverle più. Le email legate alle tue prenotazioni (conferme, promemoria delle lezioni) fanno parte del servizio e arrivano comunque.</p>
             <p><strong>Notifiche push.</strong> Solo se le attivi tu dal telefono: salviamo l&apos;indirizzo tecnico che il browser ci fornisce per recapitarle. Puoi disattivarle quando vuoi.</p>
             <p><strong>Log di sicurezza.</strong> Per accessi e operazioni sull&apos;account registriamo indirizzo IP e user agent del browser, a scopo di sicurezza e prevenzione di abusi.</p>
             <p><strong>Statistiche di utilizzo.</strong> Un identificativo casuale salvato nel tuo browser (localStorage, non un cookie di profilazione, non ti segue su altri siti e non viene collegato al tuo account) ci aiuta a contare le visite. Usiamo anche Vercel Analytics, che raccoglie statistiche aggregate sulle pagine visitate senza cookie e senza identificare le singole persone.</p>
@@ -45,7 +45,7 @@ export default function PrivacyPage() {
           <Section title="3. Base giuridica del trattamento">
             <ul className="list-disc pl-5 flex flex-col gap-1">
               <li><strong>Esecuzione del servizio</strong> (art. 6.1.b GDPR): account, prenotazioni, email di servizio, richieste, sondaggi.</li>
-              <li><strong>Consenso</strong> (art. 6.1.a e 9.2.a GDPR): email su eventi e sondaggi, informazioni sulla salute, notifiche push. Puoi revocarlo in qualsiasi momento, senza conseguenze sul resto del servizio.</li>
+              <li><strong>Consenso</strong> (art. 6.1.a e 9.2.a GDPR): email su nuove classi, eventi e sondaggi, informazioni sulla salute, notifiche push. Puoi revocarlo in qualsiasi momento, senza conseguenze sul resto del servizio.</li>
               <li><strong>Legittimo interesse</strong> (art. 6.1.f GDPR): sicurezza del servizio (log) e statistiche anonime di utilizzo.</li>
             </ul>
           </Section>

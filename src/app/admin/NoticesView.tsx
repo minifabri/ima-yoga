@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Bell, CalendarCheck, Megaphone, PackagePlus, Search, Send, Sparkles, Trash2, UserCheck, X } from "lucide-react";
+import { Bell, CalendarCheck, CalendarPlus, Megaphone, PackagePlus, Search, Send, Sparkles, Trash2, UserCheck, X } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { EmojiPicker } from "./EmojiPicker";
 import { RichTextEditor } from "./RichTextEditor";
@@ -340,6 +340,8 @@ export function NoticesView({
                   <Sparkles size={15} color={COLORS.gold} style={{ flexShrink: 0, marginTop: 2 }} />
                 ) : n.kind === "waitlist_promoted" ? (
                   <UserCheck size={15} color={COLORS.success} style={{ flexShrink: 0, marginTop: 2 }} />
+                ) : n.kind === "new_classes" ? (
+                  <CalendarPlus size={15} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 2 }} />
                 ) : (
                   <Bell size={15} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 2 }} />
                 )}
