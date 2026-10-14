@@ -237,7 +237,7 @@ export function EventFormModal({
           <Field label="Capienza (0 = nessun limite)">
             <input type="number" min={0} value={capacity} onChange={(e) => setCapacity(e.target.value)} style={inputStyle} />
           </Field>
-          <Field label="Prezzo a persona (€)">
+          <Field label="Prezzo a persona (lune)">
             <input type="number" min={0} step="0.5" value={price} onChange={(e) => setPrice(e.target.value)} style={inputStyle} />
           </Field>
         </div>

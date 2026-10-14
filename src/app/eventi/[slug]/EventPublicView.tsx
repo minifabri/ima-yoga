@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { trackPageView } from "@/lib/track";
 import { sendEventBookingConfirmationEmail } from "@/lib/notifications";
 import { COLORS, withAlpha } from "@/app/admin/colors";
+import { formatLune } from "@/app/admin/utils";
 import { Field, inputStyle } from "@/app/admin/ui";
 import { ThemeToggle, useTheme } from "@/app/admin/ThemeToggle";
 import type { PublicEventData } from "./types";
@@ -295,7 +296,7 @@ export function EventPublicView({
               </div>
             )}
             <div style={{ fontSize: 12.5, color: COLORS.inkSoft }} className="mb-1">
-              Totale: €{(event.price * (myPlusOne ? 2 : 1)).toFixed(2)}
+              Totale: {formatLune(event.price * (myPlusOne ? 2 : 1))}
             </div>
             <div style={{ fontSize: 12, color: COLORS.inkSoft }} className="mb-3">
               Riceverai anche una mail di conferma.
@@ -464,7 +465,7 @@ function TotalRow({ price, plusOne }: { price: number; plusOne: boolean }) {
         Totale{plusOne ? " (2 persone)" : ""}
       </span>
       <span style={{ fontSize: 17, fontWeight: 700, color: COLORS.primaryDark }} className="pt-2">
-        €{(price * (plusOne ? 2 : 1)).toFixed(2)}
+        {formatLune(price * (plusOne ? 2 : 1))}
       </span>
     </div>
   );

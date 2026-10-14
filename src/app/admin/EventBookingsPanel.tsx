@@ -6,6 +6,7 @@ import { Modal, Badge, CapacityBar } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { createClient } from "@/lib/supabase/client";
 import * as db from "./data";
+import { formatLune } from "./utils";
 import type { EventBookingItem, EventItem } from "./types";
 
 export function EventBookingsPanel({ event, onClose }: { event: EventItem; onClose: () => void }) {
@@ -59,7 +60,7 @@ export function EventBookingsPanel({ event, onClose }: { event: EventItem; onClo
 
         {outstanding > 0 && (
           <div className="mb-4 px-3 py-2 rounded-lg text-sm font-semibold" style={{ background: withAlpha(COLORS.danger, 10), color: COLORS.danger }}>
-            Da riscuotere: €{outstanding.toFixed(2)}
+            Da riscuotere: {formatLune(outstanding)}
           </div>
         )}
 
@@ -87,7 +88,7 @@ export function EventBookingsPanel({ event, onClose }: { event: EventItem; onClo
                       <Mail size={11} /> {b.guestEmail}
                     </div>
                   )}
-                  <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>€{(b.price * (b.plusOne ? 2 : 1)).toFixed(2)}</div>
+                  <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>{formatLune(b.price * (b.plusOne ? 2 : 1))}</div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button

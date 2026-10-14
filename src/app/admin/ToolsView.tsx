@@ -6,9 +6,9 @@ import { Plus, ArrowLeft, Link2, Calculator as CalculatorIcon, AlertCircle, Tras
 import { COLORS, withAlpha } from "./colors";
 import { EventBudgetCalculator, computeTotals } from "./EventBudgetCalculator";
 import { deleteEventBudget, fetchEventBudgets, fetchEvents } from "./data";
+import { formatLuneRounded } from "./utils";
 import type { EventBudget, EventItem } from "./types";
 
-const fmtEUR = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
 export function ToolsView({ supabase }: { supabase: SupabaseClient }) {
   const [budgets, setBudgets] = useState<EventBudget[]>([]);
@@ -135,11 +135,11 @@ export function ToolsView({ supabase }: { supabase: SupabaseClient }) {
                       )}
                     </div>
                     <div style={{ fontSize: 12, color: COLORS.inkSoft }}>
-                      {totals.participants} partecipanti · biglietto {fmtEUR.format(totals.price)} · {b.days} {b.days === 1 ? "giorno" : "giorni"}
+                      {totals.participants} partecipanti · biglietto {formatLuneRounded(totals.price)} · {b.days} {b.days === 1 ? "giorno" : "giorni"}
                     </div>
                   </div>
                   <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, color: totals.profit >= 0 ? COLORS.success : COLORS.danger }}>
-                    {fmtEUR.format(totals.profit)}
+                    {formatLuneRounded(totals.profit)}
                   </div>
                 </button>
                 {confirmDeleteId === b.id ? (

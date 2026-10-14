@@ -125,7 +125,7 @@ export function SettingsView({
             Prezzi e pacchetti
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <Field label="Prezzo lezione singola (€)">
+            <Field label="Prezzo lezione singola (lune)">
               <input
                 type="number"
                 min={0}
@@ -146,7 +146,7 @@ export function SettingsView({
               />
             </Field>
           </div>
-          <Field label="Prezzo pacchetto (€)">
+          <Field label="Prezzo pacchetto (lune)">
             <input
               type="number"
               min={0}

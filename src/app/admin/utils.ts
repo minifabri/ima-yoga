@@ -104,3 +104,14 @@ export function getCalendarDays(viewDate: Date): Date[] {
   }
   return days;
 }
+
+// Le lezioni non si pagano in denaro vero: gli importi sono espressi in "lune".
+export function formatLune(amount: number): string {
+  const rounded = Math.round(amount * 100) / 100;
+  const label = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+  return `${label} lune`;
+}
+
+export function formatLuneRounded(amount: number): string {
+  return formatLune(Math.round(amount));
+}
