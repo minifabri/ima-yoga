@@ -9,6 +9,7 @@ import {
   Bell,
   Bug,
   CalendarCheck,
+  CalendarPlus,
   CalendarX,
   Check,
   ClipboardList,
@@ -727,6 +728,8 @@ export function AreaShell({
                                 <UserCheck size={14} color={COLORS.success} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                               ) : n.kind === "individual_class_accepted" ? (
                                 <CalendarCheck size={14} color={COLORS.success} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
+                              ) : n.kind === "new_classes" ? (
+                                <CalendarPlus size={14} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                               ) : n.kind === "individual_class_rejected" ? (
                                 <CalendarX size={14} color={COLORS.inkSoft} style={{ flexShrink: 0, marginTop: 1, opacity: n.read ? 0.6 : 1 }} />
                               ) : (

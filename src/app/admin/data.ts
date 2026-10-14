@@ -110,7 +110,7 @@ function mapClientNotice(row: {
   id: string;
   client_id: string;
   message: string;
-  kind: "custom" | "package_assigned" | "welcome" | "waitlist_promoted" | "survey_published" | "sequence_assigned";
+  kind: ClientNotice["kind"];
   link_path: string | null;
   read: boolean;
   created_at: string;

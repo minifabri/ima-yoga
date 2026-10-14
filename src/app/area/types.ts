@@ -31,7 +31,8 @@ export type ClientNotice = {
     | "survey_published"
     | "sequence_assigned"
     | "individual_class_accepted"
-    | "individual_class_rejected";
+    | "individual_class_rejected"
+    | "new_classes";
   linkPath: string | null;
   createdAt: string;
   read: boolean;
