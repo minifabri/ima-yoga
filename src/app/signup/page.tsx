@@ -105,7 +105,7 @@ export default function SignupPage() {
             <label className="flex items-start gap-2" style={checkboxLabelStyle}>
               <input type="checkbox" name="marketing_emails" style={{ marginTop: 2 }} />
               <span>
-                Voglio ricevere email su eventi e sondaggi di ima yoga (facoltativo, puoi disiscriverti quando vuoi)
+                Voglio ricevere email su nuove classi, eventi e sondaggi di ima yoga (facoltativo, puoi disiscriverti quando vuoi)
               </span>
             </label>
 

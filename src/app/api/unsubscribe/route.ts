@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   if (!valid) return page("Link non valido", "<p>Il link non è valido o è incompleto. Puoi gestire le email dalla tua area, alla voce «Privacy e consensi».</p>", 400);
   return page(
     "Non ricevere più queste email",
-    `<p>Non riceverai più email su nuovi eventi e sondaggi. Le email legate alle tue prenotazioni continueranno ad arrivare.</p>
+    `<p>Non riceverai più email su nuove classi, eventi e sondaggi. Le email legate alle tue prenotazioni continueranno ad arrivare.</p>
 <form method="post" action="/api/unsubscribe?u=${encodeURIComponent(u)}&t=${encodeURIComponent(t)}"><button type="submit">Conferma</button></form>`
   );
 }
@@ -46,5 +46,5 @@ export async function POST(request: Request) {
     .eq("id", u);
   if (error) return page("Errore", "<p>Non è andata a buon fine, riprova più tardi.</p>", 500);
 
-  return page("Fatto", "<p>Non riceverai più email su eventi e sondaggi. Puoi riattivarle quando vuoi dalla tua area, alla voce «Privacy e consensi».</p>");
+  return page("Fatto", "<p>Non riceverai più email su nuove classi, eventi e sondaggi. Puoi riattivarle quando vuoi dalla tua area, alla voce «Privacy e consensi».</p>");
 }

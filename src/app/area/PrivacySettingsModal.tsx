@@ -47,10 +47,10 @@ export function PrivacySettingsModal({ initial, onClose }: { initial: Consents; 
           <label className="flex items-start gap-2.5" style={{ cursor: "pointer" }}>
             <input type="checkbox" checked={marketingEmails} onChange={(e) => setMarketingEmails(e.target.checked)} style={{ marginTop: 3 }} />
             <span style={{ fontSize: 13, lineHeight: 1.5, color: COLORS.ink }}>
-              <strong>Email su eventi e sondaggi</strong>
+              <strong>Email su nuove classi, eventi e sondaggi</strong>
               <br />
               <span style={{ color: COLORS.inkSoft }}>
-                Inviti a nuovi eventi e sondaggi. Le email legate alle tue prenotazioni arrivano comunque.
+                Avvisi quando escono nuove classi, inviti a nuovi eventi e sondaggi. Le email legate alle tue prenotazioni arrivano comunque.
               </span>
             </span>
           </label>
