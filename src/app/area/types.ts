@@ -92,7 +92,7 @@ export type MyBooking = {
   levelId: string;
   isFree: boolean;
   status: "booked" | "waitlist";
-  paymentStatus: "unpaid" | "paid" | "partial" | "package";
+  paymentStatus: "unpaid" | "paid" | "partial" | "package" | "gift";
   paymentAmount: number;
   price: number;
   isPersonal: boolean;
