@@ -1,4 +1,5 @@
-export type PaymentStatus = "unpaid" | "paid" | "partial" | "package";
+// "gift" = lezione regalata dall'insegnante: niente da incassare, niente debito.
+export type PaymentStatus = "unpaid" | "paid" | "partial" | "package" | "gift";
 
 export type Payment = {
   status: PaymentStatus;

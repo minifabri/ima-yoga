@@ -109,7 +109,7 @@ export function EarningsView({
       classes.forEach((c) => {
         if (!predicate(c.date)) return;
         Object.values(c.payments || {}).forEach((pay) => {
-          if (pay.status === "package") return;
+          if (pay.status === "package" || pay.status === "gift") return;
           collected += pay.amount || 0;
           owed += Math.max(0, (pay.price || 0) - (pay.amount || 0));
         });

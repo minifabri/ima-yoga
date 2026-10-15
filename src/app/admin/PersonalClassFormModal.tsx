@@ -27,6 +27,8 @@ function paymentMeta(status: PaymentStatus) {
       return { label: "Parziale", color: COLORS.goldText };
     case "package":
       return { label: "Pacchetto", color: COLORS.primary };
+    case "gift":
+      return { label: "Omaggio", color: COLORS.success };
     default:
       return { label: "Da pagare", color: COLORS.danger };
   }
@@ -129,7 +131,7 @@ export function PersonalClassFormModal({
       const base = cur || { status: "unpaid" as const, amount: 0, price };
       const next: Payment = { ...base, status, price };
       if (status === "paid") next.amount = price;
-      if (status === "unpaid") next.amount = 0;
+      if (status === "unpaid" || status === "gift") next.amount = 0;
       return next;
     });
   }
@@ -293,6 +295,7 @@ export function PersonalClassFormModal({
                     <option value="unpaid">Da pagare</option>
                     <option value="paid">Pagato</option>
                     <option value="partial">Parziale</option>
+                    <option value="gift">Omaggio</option>
                   </select>
                 </>
               )}

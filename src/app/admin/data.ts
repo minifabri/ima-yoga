@@ -163,7 +163,7 @@ type BookingRow = {
   class_id: string;
   client_id: string;
   status: "booked" | "waitlist";
-  payment_status: "unpaid" | "paid" | "partial" | "package";
+  payment_status: "unpaid" | "paid" | "partial" | "package" | "gift";
   payment_amount: number;
   price: number;
   package_id: string | null;

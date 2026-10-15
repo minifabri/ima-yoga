@@ -146,7 +146,7 @@ export function PaymentsView({
 
   const linkableClasses = sellClientId
     ? classes
-        .filter((c) => c.clientIds.includes(sellClientId) && c.typeId && typeById[c.typeId]?.packageEligible && c.payments?.[sellClientId]?.status !== "package")
+        .filter((c) => c.clientIds.includes(sellClientId) && c.typeId && typeById[c.typeId]?.packageEligible && !["package", "gift"].includes(c.payments?.[sellClientId]?.status ?? ""))
         .sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")))
     : [];
 

@@ -33,6 +33,8 @@ function paymentMeta(status: PaymentStatus) {
       return { label: "Parziale", color: COLORS.goldText };
     case "package":
       return { label: "Pacchetto", color: COLORS.primary };
+    case "gift":
+      return { label: "Omaggio", color: COLORS.success };
     default:
       return { label: "Da pagare", color: COLORS.danger };
   }
@@ -256,6 +258,10 @@ export function ClassFormModal({
         next.packageId = undefined;
       }
       if (status === "partial") next.packageId = undefined;
+      if (status === "gift") {
+        next.amount = 0;
+        next.packageId = undefined;
+      }
       if (status === "package") {
         const pkg =
           savedPackageFor(id) ||
@@ -523,6 +529,7 @@ export function ClassFormModal({
                     <option value="unpaid">Da pagare</option>
                     <option value="paid">Pagato</option>
                     <option value="partial">Parziale</option>
+                    <option value="gift">Omaggio</option>
                     {hasPackage && <option value="package">Pacchetto</option>}
                   </select>
                   <button onClick={() => removeClient(c.id)} style={{ color: COLORS.inkSoft }}>
