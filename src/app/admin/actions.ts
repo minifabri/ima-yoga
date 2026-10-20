@@ -16,6 +16,7 @@ import {
 import { runClassRemindersJob } from "@/lib/classRemindersJob";
 import { unsubscribeUrl } from "@/lib/unsubscribe";
 import { sendPush, storePushSubscription, type PushSubscriptionInput } from "@/lib/push";
+import { eventChangeMessage, type EventChange } from "@/lib/eventChange";
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
@@ -395,6 +396,73 @@ export async function notifyEventReminder(
   );
 
   return { ok: true, emailsSent };
+}
+
+// Avviso a chi è prenotato (anche in lista d'attesa) quando l'admin cambia
+// data, orario o luogo di un evento. Parte solo se l'admin risponde "Sì" alla
+// domanda che compare dopo il salvataggio (vedi EventChangeNotifyModal).
+// Nuovo appuntamento e destinatari si leggono dal database, non dal browser.
+// Il push arriva a chi ha attivato le notifiche; l'avviso nell'area personale
+// arriva a tutti, così lo vede anche chi non le ha attivate. Gli ospiti senza
+// account non hanno né l'uno né l'altro.
+export async function notifyEventChanged(
+  eventId: string,
+  change: EventChange
+): Promise<{ ok: boolean; recipients?: number; pushed?: number; error?: string }> {
+  const { ctx, error } = await requireAdminContext();
+  if (!ctx) return { ok: false, error };
+
+  const { data: event, error: eventErr } = await ctx.supabase
+    .from("events")
+    .select("name, slug, event_date, event_time, location")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (eventErr) return { ok: false, error: eventErr.message };
+  if (!event) return { ok: false, error: "Evento non trovato." };
+
+  const { data: bookings, error: bookingsErr } = await ctx.supabase
+    .from("event_bookings")
+    .select("client_id, profiles(auth_user_id, disabled)")
+    .eq("event_id", eventId)
+    .not("client_id", "is", null);
+  if (bookingsErr) return { ok: false, error: bookingsErr.message };
+
+  const recipients = new Map<string, string | null>();
+  for (const b of bookings ?? []) {
+    const profile = Array.isArray(b.profiles) ? b.profiles[0] : b.profiles;
+    if (!profile || profile.disabled) continue;
+    recipients.set(b.client_id as string, (profile.auth_user_id as string | null) ?? null);
+  }
+  if (recipients.size === 0) return { ok: true, recipients: 0, pushed: 0 };
+
+  const after = { date: event.event_date, time: (event.event_time || "").slice(0, 5), location: event.location ?? "" };
+  const { title, body, notice } = eventChangeMessage(event.name, change, after);
+  const linkPath = `/eventi/${event.slug}`;
+
+  await addPersonalNotices(ctx.supabase, [...recipients.keys()], notice, { kind: "custom", linkPath });
+
+  let pushed = 0;
+  await Promise.all(
+    [...recipients.values()].map(async (authUserId) => {
+      if (!authUserId) return;
+      // Stesso tag per lo stesso evento: se l'admin lo cambia due volte, sul
+      // telefono resta solo l'ultimo avviso invece di due in contraddizione.
+      const res = await sendPush(ctx.adminClient, { title, body, url: linkPath, tag: `event-change-${eventId}` }, { authUserId }).catch(
+        () => ({ sent: 0 })
+      );
+      if (res.sent > 0) pushed++;
+    })
+  );
+
+  await logAdminAction(
+    ctx.supabase,
+    "notify_event_changed",
+    "events",
+    eventId,
+    `Avviso cambio evento "${event.name}" — prenotati: ${recipients.size}, push: ${pushed}.`
+  );
+
+  return { ok: true, recipients: recipients.size, pushed };
 }
 
 // Email al cliente quando l'admin accetta la sua richiesta di lezione
