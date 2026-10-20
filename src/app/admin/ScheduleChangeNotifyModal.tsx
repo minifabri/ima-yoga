@@ -4,25 +4,28 @@ import { useEffect, useState } from "react";
 import { BellRing, X } from "lucide-react";
 import { Modal } from "./ui";
 import { COLORS, withAlpha } from "./colors";
-import { createClient } from "@/lib/supabase/client";
-import { fetchEventBookings } from "./data";
 import { formatEventDay, type EventChange, type EventSchedule } from "@/lib/eventChange";
-import type { EventItem } from "./types";
 
-// Domanda che compare dopo aver salvato un evento con data, orario o luogo
-// diversi: "Avviso chi è prenotato?". Sì manda push + avviso in area, No
-// chiude e basta. Se non c'è nessuna persona prenotata con account, la
-// domanda non ha senso e il modale si chiude da solo.
-export function EventChangeNotifyModal({
-  event,
+// Domanda che compare dopo aver salvato un evento o una lezione con giorno,
+// orario o luogo diversi: "Avviso chi è prenotato?". Sì manda push + avviso
+// in area, No chiude e basta. Se non c'è nessuna persona prenotata con
+// account, la domanda non ha senso e il modale si chiude da solo.
+// loadCounts conta le persone prenotate: con account (ricevono l'avviso) e
+// ospiti senza account (solo eventi: vanno avvisati a mano).
+export function ScheduleChangeNotifyModal({
+  name,
   before,
+  after,
   change,
+  loadCounts,
   onClose,
   onConfirm,
 }: {
-  event: EventItem;
+  name: string;
   before: EventSchedule;
+  after: EventSchedule;
   change: EventChange;
+  loadCounts: () => Promise<{ clients: number; guests: number }>;
   onClose: () => void;
   onConfirm: () => Promise<{ ok: boolean; error?: string }>;
 }) {
@@ -31,16 +34,11 @@ export function EventChangeNotifyModal({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchEventBookings(createClient(), event.id)
-      .then((bookings) => {
-        const clients = bookings.filter((b) => b.clientId).length;
-        const guests = bookings.length - clients;
-        if (clients === 0) onClose();
-        else setCounts({ clients, guests });
-      })
+    loadCounts()
+      .then((c) => (c.clients === 0 ? onClose() : setCounts(c)))
       .catch(() => onClose());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event.id]);
+  }, []);
 
   if (!counts) return null;
 
@@ -55,9 +53,9 @@ export function EventChangeNotifyModal({
   }
 
   const rows: { label: string; from: string; to: string }[] = [];
-  if (change.dateChanged) rows.push({ label: "Giorno", from: formatEventDay(before.date), to: formatEventDay(event.date) });
-  if (change.timeChanged) rows.push({ label: "Orario", from: before.time.slice(0, 5), to: event.time });
-  if (change.locationChanged) rows.push({ label: "Luogo", from: before.location || "—", to: event.location || "—" });
+  if (change.dateChanged) rows.push({ label: "Giorno", from: formatEventDay(before.date), to: formatEventDay(after.date) });
+  if (change.timeChanged) rows.push({ label: "Orario", from: before.time.slice(0, 5), to: after.time.slice(0, 5) });
+  if (change.locationChanged) rows.push({ label: "Luogo", from: before.location || "—", to: after.location || "—" });
 
   const people = counts.clients === 1 ? "la persona prenotata" : `le ${counts.clients} persone prenotate`;
 
@@ -74,7 +72,7 @@ export function EventChangeNotifyModal({
 
       <div className="p-5 overflow-y-auto" style={{ flex: 1 }}>
         <div className="mb-3" style={{ fontSize: 13, color: COLORS.ink }}>
-          Hai cambiato «{event.name}»:
+          Hai cambiato «{name}»:
         </div>
         <div className="flex flex-col gap-1.5 mb-3">
           {rows.map((r) => (

@@ -7,9 +7,9 @@ import { COLORS, withAlpha } from "./colors";
 import { EventFormModal } from "./EventFormModal";
 import { EventBookingsPanel } from "./EventBookingsPanel";
 import { EventReminderModal } from "./EventReminderModal";
-import { EventChangeNotifyModal } from "./EventChangeNotifyModal";
+import { ScheduleChangeNotifyModal } from "./ScheduleChangeNotifyModal";
 import { EventBudgetCalculator, computeTotals } from "./EventBudgetCalculator";
-import { deleteEvent, fetchEventBudgets, fetchEvents, saveEvent, setEventArchived, setEventBookingsOpen, setEventCancellationDisabled } from "./data";
+import { deleteEvent, fetchEventBookings, fetchEventBudgets, fetchEvents, saveEvent, setEventArchived, setEventBookingsOpen, setEventCancellationDisabled } from "./data";
 import { notifyEventChanged, notifyEventReminder } from "./actions";
 import { formatLune, formatLuneRounded, isPastClass } from "./utils";
 import { diffEventSchedule, type EventChange, type EventSchedule } from "@/lib/eventChange";
@@ -344,10 +344,16 @@ export function EventsView({ supabase, clients }: { supabase: SupabaseClient; cl
       {bookingsFor && <EventBookingsPanel event={bookingsFor} onClose={() => setBookingsFor(null)} />}
 
       {changeNotice && (
-        <EventChangeNotifyModal
-          event={changeNotice.event}
+        <ScheduleChangeNotifyModal
+          name={changeNotice.event.name}
           before={changeNotice.before}
+          after={{ date: changeNotice.event.date, time: changeNotice.event.time, location: changeNotice.event.location }}
           change={changeNotice.change}
+          loadCounts={async () => {
+            const bookings = await fetchEventBookings(supabase, changeNotice.event.id);
+            const clients = bookings.filter((b) => b.clientId).length;
+            return { clients, guests: bookings.length - clients };
+          }}
           onClose={() => setChangeNotice(null)}
           onConfirm={async () => {
             const res = await notifyEventChanged(changeNotice.event.id, changeNotice.change);
