@@ -7,13 +7,16 @@ import { COLORS, withAlpha } from "./colors";
 import { EventFormModal } from "./EventFormModal";
 import { EventBookingsPanel } from "./EventBookingsPanel";
 import { EventReminderModal } from "./EventReminderModal";
+import { ScheduleChangeNotifyModal } from "./ScheduleChangeNotifyModal";
 import { EventBudgetCalculator, computeTotals } from "./EventBudgetCalculator";
-import { deleteEvent, fetchEventBudgets, fetchEvents, saveEvent, setEventArchived, setEventBookingsOpen, setEventCancellationDisabled } from "./data";
-import { notifyEventReminder } from "./actions";
-import { formatLune, formatLuneRounded } from "./utils";
+import { deleteEvent, fetchEventBookings, fetchEventBudgets, fetchEvents, saveEvent, setEventArchived, setEventBookingsOpen, setEventCancellationDisabled } from "./data";
+import { notifyEventChanged, notifyEventReminder } from "./actions";
+import { formatLune, formatLuneRounded, isPastClass } from "./utils";
+import { diffEventSchedule, type EventChange, type EventSchedule } from "@/lib/eventChange";
 import type { ClientItem, EventBudget, EventItem } from "./types";
 
 type ModalState = { mode: "new" } | { mode: "edit"; event: EventItem } | null;
+type ChangeNotice = { event: EventItem; before: EventSchedule; change: EventChange };
 
 
 export function EventsView({ supabase, clients }: { supabase: SupabaseClient; clients: ClientItem[] }) {
@@ -24,6 +27,7 @@ export function EventsView({ supabase, clients }: { supabase: SupabaseClient; cl
   const [bookingsFor, setBookingsFor] = useState<EventItem | null>(null);
   const [budgetFor, setBudgetFor] = useState<EventItem | null>(null);
   const [reminderFor, setReminderFor] = useState<EventItem | null>(null);
+  const [changeNotice, setChangeNotice] = useState<ChangeNotice | null>(null);
   const [toast, setToast] = useState("");
 
   function showToast(msg: string) {
@@ -54,9 +58,18 @@ export function EventsView({ supabase, clients }: { supabase: SupabaseClient; cl
   }
 
   async function handleSave(event: Omit<EventItem, "id"> & { id?: string }) {
+    const previous = event.id ? events.find((e) => e.id === event.id) : undefined;
     const saved = await saveEvent(supabase, event);
     setEvents((cur) => (event.id ? cur.map((e) => (e.id === saved.id ? saved : e)) : [...cur, saved]));
     showToast(event.id ? "Evento aggiornato." : "Evento creato.");
+
+    // Data, orario o luogo cambiati su un evento non ancora passato: chiede
+    // se avvisare chi è prenotato (il modale si chiude da solo se non c'è nessuno).
+    if (previous && !saved.archived && !isPastClass(saved.date, saved.time)) {
+      const before = { date: previous.date, time: previous.time, location: previous.location };
+      const change = diffEventSchedule(before, { date: saved.date, time: saved.time, location: saved.location });
+      if (change) setChangeNotice({ event: saved, before, change });
+    }
   }
 
   function handleDelete(id: string) {
@@ -329,6 +342,26 @@ export function EventsView({ supabase, clients }: { supabase: SupabaseClient; cl
       )}
 
       {bookingsFor && <EventBookingsPanel event={bookingsFor} onClose={() => setBookingsFor(null)} />}
+
+      {changeNotice && (
+        <ScheduleChangeNotifyModal
+          name={changeNotice.event.name}
+          before={changeNotice.before}
+          after={{ date: changeNotice.event.date, time: changeNotice.event.time, location: changeNotice.event.location }}
+          change={changeNotice.change}
+          loadCounts={async () => {
+            const bookings = await fetchEventBookings(supabase, changeNotice.event.id);
+            const clients = bookings.filter((b) => b.clientId).length;
+            return { clients, guests: bookings.length - clients };
+          }}
+          onClose={() => setChangeNotice(null)}
+          onConfirm={async () => {
+            const res = await notifyEventChanged(changeNotice.event.id, changeNotice.change);
+            if (res.ok) showToast(`Avviso inviato a ${res.recipients ?? 0} — notifiche sul telefono: ${res.pushed ?? 0}.`);
+            return res;
+          }}
+        />
+      )}
 
       {reminderFor && (
         <EventReminderModal

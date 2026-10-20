@@ -379,6 +379,13 @@ export async function moveClass(supabase: DB, id: string, newDate: string) {
   if (error) throw error;
 }
 
+// Lezione spostata (giorno o orario): il promemoria già mandato parlava del
+// vecchio appuntamento, quindi il cron dei promemoria lo rimanda.
+export async function resetClassReminders(supabase: DB, classId: string) {
+  const { error } = await supabase.from("bookings").update({ reminder_sent_at: null }).eq("class_id", classId).not("reminder_sent_at", "is", null);
+  if (error) throw error;
+}
+
 // ---------------------------------------------------------
 // Richieste di lezione individuale dei clienti. Gli slot che propongono sono
 // lezioni individuali senza cliente (già in `classes`, vedi

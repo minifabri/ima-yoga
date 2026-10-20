@@ -9,14 +9,16 @@ import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
 import { Logo } from "./Logo";
-import { dateKey, classEffectivePrice } from "./utils";
+import { dateKey, classEffectivePrice, isPastClass } from "./utils";
 import { classTitle } from "@/lib/classTitle";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { detachPushSubscription, PushOwnershipSync } from "./PushSettings";
 import { MoreMenu, type MoreMenuItem } from "./MoreMenu";
 import * as db from "./data";
-import { adminResetClientPassword, adminGetClientAuthStatus, adminResendActivationEmail, adminResendPasswordReset } from "./actions";
+import { adminResetClientPassword, adminGetClientAuthStatus, adminResendActivationEmail, adminResendPasswordReset, notifyClassChanged } from "./actions";
+import { ScheduleChangeNotifyModal } from "./ScheduleChangeNotifyModal";
+import { diffEventSchedule, type EventChange } from "@/lib/eventChange";
 import { notifyClassFull } from "@/lib/notifications";
 import { ADMIN_ROUTE_BY_KEY } from "./routes";
 import type {
@@ -138,6 +140,7 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
   const [clientNotices, setClientNotices] = useState<ClientNotice[]>(initial.clientNotices);
   const [notifications, setNotifications] = useState<NotificationItem[]>(initial.notifications);
   const [toast, setToast] = useState("");
+  const [classChange, setClassChange] = useState<{ before: ClassItem; after: ClassItem; change: EventChange } | null>(null);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -242,6 +245,7 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
       showToast("Il salvataggio della classe non è riuscito.");
       throw new Error("Il salvataggio della classe non è riuscito.");
     }
+    if (prev) askClassChangeNotice(prev, item);
     // Per una lezione individuale "piena" (1/1) è lo stato atteso appena la
     // assegni, non un evento da segnalarti via email come per una classe di
     // gruppo che si riempie inaspettatamente.
@@ -262,7 +266,24 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
     const item = classes.find((c) => c.id === id);
     if (!item || item.date === targetDate) return;
     setClasses((cur) => cur.map((c) => (c.id === id ? { ...c, date: targetDate } : c)));
-    db.moveClass(supabase, id, targetDate).catch(() => showToast("Lo spostamento non è riuscito."));
+    db.moveClass(supabase, id, targetDate)
+      .then(() => askClassChangeNotice(item, { ...item, date: targetDate }))
+      .catch(() => showToast("Lo spostamento non è riuscito."));
+  }
+  // Dopo un salvataggio riuscito: se giorno o orario sono cambiati, il
+  // promemoria già mandato ("ci vediamo domani alle…") non vale più e va
+  // rimandato; e se la lezione, pubblicata e non ancora passata, ha persone
+  // prenotate, chiede se avvisarle (ScheduleChangeNotifyModal).
+  function askClassChangeNotice(before: ClassItem, after: ClassItem) {
+    const change = diffEventSchedule(
+      { date: before.date, time: before.time, location: "" },
+      { date: after.date, time: after.time, location: "" }
+    );
+    if (!change) return;
+    db.resetClassReminders(supabase, after.id).catch(() => {});
+    if (!after.published || isPastClass(after.date, after.time)) return;
+    if (after.clientIds.length + after.waitlistIds.length === 0) return;
+    setClassChange({ before, after, change });
   }
   function markClassPaymentPaid(classId: string, clientId: string) {
     const c = classes.find((x) => x.id === classId);
@@ -675,6 +696,26 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
           {children}
         </div>
       </div>
+
+      {classChange && (
+        <ScheduleChangeNotifyModal
+          name={classTitle(classChange.after.isIndividual, classChange.after.typeId, typeById)}
+          before={{ date: classChange.before.date, time: classChange.before.time, location: "" }}
+          after={{ date: classChange.after.date, time: classChange.after.time, location: "" }}
+          change={classChange.change}
+          loadCounts={async () => {
+            const withAccount = new Set(clients.filter((c) => c.hasAccount && !c.disabled).map((c) => c.id));
+            const ids = [...classChange.after.clientIds, ...classChange.after.waitlistIds];
+            return { clients: ids.filter((id) => withAccount.has(id)).length, guests: 0 };
+          }}
+          onClose={() => setClassChange(null)}
+          onConfirm={async () => {
+            const res = await notifyClassChanged(classChange.after.id, classChange.change);
+            if (res.ok) showToast(`Avviso inviato a ${res.recipients ?? 0} — notifiche sul telefono: ${res.pushed ?? 0}.`);
+            return res;
+          }}
+        />
+      )}
     </AdminContext.Provider>
   );
 }
