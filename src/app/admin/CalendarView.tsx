@@ -369,7 +369,14 @@ export function CalendarView({
                               {c.playlistUrl && <Music size={8} color={COLORS.primary} />}
                               {typeInitials(classTitle(c.isIndividual, c.typeId, typeById))}
                             </span>
-                            <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
+                            <span className="flex items-center gap-0.5">
+                              <span style={{ width: 5, height: 5, borderRadius: 999, background: dot, flexShrink: 0 }} />
+                              {!c.isIndividual && (
+                                <span style={{ fontSize: 8, fontWeight: 600, color: COLORS.inkSoft, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                                  {c.clientIds.length}/{c.capacity || "—"}
+                                </span>
+                              )}
+                            </span>
                           </button>
                         );
                       })}
@@ -634,6 +641,11 @@ function ClassCard({
         <span className="truncate" style={{ fontSize: 10.5, fontWeight: 600, color: COLORS.ink, flex: 1, minWidth: 0 }}>
           {isPersonal && client ? client.name : title}
         </span>
+        {!isPersonal && (
+          <span style={{ fontSize: 9.5, fontWeight: 600, color: COLORS.inkSoft, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+            {booked}/{c.capacity || "—"}
+          </span>
+        )}
         {!c.published && <EyeOff size={9} color={COLORS.inkSoft} />}
         {!c.bookingsOpen && !isPersonal && <Lock size={9} color={COLORS.inkSoft} />}
         {c.isFree && <Gift size={9} color={COLORS.gold} />}
