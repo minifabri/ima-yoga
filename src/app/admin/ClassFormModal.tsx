@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Plus, Trash2, Search, Check, ListPlus, CheckSquare, Square, Copy, Lock, LockOpen, Eye, EyeOff, Download, Gift } from "lucide-react";
+import { X, Plus, Trash2, Search, Check, ListPlus, CheckSquare, Square, Copy, Lock, LockOpen, Eye, EyeOff, Download, Gift, Share2 } from "lucide-react";
 import { downloadIcsFile } from "@/lib/ics";
 import { normalizePlaylistUrl } from "@/lib/playlist";
 import { Modal, Field, CapacityBar, inputStyle } from "./ui";
@@ -94,6 +94,7 @@ export function ClassFormModal({
   const [query, setQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const typeObj = classTypes.find((t) => t.id === typeId);
@@ -109,6 +110,27 @@ export function ClassFormModal({
     .map((id) => clients.find((c) => c.id === id))
     .filter((c): c is ClientItem => !!c && !allBookedIds.has(c.id))
     .slice(0, 6);
+
+  // Link per prenotarsi a questa classe (vedi /calendario): usa data e stato
+  // salvati, perché il link deve portare alla classe com'è adesso per i clienti.
+  const canShareLink = editing && base!.published;
+  function handleShareLink() {
+    if (!canShareLink) return;
+    const url = `${window.location.origin}/calendario?${new URLSearchParams({ classe: base!.id, data: base!.date }).toString()}`;
+    const savedType = classTypes.find((t) => t.id === base!.typeId);
+    const isTouch = window.matchMedia("(pointer: coarse)").matches;
+    if (isTouch && typeof navigator.share === "function") {
+      navigator.share({ title: savedType?.name || "Classe di yoga", url }).catch(() => {});
+      return;
+    }
+    navigator.clipboard
+      ?.writeText(url)
+      .then(() => {
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 1600);
+      })
+      .catch(() => {});
+  }
 
   function effectivePrice(): number {
     if (isFree) return 0;
@@ -671,6 +693,18 @@ export function ClassFormModal({
           >
             <Download size={14} /> <span className="hidden sm:inline">Calendario</span>
           </button>
+          {editing && (
+            <button
+              onClick={handleShareLink}
+              disabled={!canShareLink}
+              className="flex items-center gap-1.5 text-sm font-medium"
+              style={{ color: canShareLink ? COLORS.primaryDark : COLORS.inkSoft, opacity: canShareLink ? 1 : 0.6 }}
+              aria-label="Condividi link"
+              title={canShareLink ? "Condividi il link per prenotarsi a questa classe" : "Pubblica e salva la classe per poterne condividere il link"}
+            >
+              <Share2 size={14} /> <span className="hidden sm:inline">{linkCopied ? "Link copiato ✓" : "Condividi link"}</span>
+            </button>
+          )}
         </div>
         <div className="flex gap-2 flex-shrink-0 ml-auto">
           <button onClick={onClose} className="px-3.5 py-2 rounded-lg text-sm font-medium" style={{ border: `1px solid ${COLORS.border}` }}>
