@@ -2,7 +2,7 @@
 
 import { createContext, useActionState, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   AtSign,
@@ -316,6 +316,40 @@ export function AreaShell({
       showToast("Errore nel caricamento della classe.");
     }
   }
+
+  // Link condiviso di una classe (/calendario?classe=<id>&data=<giorno>, che
+  // porta qui): apre il mese e la scheda della classe, da cui si prenota.
+  // Poi toglie i parametri, così la scheda non si riapre a ogni visita.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const linkedClassId = isCalendario ? searchParams.get("classe") : null;
+  const linkedClassDate = isCalendario ? searchParams.get("data") : null;
+  useEffect(() => {
+    if (!linkedClassId || !linkedClassDate || !/^\d{4}-\d{2}-\d{2}$/.test(linkedClassDate)) return;
+    let cancelled = false;
+    db.fetchPublicClasses(supabase, linkedClassDate, linkedClassDate)
+      .then((list) => {
+        if (cancelled) return;
+        const found = list.find((c) => c.id === linkedClassId);
+        if (found) {
+          const [y, m, d] = linkedClassDate.split("-").map(Number);
+          setViewDate(new Date(y, m - 1, d));
+          setSelected(found);
+        } else {
+          showToast("Questa classe non è più disponibile.");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) showToast("Errore nel caricamento della classe.");
+      })
+      .finally(() => {
+        if (!cancelled) router.replace("/area/calendario", { scroll: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedClassId, linkedClassDate, supabase]);
 
   function deleteNotice(id: string) {
     setMyNotices((cur) => cur.filter((n) => n.id !== id));
