@@ -59,6 +59,15 @@ export async function updateMyConsents(consents: {
   return { ok: true };
 }
 
+// Risposta alla domanda «Vuoi ricevere email…?» in area (EmailConsentPrompt).
+export async function setMyMarketingEmails(value: boolean): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_my_consents", { p_marketing_emails: value });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/area", "layout");
+  return { ok: true };
+}
+
 // ---------------------------------------------------------
 // Notifiche push della cliente (vedi admin/PushSettings.tsx e src/lib/push.ts)
 // ---------------------------------------------------------

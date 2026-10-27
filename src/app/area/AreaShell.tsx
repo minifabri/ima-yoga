@@ -33,6 +33,7 @@ import { trackPageView } from "@/lib/track";
 import { logout } from "@/app/actions";
 import { deleteOwnAccount, type DeleteAccountState } from "./actions";
 import { PrivacySettingsModal, type Consents } from "./PrivacySettingsModal";
+import { EmailConsentPrompt } from "./EmailConsentPrompt";
 import { COLORS, withAlpha } from "@/app/admin/colors";
 import { ThemeToggle } from "@/app/admin/ThemeToggle";
 import { detachPushSubscription, PushOwnershipSync, PushSettings } from "@/app/admin/PushSettings";
@@ -134,15 +135,20 @@ export function AreaShell({
   email,
   clientId,
   consents,
+  askMarketingEmails,
   children,
 }: {
   fullName: string;
   email: string;
   clientId: string;
   consents: Consents;
+  askMarketingEmails: boolean;
   children: ReactNode;
 }) {
   const supabase = useMemo(() => createClient(), []);
+  // Valore iniziale: dopo la risposta il layout si aggiorna, ma la conferma
+  // (con Annulla) deve restare finché non la chiude chi l'ha data.
+  const [showEmailPrompt] = useState(askMarketingEmails);
   const pathname = usePathname();
   const isHome = pathname === "/area";
   const isMine = pathname === "/area/prenotazioni";
@@ -916,6 +922,8 @@ export function AreaShell({
             onOpenPushSettings={() => setPushSettingsOpen(true)}
             pushSettingsOpen={pushSettingsOpen}
           />
+
+          {showEmailPrompt && <EmailConsentPrompt />}
 
           {visibleAnnouncements.length > 0 && (
             <div className="flex flex-col gap-2 mb-4">
