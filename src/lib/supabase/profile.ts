@@ -11,6 +11,7 @@ export type Profile = {
   created_at: string;
   age_confirmed_at: string | null;
   marketing_emails: boolean;
+  marketing_emails_updated_at: string | null;
   health_consent_at: string | null;
 };
 

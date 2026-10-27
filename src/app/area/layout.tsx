@@ -70,6 +70,8 @@ export default async function AreaLayout({ children }: LayoutProps<"/area">) {
       email={user.email || ""}
       clientId={profile?.id || ""}
       consents={{ marketingEmails: profile?.marketing_emails ?? false, healthConsent: !!profile?.health_consent_at }}
+      // chi non ha mai scelto sulle email (es. registrato prima che la casella esistesse)
+      askMarketingEmails={!!profile && !profile.marketing_emails && !profile.marketing_emails_updated_at}
     >
       {children}
     </AreaShell>
