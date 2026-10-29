@@ -1,6 +1,6 @@
 import { COLORS } from "@/app/admin/colors";
-import { WEEKDAYS, MONTHS, isPastClass, formatLune } from "@/app/admin/utils";
-import type { PublicClass } from "./types";
+import { WEEKDAYS, MONTHS, isPastClass, formatLune, owedAmount } from "@/app/admin/utils";
+import type { MyBooking, MyEventBooking, PublicClass } from "./types";
 
 export { isPastClass, formatLune };
 
@@ -50,4 +50,27 @@ export function formatUpcomingDate(dateStr: string): string {
 export function formatEventDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   return `${WEEKDAYS[(new Date(y, m - 1, d).getDay() + 6) % 7]} ${d} ${MONTHS[m - 1].slice(0, 3)}`;
+}
+
+// Lezioni/eventi già svolti che risultano ancora da saldare.
+export function computeMyOverdue(bookings: MyBooking[], eventBookings: MyEventBooking[]): { count: number; total: number } {
+  let count = 0;
+  let total = 0;
+  for (const b of bookings) {
+    if (b.status !== "booked" || !isPastClass(b.date, b.time)) continue;
+    const owed = owedAmount({ status: b.paymentStatus, amount: b.paymentAmount, price: b.price });
+    if (owed > 0) {
+      count++;
+      total += owed;
+    }
+  }
+  for (const e of eventBookings) {
+    if (e.status !== "booked" || e.paymentStatus === "paid" || !isPastClass(e.date, e.time)) continue;
+    const owed = e.price * (e.plusOne ? 2 : 1);
+    if (owed > 0) {
+      count++;
+      total += owed;
+    }
+  }
+  return { count, total };
 }

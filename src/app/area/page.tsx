@@ -7,7 +7,7 @@ import { useArea } from "./AreaShell";
 
 export default function AreaHomePage() {
   const router = useRouter();
-  const { classes, typeById, levelById, events, setSelected, hasNewCalendar, hasNewSequences } = useArea();
+  const { classes, typeById, levelById, events, setSelected, hasNewCalendar, hasNewSequences, myOverdue } = useArea();
   const nextEvent = events[0] ?? null;
 
   return (
@@ -24,6 +24,7 @@ export default function AreaHomePage() {
           onGoToSequences={() => router.push("/area/sequenze")}
           hasNewCalendar={hasNewCalendar}
           hasNewSequences={hasNewSequences}
+          overdueCount={myOverdue.count}
         />
       </div>
       <div className="hidden md:block">

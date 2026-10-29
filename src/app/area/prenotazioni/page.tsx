@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Clock, Download, Gift, History, Moon, PackagePlus, Sparkles, User, X } from "lucide-react";
+import { ChevronDown, Clock, Download, Gift, History, Info, Moon, PackagePlus, Sparkles, User, X } from "lucide-react";
 import { COLORS, withAlpha } from "@/app/admin/colors";
-import { dateKey } from "@/app/admin/utils";
+import { dateKey, owedAmount } from "@/app/admin/utils";
 import { downloadIcsFile } from "@/lib/ics";
 import { classTitle } from "@/lib/classTitle";
 import { canStillCancel, formatLune, isPastClass } from "../helpers";
@@ -21,6 +21,7 @@ export default function AreaPrenotazioniPage() {
     pending,
     handleCancel,
     handleCancelEvent,
+    myOverdue,
   } = useArea();
   const [confirmCancelEvent, setConfirmCancelEvent] = useState<MyEventBooking | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -35,8 +36,31 @@ export default function AreaPrenotazioniPage() {
   const ledgerBalance = myLedger.reduce((sum, e) => sum + (e.kind === "debt" ? e.amount : -e.amount), 0);
   const totalOwed = outstandingFromClasses + ledgerBalance;
 
+  function openHistory() {
+    setHistoryOpen(true);
+    requestAnimationFrame(() => document.getElementById("storico-classi")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
   return (
     <div>
+      {myOverdue.count > 0 && (
+        <div
+          className="mb-5 flex items-start gap-2.5 rounded-xl px-3.5 py-2.5"
+          style={{ background: withAlpha(COLORS.gold, 10), border: `1px solid ${withAlpha(COLORS.gold, 35)}` }}
+        >
+          <Info size={15} color={COLORS.goldText} className="flex-shrink-0" style={{ marginTop: 2 }} />
+          <div style={{ fontSize: 12.5, color: COLORS.ink, lineHeight: 1.45 }}>
+            Un piccolo promemoria: {myOverdue.count === 1 ? "risulta 1 lezione già svolta" : `risultano ${myOverdue.count} lezioni già svolte`} ancora da saldare (
+            {formatLune(myOverdue.total)}). Puoi regolare alla prossima lezione.{" "}
+            {pastBookings.length > 0 && (
+              <button onClick={openHistory} className="font-semibold underline" style={{ color: COLORS.goldText }}>
+                Vedi quali
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-2">
           <Clock size={16} color={COLORS.heading} />
@@ -117,7 +141,12 @@ export default function AreaPrenotazioniPage() {
                     </div>
                     <div style={{ fontSize: 11.5, color: COLORS.inkSoft }}>
                       {pastEvent ? (
-                        <span style={{ fontStyle: "italic" }}>Evento passato</span>
+                        <span style={{ fontStyle: "italic" }}>
+                          Evento passato
+                          {b.status === "booked" && b.paymentStatus !== "paid" && b.price > 0 && (
+                            <span style={{ fontStyle: "normal", color: COLORS.goldText, fontWeight: 600 }}> · Da saldare {formatLune(b.price * (b.plusOne ? 2 : 1))}</span>
+                          )}
+                        </span>
                       ) : b.status === "waitlist" ? (
                         <span style={{ color: COLORS.goldText, fontWeight: 700 }}>In lista d&apos;attesa</span>
                       ) : b.paymentStatus === "paid" ? (
@@ -183,11 +212,16 @@ export default function AreaPrenotazioniPage() {
           <span style={{ fontSize: 14, fontWeight: 700, color: totalOwed > 0 ? COLORS.danger : COLORS.success }}>
             {totalOwed > 0 ? `Da saldare: ${formatLune(totalOwed)}` : "Nessun saldo in sospeso"}
           </span>
+          {totalOwed > 0 && myOverdue.total > 0 && (
+            <div style={{ fontSize: 11.5, color: COLORS.inkSoft }} className="mt-0.5">
+              di cui {formatLune(myOverdue.total)} per lezioni o eventi già svolti
+            </div>
+          )}
         </div>
       </div>
 
       {pastBookings.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-6" id="storico-classi" style={{ scrollMarginTop: 16 }}>
           <button
             onClick={() => setHistoryOpen((v) => !v)}
             className="flex items-center gap-2 w-full text-left"
@@ -207,12 +241,20 @@ export default function AreaPrenotazioniPage() {
               {pastBookings.map((b) => {
                 const title = classTitle(b.isPersonal, b.typeId, typeById);
                 const level = levelById[b.levelId];
+                const owed = b.status === "booked" ? owedAmount({ status: b.paymentStatus, amount: b.paymentAmount, price: b.price }) : 0;
                 return (
-                  <div key={b.id} className="p-2.5 rounded-lg" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+                  <div
+                    key={b.id}
+                    className="p-2.5 rounded-lg"
+                    style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderLeft: owed > 0 ? `3px solid ${COLORS.goldText}` : undefined }}
+                  >
                     <div style={{ fontSize: 12.5, fontWeight: 600 }}>
                       {b.date} · {b.time} — {title}
                     </div>
-                    <div style={{ fontSize: 11, color: COLORS.inkSoft }}>{level?.name}</div>
+                    <div style={{ fontSize: 11, color: COLORS.inkSoft }}>
+                      {level?.name}
+                      {owed > 0 && <span style={{ color: COLORS.goldText, fontWeight: 600 }}> · Da saldare {formatLune(owed)}</span>}
+                    </div>
                   </div>
                 );
               })}

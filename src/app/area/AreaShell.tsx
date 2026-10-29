@@ -47,7 +47,7 @@ import { classTitle } from "@/lib/classTitle";
 import { notifyClassFull, notifyIndividualClassRequest } from "@/lib/notifications";
 import { RequestIndividualClassModal } from "./RequestIndividualClassModal";
 import { InstallApp } from "./InstallApp";
-import { availabilityLabel, canStillCancel, errorMessage, formatNoticeDate, isPastClass } from "./helpers";
+import { availabilityLabel, canStillCancel, computeMyOverdue, errorMessage, formatNoticeDate, isPastClass } from "./helpers";
 import type {
   Announcement,
   AvailableIndividualSlot,
@@ -112,6 +112,7 @@ type AreaContextValue = {
   handleCancelEvent: (eventId: string) => Promise<void>;
   hasNewSequences: boolean;
   hasNewCalendar: boolean;
+  myOverdue: { count: number; total: number };
   availableIndividualSlots: AvailableIndividualSlot[];
   individualSlotsLoading: boolean;
   myIndividualClassRequest: MyIndividualClassRequest | null;
@@ -611,6 +612,8 @@ export function AreaShell({
     }
   }
 
+  const myOverdue = computeMyOverdue(myBookings, myEventBookings);
+
   const value: AreaContextValue = {
     clientId,
     classTypes,
@@ -639,6 +642,7 @@ export function AreaShell({
     handleCancelEvent,
     hasNewSequences,
     hasNewCalendar,
+    myOverdue,
     availableIndividualSlots,
     individualSlotsLoading,
     myIndividualClassRequest,
@@ -681,10 +685,14 @@ export function AreaShell({
                 </Link>
                 <Link
                   href="/area/prenotazioni"
-                  className="px-3 py-2 text-sm font-medium"
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium"
                   style={{ background: isMine ? COLORS.primary : "transparent", color: isMine ? "#fff" : COLORS.ink }}
+                  title={myOverdue.count > 0 ? "Ci sono lezioni passate da saldare" : undefined}
                 >
                   Le mie prenotazioni
+                  {myOverdue.count > 0 && (
+                    <span className="rounded-full flex-shrink-0" style={{ width: 6, height: 6, background: COLORS.goldText }} />
+                  )}
                 </Link>
                 <Link
                   href="/area/sequenze"

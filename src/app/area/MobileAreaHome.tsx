@@ -23,6 +23,7 @@ export function MobileAreaHome({
   onGoToSequences,
   hasNewCalendar,
   hasNewSequences,
+  overdueCount,
 }: {
   classes: PublicClass[];
   typeById: Record<string, ClassType>;
@@ -34,6 +35,7 @@ export function MobileAreaHome({
   onGoToSequences: () => void;
   hasNewCalendar: boolean;
   hasNewSequences: boolean;
+  overdueCount: number;
 }) {
   const todayKey = dateKey(new Date());
   const upcoming = classes
@@ -143,12 +145,23 @@ export function MobileAreaHome({
           style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, padding: "22px 12px", minHeight: 108 }}
         >
           <span
-            className="flex items-center justify-center rounded-full"
+            className="relative flex items-center justify-center rounded-full"
             style={{ width: 44, height: 44, background: withAlpha(COLORS.primary, 12), color: COLORS.primary }}
           >
             <List size={22} />
+            {overdueCount > 0 && (
+              <span
+                className="absolute rounded-full"
+                style={{ top: 1, right: 1, width: 10, height: 10, background: COLORS.goldText, border: `2px solid ${COLORS.card}` }}
+              />
+            )}
           </span>
           <span style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.ink }}>Le mie prenotazioni</span>
+          {overdueCount > 0 && (
+            <span style={{ fontSize: 11, color: COLORS.goldText, marginTop: -4 }}>
+              {overdueCount === 1 ? "1 lezione da saldare" : `${overdueCount} lezioni da saldare`}
+            </span>
+          )}
         </button>
       </div>
 
