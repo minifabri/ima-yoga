@@ -34,7 +34,7 @@ const mobileHubSecondaryItems: MoreMenuItem[] = [
 
 export default function AdminHomePage() {
   const router = useRouter();
-  const { classes, typeById, levelById, notifications, markNotificationRead, markAllNotificationsRead } = useAdmin();
+  const { classes, typeById, levelById, notifications, markNotificationRead, markAllNotificationsRead, overdue } = useAdmin();
 
   const upcomingClasses: UpcomingClassPreview[] = useMemo(() => {
     const todayStr = dateKey(new Date());
@@ -71,6 +71,7 @@ export default function AdminHomePage() {
           upcomingClasses={upcomingClasses}
           onOpenClassDate={(dateStr) => router.push(`/admin/calendario?data=${dateStr}`)}
           onGoToCalendar={() => router.push("/admin/calendario")}
+          overdue={overdue}
         />
       </div>
     </>

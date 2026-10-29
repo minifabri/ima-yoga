@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Wallet, PackagePlus, Moon, User, CheckSquare, Square, Check, Trash2, Plus, Pencil, Ticket, AlertCircle } from "lucide-react";
+import { Wallet, PackagePlus, Moon, User, CheckSquare, Square, Check, Trash2, Plus, Pencil, Ticket, AlertCircle, CalendarClock } from "lucide-react";
 import { Badge, Field, inputStyle } from "./ui";
 import { COLORS, withAlpha } from "./colors";
 import { classTitle } from "@/lib/classTitle";
-import { formatLune } from "./utils";
+import { daysSince, formatLune, isPastClass, owedAmount } from "./utils";
 import { fetchAllEventBookings, fetchEvents, markEventBookingPaid } from "./data";
 import type { ClassItem, ClassType, ClientItem, EventBookingItem, EventItem, LedgerEntry, PackageWithUsage, Settings } from "./types";
 
@@ -105,27 +105,64 @@ export function PaymentsView({
     });
   }
 
+  type OutstandingItem = { classId: string; date: string; time: string; typeId: string | null; isIndividual: boolean; owed: number; status: string };
+
+  // Da riscuotere, diviso tra arretrati (lezioni già svolte) e lezioni ancora
+  // in programma: i primi vanno sollecitati, i secondi sono normali.
   const outstandingByClient = useMemo(() => {
-    const map: Record<string, { total: number; items: { classId: string; date: string; time: string; typeId: string | null; isIndividual: boolean; owed: number; status: string }[] }> = {};
+    const map: Record<string, { overdueTotal: number; upcomingTotal: number; overdue: OutstandingItem[]; upcoming: OutstandingItem[] }> = {};
     classes.forEach((c) => {
+      const past = isPastClass(c.date, c.time);
       Object.entries(c.payments || {}).forEach(([clientId, pay]) => {
-        if (pay.status === "unpaid" || pay.status === "partial") {
-          const owed = (pay.price || 0) - (pay.amount || 0);
-          if (owed > 0) {
-            if (!map[clientId]) map[clientId] = { total: 0, items: [] };
-            map[clientId].total += owed;
-            map[clientId].items.push({ classId: c.id, date: c.date, time: c.time, typeId: c.typeId, isIndividual: c.isIndividual, owed, status: pay.status });
-          }
+        const owed = owedAmount(pay);
+        if (owed <= 0) return;
+        if (!map[clientId]) map[clientId] = { overdueTotal: 0, upcomingTotal: 0, overdue: [], upcoming: [] };
+        const item = { classId: c.id, date: c.date, time: c.time, typeId: c.typeId, isIndividual: c.isIndividual, owed, status: pay.status };
+        if (past) {
+          map[clientId].overdueTotal += owed;
+          map[clientId].overdue.push(item);
+        } else {
+          map[clientId].upcomingTotal += owed;
+          map[clientId].upcoming.push(item);
         }
       });
     });
-    Object.values(map).forEach((v) => v.items.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)));
+    Object.values(map).forEach((v) => {
+      v.overdue.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+      v.upcoming.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    });
     return map;
   }, [classes]);
 
   const outstandingList = Object.entries(outstandingByClient)
     .map(([clientId, v]) => ({ clientId, name: clientById[clientId]?.name || "Cliente", ...v }))
-    .sort((a, b) => b.total - a.total);
+    .sort((a, b) => b.overdueTotal - a.overdueTotal || b.upcomingTotal - a.upcomingTotal || a.name.localeCompare(b.name));
+  const overdueClients = outstandingList.filter((o) => o.overdueTotal > 0);
+  const overdueGrandTotal = overdueClients.reduce((sum, o) => sum + o.overdueTotal, 0);
+  const overdueClassCount = overdueClients.reduce((sum, o) => sum + o.overdue.length, 0);
+
+  function renderOutstandingItem(it: OutstandingItem, clientId: string, overdue: boolean) {
+    const days = overdue ? daysSince(it.date) : 0;
+    return (
+      <div
+        key={it.classId}
+        className="flex items-center justify-between gap-2 py-1.5 pl-2.5 flex-wrap"
+        style={{ fontSize: 12.5, borderLeft: `3px solid ${overdue ? COLORS.danger : COLORS.border}` }}
+      >
+        <span style={{ color: overdue ? COLORS.ink : COLORS.inkSoft }}>
+          {it.date} {it.time && `· ${it.time}`} — {classTitle(it.isIndividual, it.typeId, typeById)} ·{" "}
+          <span style={{ color: overdue ? COLORS.danger : COLORS.inkSoft, fontWeight: 600 }}>{formatLune(it.owed)}</span>
+          {it.status === "partial" && <span style={{ color: COLORS.inkSoft }}> (parziale)</span>}
+          {overdue && (
+            <span style={{ fontSize: 11, color: COLORS.danger }}> · {days === 0 ? "oggi" : days === 1 ? "da 1 giorno" : `da ${days} giorni`}</span>
+          )}
+        </span>
+        <button onClick={() => onMarkClassPaymentPaid(it.classId, clientId)} className="flex items-center gap-1 font-semibold" style={{ color: COLORS.success, fontSize: 11.5 }}>
+          <Check size={12} /> Segna pagato
+        </button>
+      </div>
+    );
+  }
 
   const linkedByPackage = useMemo(() => {
     const map: Record<string, { date: string; time: string; typeId: string | null; isIndividual: boolean }[]> = {};
@@ -213,6 +250,21 @@ export function PaymentsView({
           <Wallet size={16} color={COLORS.heading} />
           <div style={{ fontFamily: "var(--font-display)", fontSize: 19, fontWeight: 600, color: COLORS.heading }}>Da riscuotere</div>
         </div>
+        {overdueClients.length > 0 && (
+          <div
+            className="mb-3 flex items-start gap-2.5 rounded-xl px-3.5 py-3"
+            style={{ background: withAlpha(COLORS.danger, 8), border: `1px solid ${withAlpha(COLORS.danger, 30)}` }}
+          >
+            <AlertCircle size={17} color={COLORS.danger} className="flex-shrink-0" style={{ marginTop: 1 }} />
+            <div style={{ fontSize: 12.5, color: COLORS.ink }}>
+              <div style={{ fontWeight: 700, color: COLORS.danger }}>
+                Pagamenti arretrati: {formatLune(overdueGrandTotal)}
+              </div>
+              {overdueClassCount} {overdueClassCount === 1 ? "lezione già svolta" : "lezioni già svolte"} da saldare, {overdueClients.length}{" "}
+              {overdueClients.length === 1 ? "cliente" : "clienti"}. I clienti con l&apos;app vedono un promemoria discreto nella loro area.
+            </div>
+          </div>
+        )}
         {outstandingList.length === 0 ? (
           <div style={{ fontSize: 13, color: COLORS.inkSoft }} className="px-1">
             Tutti in regola: nessun pagamento in sospeso.
@@ -221,29 +273,42 @@ export function PaymentsView({
           <div className="flex flex-col gap-2">
             {outstandingList.map((o) => {
               const isOpen = expandedClientId === o.clientId;
+              const hasOverdue = o.overdueTotal > 0;
               return (
-                <div key={o.clientId} className="rounded-xl overflow-hidden" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
-                  <button onClick={() => setExpandedClientId(isOpen ? null : o.clientId)} className="w-full flex items-center justify-between px-4 py-3 text-left">
+                <div
+                  key={o.clientId}
+                  className="rounded-xl overflow-hidden"
+                  style={{
+                    background: COLORS.card,
+                    border: `1px solid ${hasOverdue ? withAlpha(COLORS.danger, 35) : COLORS.border}`,
+                    borderLeft: `4px solid ${hasOverdue ? COLORS.danger : COLORS.border}`,
+                  }}
+                >
+                  <button onClick={() => setExpandedClientId(isOpen ? null : o.clientId)} className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left flex-wrap">
                     <span style={{ fontSize: 14, fontWeight: 600 }}>{o.name}</span>
-                    <Badge color={COLORS.danger}>{formatLune(o.total)}</Badge>
+                    <span className="flex items-center gap-1.5 flex-wrap">
+                      {hasOverdue && <Badge color={COLORS.danger}>Arretrato {formatLune(o.overdueTotal)}</Badge>}
+                      {o.upcomingTotal > 0 && <Badge color={COLORS.inkSoft}>In programma {formatLune(o.upcomingTotal)}</Badge>}
+                    </span>
                   </button>
                   {isOpen && (
-                    <div className="px-4 pb-3 flex flex-col gap-1.5" style={{ borderTop: `1px solid ${COLORS.border}` }}>
-                      {o.items.map((it) => (
-                        <div key={it.classId} className="flex items-center justify-between pt-2.5" style={{ fontSize: 12.5 }}>
-                          <span>
-                            {it.date} {it.time && `· ${it.time}`} — {classTitle(it.isIndividual, it.typeId, typeById)} ·{" "}
-                            <span style={{ color: COLORS.danger, fontWeight: 600 }}>{formatLune(it.owed)}</span>
-                          </span>
-                          <button
-                            onClick={() => onMarkClassPaymentPaid(it.classId, o.clientId)}
-                            className="flex items-center gap-1 font-semibold"
-                            style={{ color: COLORS.success, fontSize: 11.5 }}
-                          >
-                            <Check size={12} /> Segna pagato
-                          </button>
+                    <div className="px-4 pb-3 pt-1" style={{ borderTop: `1px solid ${COLORS.border}` }}>
+                      {o.overdue.length > 0 && (
+                        <div className="mt-2">
+                          <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 11, fontWeight: 700, color: COLORS.danger, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                            <AlertCircle size={12} /> Classi già svolte
+                          </div>
+                          <div className="flex flex-col gap-1">{o.overdue.map((it) => renderOutstandingItem(it, o.clientId, true))}</div>
                         </div>
-                      ))}
+                      )}
+                      {o.upcoming.length > 0 && (
+                        <div className="mt-2.5">
+                          <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 11, fontWeight: 700, color: COLORS.inkSoft, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                            <CalendarClock size={12} /> Classi in programma
+                          </div>
+                          <div className="flex flex-col gap-1">{o.upcoming.map((it) => renderOutstandingItem(it, o.clientId, false))}</div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -279,7 +344,11 @@ export function PaymentsView({
                       <span style={{ fontSize: 11.5, color: COLORS.inkSoft }}> · {g.event!.date}</span>
                     </div>
                     {g.owed > 0 ? (
-                      <Badge color={COLORS.danger}>{formatLune(g.owed)} da riscuotere</Badge>
+                      isPastClass(g.event!.date, g.event!.time) ? (
+                        <Badge color={COLORS.danger}>Arretrato {formatLune(g.owed)}</Badge>
+                      ) : (
+                        <Badge color={COLORS.inkSoft}>{formatLune(g.owed)} da riscuotere</Badge>
+                      )
                     ) : (
                       <Badge color={COLORS.success}>Saldato · {formatLune(g.paid)}</Badge>
                     )}

@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions";
 import { COLORS } from "./colors";
 import { Logo } from "./Logo";
-import { dateKey, classEffectivePrice, isPastClass } from "./utils";
+import { dateKey, classEffectivePrice, isPastClass, overdueClassPayments } from "./utils";
 import { classTitle } from "@/lib/classTitle";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationsPanel } from "./NotificationsPanel";
@@ -110,6 +110,7 @@ type AdminContextValue = {
   deleteAnnouncement: (id: string) => void;
   sendPersonalNotices: (clientIds: string[], message: string) => Promise<void>;
   deleteClientNotice: (id: string) => void;
+  overdue: { clientCount: number; total: number };
 };
 
 const AdminContext = createContext<AdminContextValue | null>(null);
@@ -551,6 +552,9 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
 
   const currentMoreKey = Object.entries(ADMIN_ROUTE_BY_KEY).find(([, path]) => path === pathname)?.[0];
 
+  // Ricalcolato a ogni render: le lezioni passano "nel passato" con il tempo.
+  const overdue = overdueClassPayments(classes);
+
   const value: AdminContextValue = {
     supabase,
     classTypes,
@@ -608,6 +612,7 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
     deleteAnnouncement,
     sendPersonalNotices,
     deleteClientNotice,
+    overdue,
   };
 
   return (
@@ -640,6 +645,15 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
                   style={{ background: pathname === "/admin/pagamenti" ? COLORS.primary : "transparent", color: pathname === "/admin/pagamenti" ? "#fff" : COLORS.ink }}
                 >
                   <Wallet size={15} /> <span className="hidden sm:inline">Pagamenti</span>
+                  {overdue.clientCount > 0 && (
+                    <span
+                      title={`${overdue.clientCount} ${overdue.clientCount === 1 ? "cliente" : "clienti"} con pagamenti arretrati`}
+                      className="rounded-full text-white flex items-center justify-center"
+                      style={{ minWidth: 17, height: 17, padding: "0 4px", fontSize: 10, fontWeight: 700, background: COLORS.danger }}
+                    >
+                      {overdue.clientCount}
+                    </span>
+                  )}
                 </Link>
               </div>
               <div className="hidden md:block">

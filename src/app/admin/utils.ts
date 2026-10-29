@@ -115,3 +115,38 @@ export function formatLune(amount: number): string {
 export function formatLuneRounded(amount: number): string {
   return formatLune(Math.round(amount));
 }
+
+// Quanto resta da pagare per una prenotazione (0 se saldata, coperta da
+// pacchetto o regalata).
+export function owedAmount(pay: { status: string; amount: number; price: number }): number {
+  if (pay.status !== "unpaid" && pay.status !== "partial") return 0;
+  return Math.max(0, (pay.price || 0) - (pay.amount || 0));
+}
+
+// Giorni interi trascorsi dalla data di una lezione (0 = oggi).
+export function daysSince(dateStr: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const then = new Date(y, m - 1, d).getTime();
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.max(0, Math.round((today - then) / 86400000));
+}
+
+// Pagamenti arretrati: lezioni già svolte che risultano ancora da saldare.
+export function overdueClassPayments(
+  classes: { date: string; time: string; payments: Record<string, { status: string; amount: number; price: number }> }[]
+): { clientCount: number; total: number } {
+  const clients = new Set<string>();
+  let total = 0;
+  for (const c of classes) {
+    if (!isPastClass(c.date, c.time)) continue;
+    for (const [clientId, pay] of Object.entries(c.payments || {})) {
+      const owed = owedAmount(pay);
+      if (owed > 0) {
+        clients.add(clientId);
+        total += owed;
+      }
+    }
+  }
+  return { clientCount: clients.size, total };
+}

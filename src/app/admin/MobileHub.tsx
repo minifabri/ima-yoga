@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { BellRing, CalendarDays, Check, ChevronDown, ChevronRight } from "lucide-react";
+import { AlertCircle, BellRing, CalendarDays, Check, ChevronDown, ChevronRight } from "lucide-react";
 import { COLORS, withAlpha } from "./colors";
 import { CapacityBar } from "./ui";
+import { formatLune } from "./utils";
 import { TYPE_META, formatWhen } from "./NotificationsPanel";
 import type { MoreMenuItem } from "./MoreMenu";
 import type { NotificationItem } from "./types";
@@ -41,6 +42,7 @@ export function MobileHub({
   upcomingClasses,
   onOpenClassDate,
   onGoToCalendar,
+  overdue,
 }: {
   primaryItems: MoreMenuItem[];
   secondaryItems: MoreMenuItem[];
@@ -51,6 +53,7 @@ export function MobileHub({
   upcomingClasses: UpcomingClassPreview[];
   onOpenClassDate: (date: string) => void;
   onGoToCalendar: () => void;
+  overdue: { clientCount: number; total: number };
 }) {
   const unreadCount = notifications.filter((n) => !n.read).length;
   const recentNotifications = notifications.slice(0, 4);
@@ -58,6 +61,23 @@ export function MobileHub({
 
   return (
     <div className="flex flex-col gap-5">
+      {overdue.clientCount > 0 && (
+        <button
+          type="button"
+          onClick={() => onSelect("payments")}
+          className="flex items-center gap-3 w-full text-left rounded-2xl px-3.5 py-3"
+          style={{ background: withAlpha(COLORS.danger, 8), border: `1px solid ${withAlpha(COLORS.danger, 30)}` }}
+        >
+          <AlertCircle size={18} color={COLORS.danger} className="flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.danger }}>Pagamenti arretrati</div>
+            <div style={{ fontSize: 12, color: COLORS.ink }}>
+              {overdue.clientCount} {overdue.clientCount === 1 ? "cliente" : "clienti"} · {formatLune(overdue.total)} da classi già svolte
+            </div>
+          </div>
+          <ChevronRight size={15} color={COLORS.danger} />
+        </button>
+      )}
       {recentNotifications.length > 0 && (
         <div className="rounded-2xl overflow-hidden" style={{ background: COLORS.card, border: `1px solid ${COLORS.border}` }}>
           <button
@@ -197,10 +217,16 @@ export function MobileHub({
               }}
             >
               <span
-                className="flex items-center justify-center rounded-full"
+                className="relative flex items-center justify-center rounded-full"
                 style={{ width: 44, height: 44, background: withAlpha(COLORS.primary, 12), color: COLORS.primary }}
               >
                 <Icon size={22} />
+                {item.key === "payments" && overdue.clientCount > 0 && (
+                  <span
+                    className="absolute rounded-full"
+                    style={{ top: 1, right: 1, width: 10, height: 10, background: COLORS.danger, border: `2px solid ${COLORS.card}` }}
+                  />
+                )}
               </span>
               <span style={{ fontSize: 13.5, fontWeight: 600, color: COLORS.ink }}>{item.label}</span>
             </button>
