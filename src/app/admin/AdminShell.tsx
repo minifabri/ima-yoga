@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -148,6 +148,22 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
     setTimeout(() => setToast(""), 2600);
   }
 
+  // Il database riassegna le lezioni ai pacchetti in ordine di data (la più
+  // vicina consuma per prima lo slot): dopo ogni modifica rilegge classi e
+  // pacchetti così la schermata mostra l'assegnazione vera. Vale solo l'ultima
+  // richiesta partita, per non sovrascrivere con dati più vecchi.
+  const packageSyncSeq = useRef(0);
+  function syncPackageAssignments() {
+    const seq = ++packageSyncSeq.current;
+    db.fetchClassesAndPackages(supabase)
+      .then((next) => {
+        if (seq !== packageSyncSeq.current) return;
+        setClasses(next.classes);
+        setPackages(next.packages);
+      })
+      .catch(() => {});
+  }
+
   async function refreshClientsAndClasses() {
     const next = await db.fetchAdminData(supabase);
     setClients(next.clients);
@@ -246,6 +262,7 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
       showToast("Il salvataggio della classe non è riuscito.");
       throw new Error("Il salvataggio della classe non è riuscito.");
     }
+    syncPackageAssignments();
     if (prev) askClassChangeNotice(prev, item);
     // Per una lezione individuale "piena" (1/1) è lo stato atteso appena la
     // assegni, non un evento da segnalarti via email come per una classe di
@@ -261,14 +278,19 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
   }
   function deleteClassItem(id: string) {
     setClasses((cur) => cur.filter((c) => c.id !== id));
-    db.deleteClass(supabase, id).catch(() => showToast("L'eliminazione non è riuscita."));
+    db.deleteClass(supabase, id)
+      .then(syncPackageAssignments)
+      .catch(() => showToast("L'eliminazione non è riuscita."));
   }
   function moveClass(id: string, targetDate: string) {
     const item = classes.find((c) => c.id === id);
     if (!item || item.date === targetDate) return;
     setClasses((cur) => cur.map((c) => (c.id === id ? { ...c, date: targetDate } : c)));
     db.moveClass(supabase, id, targetDate)
-      .then(() => askClassChangeNotice(item, { ...item, date: targetDate }))
+      .then(() => {
+        syncPackageAssignments();
+        askClassChangeNotice(item, { ...item, date: targetDate });
+      })
       .catch(() => showToast("Lo spostamento non è riuscito."));
   }
   // Dopo un salvataggio riuscito: se giorno o orario sono cambiati, il
@@ -297,7 +319,9 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
           : x
       )
     );
-    db.markBookingPaid(supabase, classId, clientId, price).catch(() => showToast("Errore nel registrare il pagamento."));
+    db.markBookingPaid(supabase, classId, clientId, price)
+      .then(syncPackageAssignments)
+      .catch(() => showToast("Errore nel registrare il pagamento."));
   }
 
   // ---- clients ----
@@ -387,6 +411,7 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
     setClassTypes((cur) => cur.map((t) => (t.id === id ? { ...t, ...patch } : t)));
     try {
       await db.updateClassType(supabase, id, patch);
+      if (patch.packageEligible !== undefined) syncPackageAssignments();
     } catch {
       showToast("Errore nel salvataggio della tipologia.");
     }
@@ -470,6 +495,7 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
           })
         );
       }
+      syncPackageAssignments();
       showToast("Pacchetto registrato.");
     } catch {
       showToast("Errore nel salvataggio del pacchetto.");
@@ -484,11 +510,17 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
   }
   function updatePackageDetails(id: string, patch: Partial<{ date: string; manualAdjustment: number; paidAmount: number }>) {
     setPackages((cur) => cur.map((p) => (p.id === id ? { ...p, ...patch } : p)));
-    db.updatePackage(supabase, id, patch).catch(() => showToast("Errore nel salvataggio del pacchetto."));
+    db.updatePackage(supabase, id, patch)
+      .then(() => {
+        if (patch.date !== undefined || patch.manualAdjustment !== undefined) syncPackageAssignments();
+      })
+      .catch(() => showToast("Errore nel salvataggio del pacchetto."));
   }
   function deletePackageItem(id: string) {
     setPackages((cur) => cur.filter((p) => p.id !== id));
-    db.deletePackage(supabase, id).catch(() => showToast("Errore nell'eliminazione del pacchetto."));
+    db.deletePackage(supabase, id)
+      .then(syncPackageAssignments)
+      .catch(() => showToast("Errore nell'eliminazione del pacchetto."));
   }
   async function addLedgerEntry(args: { clientId: string; kind: "debt" | "credit"; amount: number; note: string }) {
     try {

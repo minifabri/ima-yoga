@@ -312,6 +312,22 @@ export async function fetchAdminData(supabase: DB): Promise<AdminData> {
   };
 }
 
+// Il database ridistribuisce da solo le lezioni sui pacchetti in ordine di
+// data (trigger rebalance_client_packages): dopo ogni modifica che può
+// spostarle l'admin rilegge classi e pacchetti per mostrare l'assegnazione vera.
+export async function fetchClassesAndPackages(supabase: DB): Promise<{ classes: ClassItem[]; packages: PackageItem[] }> {
+  const [classesRes, packagesRes] = await Promise.all([
+    supabase.from("classes").select("*, bookings(*)").order("class_date"),
+    supabase.from("packages").select("*"),
+  ]);
+  if (classesRes.error) throw classesRes.error;
+  if (packagesRes.error) throw packagesRes.error;
+  return {
+    classes: (classesRes.data ?? []).map(mapClass),
+    packages: (packagesRes.data ?? []).map(mapPackage),
+  };
+}
+
 // ---------------------------------------------------------
 // Classes & bookings
 // ---------------------------------------------------------
