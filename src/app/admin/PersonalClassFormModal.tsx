@@ -330,8 +330,8 @@ export function PersonalClassFormModal({
               </div>
               {query.trim() && (
                 <div
-                  className="absolute left-0 right-0 mt-1 overflow-hidden"
-                  style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, boxShadow: "0 8px 24px rgba(74,58,115,0.14)", zIndex: 10 }}
+                  className="mt-1 overflow-hidden"
+                  style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10 }}
                 >
                   {suggestions.map((c) => (
                     <button

@@ -96,6 +96,12 @@ export function ClassFormModal({
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const addSelectedRef = useRef<HTMLButtonElement>(null);
+  const hasSelection = selectedIds.size > 0;
+  // Su mobile il pulsante "Aggiungi selezionati" può finire sotto la tastiera: lo porta in vista.
+  useEffect(() => {
+    if (hasSelection) addSelectedRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [hasSelection]);
 
   const typeObj = classTypes.find((t) => t.id === typeId);
   const bookedClients = clientIds.map((id) => clients.find((c) => c.id === id)).filter((c): c is ClientItem => !!c);
@@ -636,8 +642,8 @@ export function ClassFormModal({
             </div>
             {query.trim() && (
               <div
-                className="absolute left-0 right-0 mt-1 overflow-hidden"
-                style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, boxShadow: "0 8px 24px rgba(74,58,115,0.14)", zIndex: 10 }}
+                className="mt-1 overflow-hidden"
+                style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10 }}
               >
                 {suggestions.map((c) => {
                   const sel = selectedIds.has(c.id);
@@ -661,6 +667,7 @@ export function ClassFormModal({
 
           {selectedIds.size > 0 && (
             <button
+              ref={addSelectedRef}
               onClick={addSelected}
               className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold text-white"
               style={{ background: COLORS.primary }}
