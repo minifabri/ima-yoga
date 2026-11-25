@@ -85,7 +85,7 @@ export const CARD_SECTIONS: CardSection[] = [
     paragraphs: [
       "La mia pratica nasce dal Vinyasa e incontra lo studio della forza e del movimento, senza perdere ciò che mi ha portata allo yoga più di dieci anni fa: la curiosità per quello che accade dentro, oltre la forma delle asana.",
     ],
-    cta: { label: "La mia storia", href: "/chi-sono" },
+    cta: { label: "Il mio modo di praticare", href: "/chi-sono" },
   },
   {
     id: "contatti",
