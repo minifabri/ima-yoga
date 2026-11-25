@@ -21,7 +21,7 @@ export default function ChiSonoPage() {
         <div className="static-page-visual">{section && <SectionCard section={section} large />}</div>
 
         <div className="static-page-content">
-          <p className="cover-overlay-kicker">La mia storia</p>
+          <p className="cover-overlay-kicker">Il mio modo di praticare</p>
           <h1 className="cover-overlay-title">Chi sono</h1>
 
           <p className="cover-overlay-paragraph">
