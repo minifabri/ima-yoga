@@ -13,21 +13,15 @@ export function DueVolti() {
 
       {open && (
         <div className="due-volti-reveal">
-          <p className="cover-overlay-intro">Due mondi, la stessa persona.</p>
           <p className="cover-overlay-paragraph">
-            Insegno yoga e sono un ingegnere software. Corpo e tecnologia, percezione e logica: mondi
-            apparentemente lontani che, nel mio modo di essere, finiscono spesso per incontrarsi.
+            Insegno yoga e sono un’ingegnera del software. I due volti raccontano due aspetti del mio lavoro e
+            un’abitudine che riconosco in entrambi: scomporre qualcosa per capire come funziona, poi rimettere insieme
+            le parti.
           </p>
           <p className="cover-overlay-paragraph">
-            I due volti raccontano proprio questo: non una dualità, ma due modi diversi di osservare, capire e
-            costruire.
+            Nel codice seguo il filo di una funzione. In una sequenza osservo come un gesto prepara il successivo. È un
+            modo di ragionare che porto con me anche sul tappetino.
           </p>
-          <p className="cover-overlay-paragraph">
-            Forse anche il mio modo di insegnare nasce da qui. Mi piace scomporre, capire come funzionano le cose e
-            poi rimetterle insieme. Succede con il codice, ma anche quando costruiamo un&apos;asana, una sequenza o
-            un&apos;intera pratica.
-          </p>
-          <p className="cover-overlay-paragraph">E forse non è poi così strano che yoga significhi proprio unione.</p>
         </div>
       )}
     </div>
