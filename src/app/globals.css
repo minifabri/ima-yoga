@@ -1074,6 +1074,25 @@ div.cover-card {
   opacity: 0.6;
   cursor: default;
 }
+/* Nota donazioni: ancora più sommessa delle altre — una riga, niente titolo. */
+.online-callout.donation-note p {
+  margin: 0;
+  font-size: 12.5px;
+  color: color-mix(in srgb, var(--ink-soft) 85%, transparent);
+}
+.donation-note a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  transition: color 0.25s ease, text-decoration-color 0.25s ease;
+}
+.donation-note a:hover,
+.donation-note a:focus-visible {
+  color: var(--gold-text);
+  text-decoration-color: var(--gold);
+}
 .online-callout .online-callout-error {
   margin: 12px 0 0;
   font-size: 12.5px;
