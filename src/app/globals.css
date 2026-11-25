@@ -620,76 +620,89 @@ div.cover-card {
 .cover-events {
   list-style: none;
   padding: 0;
-  margin: 8px 0 22px;
+  margin: 14px 0 26px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 52ch;
+  max-width: 60ch;
 }
 .cover-event {
-  display: flex;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
-  padding: 10px 14px 10px 10px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  gap: 18px;
+  padding: 14px 18px;
+  border: 1.5px solid var(--card-line);
+  border-radius: 12px;
   color: var(--ink);
   text-decoration: none;
-  background: color-mix(in srgb, var(--card) 55%, transparent);
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition: border-color 0.25s ease, background-color 0.25s ease;
 }
 .cover-event:hover,
 .cover-event:focus-visible {
-  border-color: var(--gold-text);
-  transform: translateY(-2px);
+  border-color: var(--gold);
+  background: var(--card);
 }
-.cover-event-thumb {
-  flex-shrink: 0;
-  width: 56px;
-  height: 56px;
-  border-radius: 10px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--gold) 12%, transparent);
-  color: var(--gold-text);
-}
-.cover-event-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.cover-event-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.cover-event:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
 }
 .cover-event-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  color: var(--heading);
+}
+.cover-event-day {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 30px;
+  font-variant-numeric: lining-nums;
+}
+.cover-event-month {
+  margin-top: 4px;
   font-size: 11px;
-  letter-spacing: 1.2px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--gold-text);
 }
+.cover-event-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
 .cover-event-name {
   font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.15;
   color: var(--heading);
-  line-height: 1.25;
 }
 .cover-event-meta {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--ink-soft);
 }
 .cover-event-arrow {
   color: var(--gold-text);
-  flex-shrink: 0;
+  font-size: 18px;
+}
+@media (max-width: 599px) {
+  .cover-event {
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+  .cover-event-day {
+    font-size: 24px;
+  }
+  .cover-event-name {
+    font-size: 19px;
+  }
 }
 .cover-events-empty {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.7;
   color: var(--ink-soft);
   font-style: italic;
