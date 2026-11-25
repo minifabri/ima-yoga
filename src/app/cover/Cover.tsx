@@ -7,7 +7,7 @@ import { SectionOverlay } from "./SectionOverlay";
 import { Footer } from "./Footer";
 import { InterestCallout } from "./InterestCallout";
 import { DonationCallout } from "./DonationCallout";
-import { getSection, type CoverAccess, type CoverEvent } from "./data";
+import { getSection, type CoverAccess, type CoverEvent, type CoverSequence } from "./data";
 
 const CLOSE_DURATION = 320;
 
@@ -15,7 +15,15 @@ const CLOSE_DURATION = 320;
 const LOGIN_ACCESS: CoverAccess = { href: "/login", label: "Accedi" };
 const ADMIN_ACCESS: CoverAccess = { href: "/admin", label: "Gestionale" };
 
-export function Cover({ events, adminPreview = false }: { events: CoverEvent[]; adminPreview?: boolean }) {
+export function Cover({
+  events,
+  sequences,
+  adminPreview = false,
+}: {
+  events: CoverEvent[];
+  sequences: CoverSequence[];
+  adminPreview?: boolean;
+}) {
   const access = adminPreview ? ADMIN_ACCESS : LOGIN_ACCESS;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [phase, setPhase] = useState<"open" | "closing">("open");
@@ -59,7 +67,7 @@ export function Cover({ events, adminPreview = false }: { events: CoverEvent[]; 
 
       <Footer access={access} />
 
-      {section && <SectionOverlay section={section} events={events} phase={phase} onClose={closeSection} />}
+      {section && <SectionOverlay section={section} events={events} sequences={sequences} phase={phase} onClose={closeSection} />}
     </main>
   );
 }

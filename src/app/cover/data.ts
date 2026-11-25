@@ -115,6 +115,18 @@ export type CoverEvent = {
   bookingsOpen: boolean;
 };
 
+// Sequenza "in vetrina" mostrata nella sezione "Lezioni" (RPC cover_sequences):
+// solo un'anteprima, il contenuto completo resta per gli iscritti.
+export type CoverSequence = {
+  id: string;
+  name: string;
+  description: string;
+  typeName: string | null;
+  typeColor: string | null;
+  poseCount: number;
+  thumbnails: string[];
+};
+
 export function getSection(id: string | null): CardSection | undefined {
   return CARD_SECTIONS.find((s) => s.id === id);
 }
