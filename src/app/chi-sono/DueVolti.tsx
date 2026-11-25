@@ -14,7 +14,7 @@ export function DueVolti() {
       {open && (
         <div className="due-volti-reveal">
           <p className="cover-overlay-paragraph">
-            Insegno yoga e sono un’ingegnera del software. I due volti raccontano due aspetti del mio lavoro e
+            Insegno yoga e sono un ingegnere del software. I due volti raccontano due aspetti del mio lavoro e
             un’abitudine che riconosco in entrambi: scomporre qualcosa per capire come funziona, poi rimettere insieme
             le parti.
           </p>
