@@ -331,7 +331,10 @@ export async function fetchClassesAndPackages(supabase: DB): Promise<{ classes: 
 // ---------------------------------------------------------
 // Classes & bookings
 // ---------------------------------------------------------
-export async function saveClass(supabase: DB, item: ClassItem) {
+// `prev` è la classe com'era sullo schermo prima della modifica: si scrivono
+// solo le differenze rispetto a quella, così le prenotazioni fatte dai clienti
+// nel frattempo (che l'admin non vedeva) non vengono cancellate né sovrascritte.
+export async function saveClass(supabase: DB, item: ClassItem, prev?: ClassItem) {
   const { error: classErr } = await supabase.from("classes").upsert({
     id: item.id,
     class_date: item.date,
@@ -351,34 +354,57 @@ export async function saveClass(supabase: DB, item: ClassItem) {
   });
   if (classErr) throw classErr;
 
-  const allIds = [...item.clientIds, ...item.waitlistIds];
-  const del = supabase.from("bookings").delete().eq("class_id", item.id);
-  const { error: delErr } = allIds.length > 0 ? await del.not("client_id", "in", `(${allIds.join(",")})`) : await del;
-  if (delErr) throw delErr;
-
-  const rows = [
-    ...item.clientIds.map((cid) => {
-      const pay = item.payments[cid] || { status: "unpaid" as const, amount: 0, price: 0 };
+  const rowFor = (cid: string, status: "booked" | "waitlist") => {
+    if (status === "waitlist") {
       return {
         class_id: item.id,
         client_id: cid,
-        status: "booked" as const,
-        payment_status: pay.status,
-        payment_amount: pay.amount,
-        price: pay.price,
-        package_id: pay.packageId ?? null,
+        status,
+        payment_status: "unpaid" as const,
+        payment_amount: 0,
+        price: item.payments[cid]?.price ?? 0,
+        package_id: null as string | null,
       };
-    }),
-    ...item.waitlistIds.map((cid) => ({
+    }
+    const pay = item.payments[cid] || { status: "unpaid" as const, amount: 0, price: 0 };
+    return {
       class_id: item.id,
       client_id: cid,
-      status: "waitlist" as const,
-      payment_status: "unpaid" as const,
-      payment_amount: 0,
-      price: item.payments[cid]?.price ?? 0,
-      package_id: null,
-    })),
-  ];
+      status,
+      payment_status: pay.status,
+      payment_amount: pay.amount,
+      price: pay.price,
+      package_id: pay.packageId ?? null,
+    };
+  };
+  const statusIn = (c: ClassItem | undefined, cid: string) =>
+    c?.clientIds.includes(cid) ? "booked" : c?.waitlistIds.includes(cid) ? "waitlist" : null;
+
+  const nextIds = new Set([...item.clientIds, ...item.waitlistIds]);
+  const removed = prev ? [...prev.clientIds, ...prev.waitlistIds].filter((cid) => !nextIds.has(cid)) : [];
+  if (removed.length > 0) {
+    const { error: delErr } = await supabase.from("bookings").delete().eq("class_id", item.id).in("client_id", removed);
+    if (delErr) throw delErr;
+  }
+
+  const rows = [
+    ...item.clientIds.map((cid) => rowFor(cid, "booked")),
+    ...item.waitlistIds.map((cid) => rowFor(cid, "waitlist")),
+  ].filter((row) => {
+    // Righe che l'admin non ha toccato non si riscrivono: potrebbero essere
+    // cambiate nel frattempo (pagamento, lista d'attesa promossa…).
+    const prevStatus = statusIn(prev, row.client_id);
+    if (prevStatus !== row.status) return true;
+    const before = prev!.payments[row.client_id];
+    if (row.status === "waitlist") return (before?.price ?? 0) !== row.price;
+    const b = before || { status: "unpaid" as const, amount: 0, price: 0 };
+    return (
+      b.status !== row.payment_status ||
+      b.amount !== row.payment_amount ||
+      b.price !== row.price ||
+      (b.packageId ?? null) !== row.package_id
+    );
+  });
   if (rows.length > 0) {
     const { error: upErr } = await supabase.from("bookings").upsert(rows, { onConflict: "class_id,client_id" });
     if (upErr) throw upErr;

@@ -170,6 +170,25 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
     setClasses(next.classes);
   }
 
+  // Quando l'app torna in primo piano (riaperta dal telefono, tab ripresa)
+  // rilegge classi e prenotazioni: nel frattempo i clienti possono essersi
+  // iscritti, e lavorare su dati vecchi porta a confusione.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      const seq = ++packageSyncSeq.current;
+      db.fetchClassesAndPackages(supabase)
+        .then((next) => {
+          if (seq !== packageSyncSeq.current) return;
+          setClasses(next.classes);
+          setPackages(next.packages);
+        })
+        .catch(() => {});
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [supabase]);
+
   // ---- notifiche admin ----
   useEffect(() => {
     const channel = supabase
@@ -257,7 +276,7 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
       return exists ? cur.map((c) => (c.id === item.id ? item : c)) : [...cur, item];
     });
     try {
-      await db.saveClass(supabase, item);
+      await db.saveClass(supabase, item, prev);
     } catch {
       showToast("Il salvataggio della classe non è riuscito.");
       throw new Error("Il salvataggio della classe non è riuscito.");
