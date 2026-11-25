@@ -1,49 +1,30 @@
 import Link from "next/link";
-import { ParallaxFigure } from "./ParallaxFigure";
-import type { CoverAccess } from "./data";
+import { CARD_SECTIONS } from "./data";
+import { SectionCard } from "./SectionCard";
 
-export function Hero({ scrollProgress, onOrderCards, access }: { scrollProgress: number; onOrderCards: () => void; access: CoverAccess }) {
-  // La figura e il testo salgono e svaniscono nella prima parte dello scroll,
-  // lasciando il posto alle carte che si raccolgono (vedi FloatingCards).
-  const fadeT = Math.min(1, Math.max(0, scrollProgress / 0.4));
-  const hintT = Math.min(1, Math.max(0, scrollProgress / 0.12));
-
+// Copertina: testo a sinistra e sei carte 3×2 a destra. Sotto gli 860px il
+// testo va sopra le carte (sempre allineato a sinistra), sotto i 600px le carte
+// passano a due colonne — vedi .cover-hero in globals.css.
+export function Hero({ onOpenSection }: { onOpenSection: (id: string) => void }) {
   return (
-    <div className="cover-hero-inner">
-      <div
-        className="cover-hero-fade"
-        style={{
-          opacity: 1 - fadeT,
-          transform: `translateY(${-fadeT * 70}px)`,
-          pointerEvents: fadeT > 0.9 ? "none" : "auto",
-        }}
-      >
-        <ParallaxFigure />
-
-        <div className="cover-hero-copy">
-          <h1 className="cover-hero-title">
-            Entra nel tuo spazio.
-            <br />
-            <span className="cover-hero-title-accent">Torna a te.</span>
-          </h1>
-          <p className="cover-hero-tagline">Movimento. Presenza. Pratica.</p>
-          <Link href={access.href} className="cover-cta-ghost cover-hero-cta">
-            {access.label} <span aria-hidden="true">✦</span>
-          </Link>
-        </div>
+    <section className="cover-hero" id="top">
+      <div className="cover-hero-copy">
+        <h1 className="cover-hero-title">
+          Uno spazio per
+          <br />
+          praticare.
+        </h1>
+        <p className="cover-hero-sub">Lezioni di yoga, meditazioni e incontri.</p>
+        <Link href="/classi" className="cover-btn cover-hero-cta">
+          Vedi le lezioni
+        </Link>
       </div>
 
-      <button
-        type="button"
-        onClick={onOrderCards}
-        className="cover-scroll-hint"
-        style={{ opacity: 1 - hintT, pointerEvents: hintT > 0.9 ? "none" : "auto" }}
-      >
-        <span>Scorri</span>
-        <svg width="14" height="20" viewBox="0 0 14 20" fill="none" aria-hidden="true">
-          <path d="M7 1v16M1 11l6 6 6-6" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-    </div>
+      <div id="carte" className="cover-cards">
+        {CARD_SECTIONS.map((section, i) => (
+          <SectionCard key={section.id} section={section} index={i} onSelect={onOpenSection} />
+        ))}
+      </div>
+    </section>
   );
 }

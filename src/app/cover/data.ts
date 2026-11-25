@@ -10,38 +10,19 @@ import {
 
 // Struttura dati delle carte: aggiungere o rimuovere una sezione significa
 // aggiungere o rimuovere una voce qui, senza toccare il resto del sito.
-// L'ordine dell'array è anche l'ordine visivo (colonne, riga, cerchio):
-// la prima voce è la carta "in rilievo" al centro nella disposizione a cerchio.
+// L'ordine dell'array è anche l'ordine visivo nella griglia 3×2 (riga per riga).
 export type CardSection = {
   id: string;
   order: number;
   label: string; // testo breve sulla carta nel mazzo
   title: string; // titolo della sezione aperta
   kicker: string; // piccola etichetta sopra il titolo, nella sezione
-  Icon: (props: { size?: number }) => ReactNode; // fallback se l'immagine manca
-  image: string; // artwork reale della carta (fornito) — usato sia sul mazzo che nella sezione, tema scuro
-  imageLight?: string; // variante per il tema chiaro — se assente, si usa `image` anche lì
-  imageWidth: number;
-  imageHeight: number;
-  imageLightWidth?: number; // se assente, si usano imageWidth/imageHeight anche per la variante chiara
-  imageLightHeight?: number;
+  Icon: () => ReactNode; // icona al tratto della carta (icons.tsx)
   intro: string;
   paragraphs: string[];
   bullets?: string[];
   cta: { label: string; href: string };
 };
-
-// Solo i campi immagine di una sezione: serve ai server component che passano
-// l'artwork a un componente client (`Icon` è una funzione, non serializzabile).
-export type SectionImage = Pick<
-  CardSection,
-  "image" | "imageLight" | "imageWidth" | "imageHeight" | "imageLightWidth" | "imageLightHeight"
->;
-
-export function sectionImage(s: CardSection): SectionImage {
-  const { image, imageLight, imageWidth, imageHeight, imageLightWidth, imageLightHeight } = s;
-  return { image, imageLight, imageWidth, imageHeight, imageLightWidth, imageLightHeight };
-}
 
 export const CARD_SECTIONS: CardSection[] = [
   {
@@ -51,12 +32,6 @@ export const CARD_SECTIONS: CardSection[] = [
     title: "Lezioni",
     kicker: "Pratica",
     Icon: LezioniIcon,
-    image: "/cards/lezioni.png",
-    imageLight: "/cards/lezioni-light.png",
-    imageWidth: 213,
-    imageHeight: 391,
-    imageLightWidth: 211,
-    imageLightHeight: 407,
     intro: "Lezioni di yoga in piccoli gruppi e individuali.",
     paragraphs: [
       "Pratiche ispirate al Vinyasa, tra movimento, forza e consapevolezza.",
@@ -65,18 +40,47 @@ export const CARD_SECTIONS: CardSection[] = [
     cta: { label: "Scopri le classi", href: "/classi" },
   },
   {
-    id: "chi-sono",
+    id: "meditazione",
     order: 1,
-    label: "Chi Sono",
+    label: "Meditazione",
+    title: "Meditazione",
+    kicker: "Presenza",
+    Icon: MeditazioneIcon,
+    intro: "Pratiche guidate per rallentare, ascoltare e tornare al centro.",
+    paragraphs: ["Meditazioni guidate, mindfulness e incontri a tema per calmare la mente e aprire il cuore. Torna al centro. Sempre."],
+    cta: { label: "Scopri la meditazione", href: "/calendario" },
+  },
+  {
+    id: "calendario",
+    order: 2,
+    label: "Calendario",
+    title: "Calendario",
+    kicker: "Prossimi appuntamenti",
+    Icon: CalendarioIcon,
+    intro: "Scopri gli eventi e le pratiche in programma.",
+    paragraphs: ["Lezioni, workshop, meditazioni e ritiri: il calendario completo, sempre aggiornato, con la possibilità di prenotare il tuo posto."],
+    cta: { label: "Vai al calendario", href: "/calendario" },
+  },
+  {
+    id: "eventi",
+    order: 3,
+    label: "Eventi",
+    title: "Eventi",
+    kicker: "Occasioni speciali",
+    Icon: EventiIcon,
+    intro: "Incontri speciali, fuori dal calendario abituale.",
+    paragraphs: ["Workshop a tema, eventi stagionali e serate speciali: le occasioni per praticare insieme in modo diverso."],
+    // Sotto ai testi compare la lista dei prossimi eventi pubblici (CoverEvents);
+    // quelli riservati agli iscritti si vedono dopo l'accesso, nel calendario.
+    cta: { label: "Accedi per tutti gli eventi", href: "/login?next=/calendario" },
+  },
+  {
+    id: "chi-sono",
+    order: 4,
+    label: "Chi sono",
     title: "Ciao, sono Fabrizia",
     kicker: "Chi sono",
     Icon: ChiSonoIcon,
-    image: "/cards/chi_sono.png",
-    imageLight: "/cards/chi_sono-light.png",
-    imageWidth: 215,
-    imageHeight: 388,
-    imageLightWidth: 219,
-    imageLightHeight: 409,
     intro: "Insegno yoga attraverso movimento, forza, respiro e consapevolezza.",
     paragraphs: [
       "La mia pratica nasce dal Vinyasa e incontra lo studio della forza e del movimento, senza perdere ciò che mi ha portata allo yoga più di dieci anni fa: la curiosità per quello che accade dentro, oltre la forma delle asana.",
@@ -84,74 +88,15 @@ export const CARD_SECTIONS: CardSection[] = [
     cta: { label: "La mia storia", href: "/chi-sono" },
   },
   {
-    id: "meditazione",
-    order: 2,
-    label: "Meditazione",
-    title: "Meditazione",
-    kicker: "Presenza",
-    Icon: MeditazioneIcon,
-    image: "/cards/meditazione.png",
-    imageLight: "/cards/meditazione-light.png",
-    imageWidth: 220,
-    imageHeight: 390,
-    imageLightWidth: 221,
-    imageLightHeight: 408,
-    intro: "Pratiche guidate per rallentare, ascoltare e tornare al centro.",
-    paragraphs: ["Meditazioni guidate, mindfulness e incontri a tema per calmare la mente e aprire il cuore. Torna al centro. Sempre."],
-    cta: { label: "Scopri la meditazione", href: "/calendario" },
-  },
-  {
-    id: "calendario",
-    order: 3,
-    label: "Calendario",
-    title: "Calendario",
-    kicker: "Prossimi appuntamenti",
-    Icon: CalendarioIcon,
-    image: "/cards/calendario.png",
-    imageLight: "/cards/calendario-light.png",
-    imageWidth: 215,
-    imageHeight: 391,
-    imageLightWidth: 216,
-    imageLightHeight: 410,
-    intro: "Scopri gli eventi e le pratiche in programma.",
-    paragraphs: ["Lezioni, workshop, meditazioni e ritiri: il calendario completo, sempre aggiornato, con la possibilità di prenotare il tuo posto."],
-    cta: { label: "Vai al calendario", href: "/calendario" },
-  },
-  {
     id: "contatti",
-    order: 4,
+    order: 5,
     label: "Contatti",
     title: "Contatti",
     kicker: "Scrivimi",
     Icon: ContattiIcon,
-    image: "/cards/contatti.png",
-    imageLight: "/cards/contatti-light.png",
-    imageWidth: 216,
-    imageHeight: 392,
-    imageLightWidth: 214,
-    imageLightHeight: 410,
     intro: "Hai domande o vuoi collaborare con me?",
     paragraphs: ["Scrivimi per informazioni su orari e lezioni, o per qualsiasi altra domanda."],
     cta: { label: "Scrivimi", href: "#contatti-form" },
-  },
-  {
-    id: "eventi",
-    order: 5,
-    label: "Eventi",
-    title: "Eventi",
-    kicker: "Occasioni speciali",
-    Icon: EventiIcon,
-    image: "/cards/eventi.png",
-    imageLight: "/cards/eventi-light.png",
-    imageWidth: 215,
-    imageHeight: 391,
-    imageLightWidth: 213,
-    imageLightHeight: 414,
-    intro: "Incontri speciali, fuori dal calendario abituale.",
-    paragraphs: ["Workshop a tema, eventi stagionali e serate speciali: le occasioni per praticare insieme in modo diverso."],
-    // Sotto ai testi compare la lista dei prossimi eventi pubblici (CoverEvents);
-    // quelli riservati agli iscritti si vedono dopo l'accesso, nel calendario.
-    cta: { label: "Accedi per tutti gli eventi", href: "/login?next=/calendario" },
   },
 ];
 

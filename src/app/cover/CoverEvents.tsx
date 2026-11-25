@@ -24,7 +24,7 @@ export function CoverEvents({ events }: { events: CoverEvent[] }) {
             <Link href={`/eventi/${ev.slug}`} className="cover-event">
               <span className="cover-event-thumb" aria-hidden="true">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {img ? <img src={img} alt="" /> : <span>✦</span>}
+                {img ? <img src={img} alt="" /> : null}
               </span>
               <span className="cover-event-body">
                 <span className="cover-event-date">

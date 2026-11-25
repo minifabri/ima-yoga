@@ -3,7 +3,7 @@ import { COLORS } from "./colors";
 // Simbolo: mezzaluna + scintilla dorata che "respira". Placeholder disegnato
 // in SVG in attesa del logo definitivo — sostituendo questo componente si
 // aggiorna ovunque compaia (header gestionale e area cliente).
-function LogoMark({ size }: { size: number }) {
+export function LogoMark({ size }: { size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 36 36" fill="none" aria-hidden="true">
       <style>{`

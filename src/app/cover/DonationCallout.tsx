@@ -13,8 +13,8 @@ export function DonationCallout() {
         Se quello che condivido ti è utile e ti va di sostenerlo, puoi lasciare una donazione libera: scegli tu
         l&apos;importo, in modo sicuro con PayPal.
       </p>
-      <a href={CONTACT.paypalUrl} className="cover-cta-ghost" target="_blank" rel="noopener noreferrer">
-        Dona con PayPal <span aria-hidden="true">✦</span>
+      <a href={CONTACT.paypalUrl} className="cover-btn" target="_blank" rel="noopener noreferrer">
+        Dona con PayPal
       </a>
     </div>
   );

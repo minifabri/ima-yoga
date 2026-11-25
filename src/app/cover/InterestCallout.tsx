@@ -38,7 +38,7 @@ export function InterestCallout({ source }: { source: string }) {
       </p>
       {status === "sent" ? (
         <p className="online-callout-feedback">
-          Grazie per il feedback <span aria-hidden="true">✦</span>
+          Grazie per il feedback
         </p>
       ) : (
         <>
@@ -57,7 +57,7 @@ export function InterestCallout({ source }: { source: string }) {
             ))}
           </div>
           <button type="button" className="online-callout-both" onClick={() => choose("entrambe")} disabled={status === "pending"}>
-            Mi interessano entrambe <span aria-hidden="true">✦</span>
+            Mi interessano entrambe
           </button>
           {status === "error" && (
             <p className="online-callout-error" role="alert">

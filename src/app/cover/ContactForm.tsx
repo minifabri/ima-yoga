@@ -77,8 +77,8 @@ export function ContactForm() {
         Uso i tuoi dati solo per risponderti. <a href="/privacy">Informativa privacy</a>
       </p>
       {status === "error" && <p className="cover-contact-error">{errorMessage}</p>}
-      <button type="submit" className="cover-cta-ghost" disabled={status === "sending"}>
-        {status === "sending" ? "Invio…" : "Scrivimi"} <span aria-hidden="true">✦</span>
+      <button type="submit" className="cover-btn" disabled={status === "sending"}>
+        {status === "sending" ? "Invio…" : "Scrivimi"}
       </button>
     </form>
   );
