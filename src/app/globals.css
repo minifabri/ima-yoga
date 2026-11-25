@@ -836,7 +836,7 @@ div.cover-card {
   text-decoration: underline;
 }
 
-/* ---- pagine standalone (classi, chi-sono) — stesso linguaggio della sezione a carta ---- */
+/* ---- pagine standalone (classi, chi-sono): stesso schema del dettaglio di una carta ---- */
 
 .static-page {
   position: relative;
@@ -846,44 +846,65 @@ div.cover-card {
 }
 
 .static-page-back {
-  position: fixed;
-  top: clamp(16px, 3vw, 28px);
-  left: clamp(16px, 3vw, 28px);
-  z-index: 110;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   height: 44px;
   padding: 0 18px 0 16px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card) 75%, transparent);
+  border: 1.5px solid var(--card-line);
   color: var(--ink);
-  font-size: 12.5px;
+  font-size: 13px;
   text-decoration: none;
-  backdrop-filter: blur(10px);
   transition: color 0.25s ease, border-color 0.25s ease;
 }
 .static-page-back:hover,
 .static-page-back:focus-visible {
-  border-color: var(--gold-text);
+  border-color: var(--gold);
   color: var(--gold-text);
 }
 
-.static-page-content {
-  position: relative;
-  z-index: 2;
-  max-width: 720px;
+.static-page-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: clamp(96px, 14vh, 132px) clamp(20px, 5vw, 40px) 100px;
+  padding: clamp(24px, 4vw, 40px) clamp(20px, 4.5vw, 56px) 88px;
+}
+@media (min-width: 860px) {
+  .static-page-grid {
+    grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
+    align-items: start;
+    gap: clamp(32px, 4.5vw, 56px);
+  }
 }
 
+/* La carta resta ferma accanto al testo mentre si scorre. */
 .static-page-visual {
   display: flex;
-  margin-bottom: 32px;
 }
 .static-page-visual .cover-card-large {
-  width: min(200px, 45vw);
+  width: min(150px, 42vw);
+}
+@media (min-width: 600px) {
+  .static-page-visual .cover-card-large {
+    width: 220px;
+  }
+}
+@media (min-width: 860px) {
+  .static-page-visual {
+    position: sticky;
+    top: 32px;
+  }
+  .static-page-visual .cover-card-large {
+    width: min(340px, 100%);
+  }
+}
+
+.static-page-content {
+  min-width: 0;
+  max-width: 680px;
 }
 
 .static-page .cover-overlay-title,
@@ -895,158 +916,163 @@ div.cover-card {
 .static-page-section-title {
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: clamp(20px, 2.6vw, 26px);
+  font-size: clamp(26px, 2.6vw, 32px);
   color: var(--heading);
-  margin: 48px 0 20px;
+  margin: 56px 0 18px;
 }
 
 .class-grid,
 .practice-modes {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   grid-template-columns: 1fr;
 }
 @media (min-width: 640px) {
   .class-grid,
   .practice-modes {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 .class-card,
 .mode-card {
   padding: 18px 20px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--card) 55%, transparent);
+  border: 1.5px solid var(--card-line);
+  border-radius: 12px;
 }
 .class-card h3,
 .mode-card h3 {
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: 16px;
+  font-size: 22px;
+  line-height: 1.15;
   color: var(--heading);
   margin-bottom: 8px;
 }
 .class-card p,
 .mode-card p {
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.65;
   color: var(--ink-soft);
 }
 
+/* Note in fondo alla copertina ("anche da casa", donazioni): volutamente
+   discrete, senza riquadro — solo una linea sottile sopra e testo piccolo. */
 .cover-interest-section {
-  position: relative;
-  overflow: hidden;
-  padding: 64px clamp(16px, 4vw, 40px);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px clamp(20px, 4.5vw, 56px) 72px;
+}
+@media (min-width: 860px) {
+  .cover-interest-section {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 56px;
+  }
 }
 .cover-interest-section .online-callout {
-  position: relative;
-  z-index: 5;
-  margin: 0 auto;
-  max-width: 640px;
-}
-.cover-interest-section .online-callout + .online-callout {
-  margin-top: 24px;
+  margin-top: 0;
 }
 
 .online-callout {
-  margin-top: 48px;
-  padding: 28px clamp(20px, 4vw, 32px);
-  border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--border));
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--gold) 6%, transparent);
+  margin-top: 56px;
+  padding-top: 22px;
+  border-top: 1px solid color-mix(in srgb, var(--card-line) 40%, transparent);
 }
 .online-callout h2 {
   font-family: var(--font-display);
   font-weight: 500;
   font-size: 20px;
   color: var(--heading);
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 .online-callout p {
-  font-size: 14px;
-  line-height: 1.7;
+  font-size: 13.5px;
+  line-height: 1.65;
   color: var(--ink-soft);
-  margin-bottom: 18px;
-  max-width: 52ch;
+  margin-bottom: 14px;
+  max-width: 56ch;
 }
 .online-callout-feedback {
   margin: 0;
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
   color: var(--gold-text);
 }
 .online-callout-options {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 6px 24px;
+  margin-bottom: 8px;
 }
 .online-callout .online-callout-option {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
-  padding: 16px 18px;
+  gap: 2px;
+  padding: 6px 0;
   text-align: left;
   font-family: inherit;
   cursor: pointer;
-  border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--border));
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--gold) 4%, transparent);
-  transition: background 0.3s ease, transform 0.3s ease, border-color 0.3s ease;
+  border: none;
+  background: none;
 }
-.online-callout .online-callout-option:hover,
+.online-callout .online-callout-option:hover .online-callout-option-name,
+.online-callout .online-callout-option:focus-visible .online-callout-option-name {
+  color: var(--gold-text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
 .online-callout .online-callout-option:focus-visible {
-  background: color-mix(in srgb, var(--gold) 14%, transparent);
-  border-color: var(--gold);
-  transform: translateY(-2px);
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+  border-radius: 4px;
 }
 .online-callout .online-callout-option:disabled {
   opacity: 0.6;
   cursor: default;
-  transform: none;
 }
 .online-callout-option-name {
   font-family: var(--font-display);
   font-weight: 500;
   font-size: 17px;
   color: var(--heading);
+  transition: color 0.25s ease;
 }
 .online-callout-option-desc {
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.55;
   color: var(--ink-soft);
 }
-.online-callout .online-callout-both {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0;
+.online-callout .online-callout-both,
+.online-callout-link {
+  display: inline-block;
+  padding: 12px 0;
   border: none;
   background: none;
   font-family: inherit;
-  font-size: 12px;
-  letter-spacing: 1.8px;
-  text-transform: uppercase;
-  color: var(--gold);
-  cursor: pointer;
-  transition: opacity 0.3s ease;
-}
-.online-callout .online-callout-both:hover,
-.online-callout .online-callout-both:focus-visible {
+  font-size: 13px;
+  color: var(--ink);
   text-decoration: underline;
   text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent);
+  cursor: pointer;
+  transition: color 0.25s ease, text-decoration-color 0.25s ease;
+}
+.online-callout .online-callout-both:hover,
+.online-callout .online-callout-both:focus-visible,
+.online-callout-link:hover,
+.online-callout-link:focus-visible {
+  color: var(--gold-text);
+  text-decoration-color: var(--gold);
 }
 .online-callout .online-callout-both:disabled {
   opacity: 0.6;
   cursor: default;
-}
-.online-callout .online-callout-both span {
-  font-size: 11px;
 }
 .online-callout .online-callout-error {
   margin: 12px 0 0;
@@ -1055,9 +1081,8 @@ div.cover-card {
 }
 
 .static-page-closing {
-  margin-top: 56px;
+  margin-top: 48px;
   display: flex;
-  justify-content: center;
 }
 
 .due-volti {
@@ -1073,7 +1098,7 @@ div.cover-card {
   background: none;
   font-family: inherit;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--heading);
   text-decoration: underline;
   text-underline-offset: 4px;

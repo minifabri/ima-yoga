@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { InterestCallout } from "../cover/InterestCallout";
 import { getSection } from "../cover/data";
 import { SectionCard } from "../cover/SectionCard";
+import { Logo } from "../cover/Logo";
 
 const CLASSES = [
   {
@@ -55,57 +56,58 @@ export default function ClassiPage() {
 
   return (
     <div className="static-page cover-theme">
-      <Link href="/#lezioni" className="static-page-back">
-        <ArrowLeft size={15} /> Indietro
-      </Link>
+      <div className="cover-overlay-top">
+        <Logo />
+        <Link href="/#lezioni" className="static-page-back">
+          <ArrowLeft size={15} /> Indietro
+        </Link>
+      </div>
 
-      <div className="static-page-content">
-        {section && (
-          <div className="static-page-visual">
-            <SectionCard section={section} large />
+      <div className="static-page-grid">
+        <div className="static-page-visual">{section && <SectionCard section={section} large />}</div>
+
+        <div className="static-page-content">
+          <p className="cover-overlay-kicker">Pratica</p>
+          <h1 className="cover-overlay-title">Una pratica, diversi modi di esplorarla.</h1>
+          <p className="cover-overlay-paragraph">
+            Le mie lezioni nascono da una base Vinyasa e integrano lavoro su forza, mobilità, respiro e consapevolezza.
+          </p>
+          <p className="cover-overlay-paragraph">
+            Alcune classi sono più dinamiche, altre rallentano. Alcune lavorano sulla flessibilità o sulla forza, altre
+            partono da un&apos;asana e costruiscono, passo dopo passo, gli strumenti per esplorarla.
+          </p>
+          <p className="cover-overlay-paragraph">
+            Il filo conduttore rimane lo stesso: conoscere il proprio corpo, sviluppare una pratica solida e lasciare
+            spazio anche a ciò che accade oltre la forma.
+          </p>
+
+          <h2 className="static-page-section-title">Le classi</h2>
+          <div className="class-grid">
+            {CLASSES.map((c) => (
+              <div key={c.name} className="class-card">
+                <h3>{c.name}</h3>
+                <p>{c.description}</p>
+              </div>
+            ))}
           </div>
-        )}
 
-        <p className="cover-overlay-kicker">Pratica</p>
-        <h1 className="cover-overlay-title">Una pratica, diversi modi di esplorarla.</h1>
-        <p className="cover-overlay-paragraph">
-          Le mie lezioni nascono da una base Vinyasa e integrano lavoro su forza, mobilità, respiro e consapevolezza.
-        </p>
-        <p className="cover-overlay-paragraph">
-          Alcune classi sono più dinamiche, altre rallentano. Alcune lavorano sulla flessibilità o sulla forza, altre
-          partono da un&apos;asana e costruiscono, passo dopo passo, gli strumenti per esplorarla.
-        </p>
-        <p className="cover-overlay-paragraph">
-          Il filo conduttore rimane lo stesso: conoscere il proprio corpo, sviluppare una pratica solida e lasciare
-          spazio anche a ciò che accade oltre la forma.
-        </p>
+          <h2 className="static-page-section-title">Come si pratica</h2>
+          <div className="practice-modes">
+            {MODES.map((m) => (
+              <div key={m.name} className="mode-card">
+                <h3>{m.name}</h3>
+                <p>{m.description}</p>
+              </div>
+            ))}
+          </div>
 
-        <h2 className="static-page-section-title">Le classi</h2>
-        <div className="class-grid">
-          {CLASSES.map((c) => (
-            <div key={c.name} className="class-card">
-              <h3>{c.name}</h3>
-              <p>{c.description}</p>
-            </div>
-          ))}
-        </div>
+          <InterestCallout source="classi" />
 
-        <h2 className="static-page-section-title">Come si pratica</h2>
-        <div className="practice-modes">
-          {MODES.map((m) => (
-            <div key={m.name} className="mode-card">
-              <h3>{m.name}</h3>
-              <p>{m.description}</p>
-            </div>
-          ))}
-        </div>
-
-        <InterestCallout source="classi" />
-
-        <div className="static-page-closing">
-          <Link href="/calendario" className="cover-btn">
-            Vai al calendario
-          </Link>
+          <div className="static-page-closing">
+            <Link href="/calendario" className="cover-btn">
+              Vai al calendario
+            </Link>
+          </div>
         </div>
       </div>
     </div>
