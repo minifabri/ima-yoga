@@ -81,9 +81,9 @@ export const CARD_SECTIONS: CardSection[] = [
     title: "Ciao, sono Fabrizia",
     kicker: "Chi sono",
     Icon: ChiSonoIcon,
-    intro: "Insegno yoga attraverso movimento, forza, respiro e consapevolezza.",
+    intro: "La filosofia è stata il mio primo incontro con lo yoga, più di dieci anni fa. La pratica fisica è arrivata dopo.",
     paragraphs: [
-      "La mia pratica nasce dal Vinyasa e incontra lo studio della forza e del movimento, senza perdere ciò che mi ha portata allo yoga più di dieci anni fa: la curiosità per quello che accade dentro, oltre la forma delle asana.",
+      "Oggi insegno partendo dal Vinyasa Flow e dallo studio della forza: sequenze costruite intorno a un’intenzione, in cui il respiro accompagna anche i passaggi più intensi.",
     ],
     cta: { label: "La mia storia", href: "/chi-sono" },
   },
