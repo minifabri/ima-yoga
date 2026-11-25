@@ -1,21 +1,21 @@
 import { CONTACT } from "./data";
 
-// Nota "donazione libera" della copertina: un semplice link al PayPal.Me,
-// l'importo lo sceglie chi dona direttamente su PayPal. Finché in data.ts non
-// c'è un link (CONTACT.paypalUrl vuoto) la nota non compare.
+// Nota "donazione libera" della copertina: una sola riga, senza titolo né
+// pulsante, con il link al PayPal.Me dentro la frase. L'importo lo sceglie chi
+// dona direttamente su PayPal. Finché in data.ts non c'è un link
+// (CONTACT.paypalUrl vuoto) la nota non compare.
 export function DonationCallout() {
   if (!CONTACT.paypalUrl) return null;
 
   return (
-    <div className="online-callout" id="sostieni">
-      <h2>Sostieni Ima Yoga.</h2>
+    <div className="online-callout donation-note" id="sostieni">
       <p>
-        Se quello che condivido ti è utile e ti va di sostenerlo, puoi lasciare una donazione libera: scegli tu
-        l&apos;importo, in modo sicuro con PayPal.
+        Se quello che condivido ti è utile, puoi sostenere Ima Yoga con{" "}
+        <a href={CONTACT.paypalUrl} target="_blank" rel="noopener noreferrer">
+          una donazione libera su PayPal
+        </a>
+        .
       </p>
-      <a href={CONTACT.paypalUrl} className="online-callout-link" target="_blank" rel="noopener noreferrer">
-        Dona con PayPal <span aria-hidden="true">→</span>
-      </a>
     </div>
   );
 }
