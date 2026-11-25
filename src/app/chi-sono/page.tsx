@@ -1,17 +1,14 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { CosmicBackground } from "../cover/CosmicBackground";
-import { getSection, sectionImage } from "../cover/data";
-import { SectionCardImage } from "../cover/SectionCardImage";
+import { getSection } from "../cover/data";
+import { SectionCard } from "../cover/SectionCard";
 import { DueVolti } from "./DueVolti";
 
 export default function ChiSonoPage() {
   const section = getSection("chi-sono");
 
   return (
-    <div className="static-page">
-      <CosmicBackground variant="section" />
-
+    <div className="static-page cover-theme">
       <Link href="/#chi-sono" className="static-page-back">
         <ArrowLeft size={15} /> Indietro
       </Link>
@@ -19,7 +16,7 @@ export default function ChiSonoPage() {
       <div className="static-page-content">
         {section && (
           <div className="static-page-visual">
-            <SectionCardImage image={sectionImage(section)} width="min(200px, 50vw)" sizes="200px" />
+            <SectionCard section={section} large />
           </div>
         )}
 

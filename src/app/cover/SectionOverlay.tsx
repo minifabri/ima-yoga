@@ -4,11 +4,11 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { X, AtSign, MessageCircle, Mail } from "lucide-react";
 import type { CardSection, CoverEvent } from "./data";
-import { CONTACT, sectionImage } from "./data";
-import { CosmicBackground } from "./CosmicBackground";
+import { CONTACT } from "./data";
 import { ContactForm } from "./ContactForm";
-import { SectionCardImage } from "./SectionCardImage";
+import { SectionCard } from "./SectionCard";
 import { CoverEvents } from "./CoverEvents";
+import { Logo } from "./Logo";
 
 const isInternal = (href: string) => href.startsWith("/");
 
@@ -20,7 +20,7 @@ export function SectionOverlay({
 }: {
   section: CardSection;
   events: CoverEvent[];
-  phase: "opening" | "open" | "closing";
+  phase: "open" | "closing";
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -68,16 +68,17 @@ export function SectionOverlay({
       aria-labelledby={`section-title-${section.id}`}
       ref={dialogRef}
     >
-      <CosmicBackground variant="section" />
-
-      <button type="button" className="cover-overlay-close" onClick={onClose} aria-label="Chiudi sezione" ref={closeRef}>
-        <X size={18} />
-      </button>
+      <div className="cover-overlay-top">
+        <Logo />
+        <button type="button" className="cover-overlay-close" onClick={onClose} aria-label="Chiudi sezione" ref={closeRef}>
+          <X size={18} />
+        </button>
+      </div>
 
       <div className="cover-overlay-panel">
         <div className="cover-overlay-grid">
           <div className="cover-overlay-visual">
-            <SectionCardImage image={sectionImage(section)} sizes="(min-width: 900px) 40vw, 90vw" />
+            <SectionCard section={section} large />
           </div>
 
           <div className="cover-overlay-content">
@@ -121,12 +122,12 @@ export function SectionOverlay({
 
             {section.id !== "contatti" &&
               (isInternal(section.cta.href) ? (
-                <Link href={section.cta.href} className="cover-cta-ghost">
-                  {section.cta.label} <span aria-hidden="true">✦</span>
+                <Link href={section.cta.href} className="cover-btn">
+                  {section.cta.label}
                 </Link>
               ) : (
-                <a href={section.cta.href} className="cover-cta-ghost">
-                  {section.cta.label} <span aria-hidden="true">✦</span>
+                <a href={section.cta.href} className="cover-btn">
+                  {section.cta.label}
                 </a>
               ))}
           </div>

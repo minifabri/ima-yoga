@@ -1,136 +1,79 @@
-// Icone line-art celestiali per le carte — stesso linguaggio grafico del logo
-// ufficiale (tratto sottile, oro/viola), disegnate a mano per restare coerenti
-// con la simbologia di ogni sezione (vedi brief) invece di riusare asset raster.
+// Icone al tratto delle carte di copertina, ricalcate sul disegno di
+// riferimento. Tutte condividono lo stesso riquadro (coordinate di una carta
+// 230×275, viewBox sulla zona dell'icona), così le proporzioni tra un'icona e
+// l'altra restano quelle originali. Colore: currentColor; l'unica nota d'oro
+// è il secondo profilo di "Chi sono" (.cover-icon-accent).
 
-function IconFrame({ size = 40, children }: { size?: number; children: React.ReactNode }) {
+function IconFrame({ children }: { children: React.ReactNode }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
+    <svg
+      className="cover-icon"
+      viewBox="36 38 160 126"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       {children}
     </svg>
   );
 }
 
-// Arrotondato a 2 decimali: il calcolo trigonometrico inline puo' altrimenti
-// serializzare l'ultimo bit in modo diverso tra render server e client
-// (stesso valore matematico, stringa diversa) e far scattare un mismatch di idratazione.
-const r2 = (n: number) => Math.round(n * 100) / 100;
-
-export function ChiSonoIcon({ size }: { size?: number }) {
+// Un'onda sinusoidale intera: il movimento della pratica.
+export function LezioniIcon() {
   return (
-    <IconFrame size={size}>
+    <IconFrame>
+      <path d="M56 112 C60.9 107.3 65.8 102.6 70.8 99.3 C75.7 95.9 80.6 94 85.5 94 C90.4 94 95.3 95.9 100.2 99.3 C105.2 102.6 110.1 107.3 115 112 C119.9 116.7 124.8 121.4 129.8 124.7 C134.7 128.1 139.6 130 144.5 130 C149.4 130 154.3 128.1 159.2 124.7 C164.2 121.4 169.1 116.7 174 112" />
+    </IconFrame>
+  );
+}
+
+export function MeditazioneIcon() {
+  return (
+    <IconFrame>
+      <circle cx="115" cy="113" r="37" />
+    </IconFrame>
+  );
+}
+
+export function CalendarioIcon() {
+  return (
+    <IconFrame>
+      <rect x="80" y="75" width="77" height="77" />
+    </IconFrame>
+  );
+}
+
+// Un sentiero che si apre: le occasioni fuori dal calendario abituale.
+export function EventiIcon() {
+  return (
+    <IconFrame>
+      <path d="M42 158 C 52 128, 86 110, 112 94 C 124 86, 118 76, 108 70 C 102 66, 108 58, 120 56" />
+      <path d="M120 63 C 112 65, 112 70, 122 76 C 134 84, 138 96, 140 108 C 142 128, 162 146, 190 158" />
+    </IconFrame>
+  );
+}
+
+// I due volti della vecchia carta "Chi sono": profilo ricavato dal contorno
+// dell'illustrazione originale, il secondo è lo specchio del primo.
+export function ChiSonoIcon() {
+  return (
+    <IconFrame>
+      <path d="M115 42 C103.7 42 94.6 43.5 87.1 46.5 C79.5 49.5 74 54 71 61 C68.5 68 66 78 65.3 88 C63.5 93.5 60 98.5 58 102.5 C57.4 104.2 58.4 106.3 60.5 107.2 C61.7 107.7 62.6 108.3 62.8 109.3 C62.6 111 61.4 112.6 61.8 113.9 C62.3 115 64 115.5 64 116.6 C64 117.8 62.9 118.6 63.4 119.9 C64 121.2 66.4 121.8 66.4 123.3 C66.4 125.5 65.2 127.8 66.2 130 C67.6 132.6 71.5 133 75.8 132.4 C79.2 131.8 82.5 130 85.2 132.3 C88.2 135.5 90.5 146 91.6 157" />
       <path
-        d="M24 14c-6 3-9 9-9 15 0 9 7 17 15 19-8-1-16-9-16-19 0-8 4-14 10-17z"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinejoin="round"
+        className="cover-icon-accent"
+        d="M115 42 C126.3 42 135.4 43.5 142.9 46.5 C150.5 49.5 156 54 159 61 C161.5 68 164 78 164.7 88 C166.5 93.5 170 98.5 172 102.5 C172.6 104.2 171.6 106.3 169.5 107.2 C168.3 107.7 167.4 108.3 167.2 109.3 C167.4 111 168.6 112.6 168.2 113.9 C167.7 115 166 115.5 166 116.6 C166 117.8 167.1 118.6 166.6 119.9 C166 121.2 163.6 121.8 163.6 123.3 C163.6 125.5 164.8 127.8 163.8 130 C162.4 132.6 158.5 133 154.2 132.4 C150.8 131.8 147.5 130 144.8 132.3 C141.8 135.5 139.5 146 138.4 157"
       />
-      <path d="M24 14a13 13 0 1 0 6 24" stroke="currentColor" strokeWidth="1.2" fill="none" />
-      <circle cx="26" cy="21" r="1.4" fill="currentColor" />
-      <path d="M32 8v4M32 44v4M12 26h-4M52 26h-4" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
-      <circle cx="32" cy="26" r="18" stroke="currentColor" strokeWidth="0.6" opacity="0.35" strokeDasharray="1 4" />
     </IconFrame>
   );
 }
 
-export function LezioniIcon({ size }: { size?: number }) {
+// Una vetta, o due mani che si incontrano.
+export function ContattiIcon() {
   return (
-    <IconFrame size={size}>
-      <circle cx="32" cy="32" r="7" fill="currentColor" opacity="0.9" />
-      {Array.from({ length: 12 }).map((_, i) => {
-        const angle = (i * 30 * Math.PI) / 180;
-        const inner = 13;
-        const outer = i % 3 === 0 ? 27 : 20;
-        const x1 = r2(32 + Math.cos(angle) * inner);
-        const y1 = r2(32 + Math.sin(angle) * inner);
-        const x2 = r2(32 + Math.cos(angle) * outer);
-        const y2 = r2(32 + Math.sin(angle) * outer);
-        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth="1" strokeLinecap="round" />;
-      })}
-    </IconFrame>
-  );
-}
-
-export function MeditazioneIcon({ size }: { size?: number }) {
-  return (
-    <IconFrame size={size}>
-      <path d="M6 32c8-10 18-15 26-15s18 5 26 15c-8 10-18 15-26 15S14 42 6 32z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
-      <circle cx="32" cy="32" r="7" stroke="currentColor" strokeWidth="1.1" />
-      <circle cx="32" cy="32" r="2.6" fill="currentColor" />
-      <path d="M32 6v6M32 52v6M9 15l4 4M51 15l-4 4M9 49l4-4M51 49l-4-4" stroke="currentColor" strokeWidth="0.9" strokeLinecap="round" opacity="0.55" />
-    </IconFrame>
-  );
-}
-
-export function RitiriIcon({ size }: { size?: number }) {
-  return (
-    <IconFrame size={size}>
-      <path d="M40 12a10 10 0 1 0 8 16 10 10 0 0 1-8-16z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
-      <path d="M4 46l13-16 8 9 5-6 16 13z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" strokeLinecap="round" fill="none" />
-      <path d="M4 50h56" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
-    </IconFrame>
-  );
-}
-
-export function CalendarioIcon({ size }: { size?: number }) {
-  return (
-    <IconFrame size={size}>
-      <circle cx="32" cy="32" r="20" stroke="currentColor" strokeWidth="0.8" opacity="0.5" />
-      <circle cx="32" cy="32" r="13" stroke="currentColor" strokeWidth="0.8" opacity="0.7" strokeDasharray="1 4" />
-      <path d="M32 15a9 9 0 1 0 6.5 15.2A9 9 0 0 1 32 15z" fill="currentColor" opacity="0.9" />
-      {[0, 60, 120, 180, 240, 300].map((deg) => (
-        <circle
-          key={deg}
-          cx={r2(32 + Math.cos((deg * Math.PI) / 180) * 20)}
-          cy={r2(32 + Math.sin((deg * Math.PI) / 180) * 20)}
-          r="1.2"
-          fill="currentColor"
-        />
-      ))}
-    </IconFrame>
-  );
-}
-
-export function EventiIcon({ size }: { size?: number }) {
-  return (
-    <IconFrame size={size}>
-      <path
-        d="M32 18c3 4 8 6 8 12 0 5-4 9-8 9s-8-4-8-9c0-6 5-8 8-12z"
-        stroke="currentColor"
-        strokeWidth="1.1"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M32 18c-4 2-13 2-16 10 4-3 10-3 16 1 6-4 12-4 16-1-3-8-12-8-16-10z"
-        stroke="currentColor"
-        strokeWidth="1.1"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10 52c6-6 12-2 16-6s2-8 8-8 6 6 10 8 10 0 12 4"
-        stroke="currentColor"
-        strokeWidth="1.1"
-        strokeLinecap="round"
-        fill="none"
-        opacity="0.75"
-      />
-      <path d="M32 4l1.6 4L38 9.6 34 11l-1.6 4-1.6-4L27 9.6 31 8z" fill="currentColor" opacity="0.85" />
-    </IconFrame>
-  );
-}
-
-export function ContattiIcon({ size }: { size?: number }) {
-  return (
-    <IconFrame size={size}>
-      <path
-        d="M14 46c0-9 4-14 8-18-1 5 0 8 2 10 1-6 4-10 9-13-1 6 1 10 4 12 2-6 6-9 9-10-2 5-1 10 2 13 2 2 3 4 3 6"
-        stroke="currentColor"
-        strokeWidth="1.1"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <path d="M8 50c6-3 12-3 18 0s12 3 18 0 12-3 12-3" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
-      <path d="M42 12l1.6 4L48 17.6 44 19l-1.6 4-1.6-4L37 17.6 41 16z" fill="currentColor" opacity="0.85" />
+    <IconFrame>
+      <path d="M52 140 C 90 128, 112 110, 118 73 C 124 110, 146 128, 182 140" />
     </IconFrame>
   );
 }

@@ -10,7 +10,6 @@ import { CARD_SECTIONS, type CoverAccess } from "./data";
 type NavLink = { label: string; kind: "href"; href: string } | { label: string; kind: "section"; sectionId: string };
 
 const NAV_LINKS: NavLink[] = [
-  { label: "Home", kind: "href", href: "#top" },
   { label: "Lezioni", kind: "href", href: "/classi" },
   { label: "Calendario", kind: "href", href: "/calendario" },
   { label: "Contatti", kind: "section", sectionId: "contatti" },

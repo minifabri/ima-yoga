@@ -1,20 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "./Header";
 import { Hero } from "./Hero";
-import { FloatingCards } from "./FloatingCards";
 import { SectionOverlay } from "./SectionOverlay";
-import { CosmicBackground } from "./CosmicBackground";
-import { Particles } from "./Particles";
 import { Footer } from "./Footer";
 import { InterestCallout } from "./InterestCallout";
 import { DonationCallout } from "./DonationCallout";
 import { getSection, type CoverAccess, type CoverEvent } from "./data";
-import { useReducedMotion, useScrollProgress } from "./hooks";
 
-const CLOSE_DURATION = 480;
-const FLIP_DURATION = 600;
+const CLOSE_DURATION = 320;
 
 // In anteprima admin i link "Accedi" riportano al gestionale invece che al login.
 const LOGIN_ACCESS: CoverAccess = { href: "/login", label: "Accedi" };
@@ -23,11 +18,7 @@ const ADMIN_ACCESS: CoverAccess = { href: "/admin", label: "Gestionale" };
 export function Cover({ events, adminPreview = false }: { events: CoverEvent[]; adminPreview?: boolean }) {
   const access = adminPreview ? ADMIN_ACCESS : LOGIN_ACCESS;
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [flippingId, setFlippingId] = useState<string | null>(null);
   const [phase, setPhase] = useState<"open" | "closing">("open");
-  const reducedMotion = useReducedMotion();
-  const heroRef = useRef<HTMLElement | null>(null);
-  const scrollProgress = useScrollProgress(heroRef);
 
   // Deep link: /#chi-sono apre direttamente la sezione, condivisibile.
   // Lettura una tantum dell'URL all'avvio — non c'è uno "state esterno" a
@@ -40,22 +31,10 @@ export function Cover({ events, adminPreview = false }: { events: CoverEvent[]; 
     }
   }, []);
 
-  // La carta cliccata fa un breve "flip" (vedi .is-flipping in globals.css)
-  // prima che la sezione si apra — con reduced-motion si salta e si apre subito.
   function openSection(id: string) {
-    if (reducedMotion) {
-      setSelectedId(id);
-      setPhase("open");
-      history.replaceState(null, "", `#${id}`);
-      return;
-    }
-    setFlippingId(id);
-    window.setTimeout(() => {
-      setFlippingId(null);
-      setSelectedId(id);
-      setPhase("open");
-      history.replaceState(null, "", `#${id}`);
-    }, FLIP_DURATION);
+    setSelectedId(id);
+    setPhase("open");
+    history.replaceState(null, "", `#${id}`);
   }
 
   function closeSection() {
@@ -66,45 +45,12 @@ export function Cover({ events, adminPreview = false }: { events: CoverEvent[]; 
     }, CLOSE_DURATION);
   }
 
-  // "Ordina le carte": scorre fino al punto in cui le carte sono già
-  // raccolte in riga orizzontale (metà della sosta "linea" in FloatingCards),
-  // come se l'utente avesse scrollato fin lì da solo. Su mobile non esiste
-  // questa messa in scena (griglia statica): scorre solo fino alle carte.
-  function scrollToLine() {
-    const el = heroRef.current;
-    if (!el) return;
-    if (window.innerWidth < 860) {
-      document.getElementById("carte")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    const rect = el.getBoundingClientRect();
-    const total = rect.height - window.innerHeight;
-    if (total <= 0) return;
-    const target = window.scrollY + rect.top + total * 0.5;
-    window.scrollTo({ top: target, behavior: "smooth" });
-  }
-
   const section = getSection(selectedId);
 
   return (
-    <main className="cover-root" data-reduced-motion={reducedMotion ? "true" : "false"}>
-      {/* Un'unica istanza, agganciata al viewport: resta la stessa dietro sia
-          alla hero sia alla sezione "anche da casa" subito sotto, senza lo
-          stacco netto che si vedeva prima con due sfondi separati. */}
-      <CosmicBackground variant="hero" />
-
-      <section className="cover-hero-section" id="top" ref={heroRef}>
-        <div className="cover-hero-sticky">
-          {!reducedMotion && <Particles />}
-
-          <Header onOpenSection={openSection} access={access} />
-
-          <div className={`cover-scene${selectedId ? " has-selection" : ""}`}>
-            <Hero scrollProgress={scrollProgress} onOrderCards={scrollToLine} access={access} />
-            <FloatingCards selectedId={selectedId} flippingId={flippingId} onSelect={openSection} scrollProgress={scrollProgress} />
-          </div>
-        </div>
-      </section>
+    <main className="cover-root cover-theme">
+      <Header onOpenSection={openSection} access={access} />
+      <Hero onOpenSection={openSection} />
 
       <section className="cover-interest-section">
         <InterestCallout source="home" />

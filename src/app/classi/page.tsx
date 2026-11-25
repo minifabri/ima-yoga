@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { CosmicBackground } from "../cover/CosmicBackground";
 import { InterestCallout } from "../cover/InterestCallout";
-import { getSection, sectionImage } from "../cover/data";
-import { SectionCardImage } from "../cover/SectionCardImage";
+import { getSection } from "../cover/data";
+import { SectionCard } from "../cover/SectionCard";
 
 const CLASSES = [
   {
@@ -55,9 +54,7 @@ export default function ClassiPage() {
   const section = getSection("lezioni");
 
   return (
-    <div className="static-page">
-      <CosmicBackground variant="section" />
-
+    <div className="static-page cover-theme">
       <Link href="/#lezioni" className="static-page-back">
         <ArrowLeft size={15} /> Indietro
       </Link>
@@ -65,7 +62,7 @@ export default function ClassiPage() {
       <div className="static-page-content">
         {section && (
           <div className="static-page-visual">
-            <SectionCardImage image={sectionImage(section)} width="min(200px, 50vw)" sizes="200px" />
+            <SectionCard section={section} large />
           </div>
         )}
 
@@ -106,8 +103,8 @@ export default function ClassiPage() {
         <InterestCallout source="classi" />
 
         <div className="static-page-closing">
-          <Link href="/calendario" className="cover-cta-ghost">
-            Vai al calendario <span aria-hidden="true">✦</span>
+          <Link href="/calendario" className="cover-btn">
+            Vai al calendario
           </Link>
         </div>
       </div>
