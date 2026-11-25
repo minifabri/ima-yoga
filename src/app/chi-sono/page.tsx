@@ -22,35 +22,23 @@ export default function ChiSonoPage() {
 
         <div className="static-page-content">
           <p className="cover-overlay-kicker">La mia storia</p>
-          <h1 className="cover-overlay-title">Il mio modo di praticare</h1>
+          <h1 className="cover-overlay-title">Chi sono</h1>
 
           <p className="cover-overlay-paragraph">
-            Mi sono avvicinata allo yoga più di dieci anni fa, e curiosamente non è stato il movimento ad attirarmi per
-            primo. È stata la filosofia.
+            La filosofia è stata il mio primo incontro con lo yoga, più di dieci anni fa. La pratica fisica è arrivata
+            dopo. Col tempo è diventata un modo per conoscere il corpo, capire dove incontra una resistenza e scoprire
+            quali possibilità si aprono quando cambia il modo di muoversi.
           </p>
           <p className="cover-overlay-paragraph">
-            Solo dopo è arrivata la pratica fisica, diventata nel tempo uno spazio di ricerca sempre più importante: un
-            modo per conoscere il corpo, osservarne i limiti, costruire possibilità nuove e, soprattutto, imparare ad
-            ascoltarlo.
+            Lo studio della forza e il calisthenics hanno dato forma al mio modo di insegnare. Mi interessa la forza per
+            ciò che rende possibile: un appoggio più stabile, un passaggio più controllato, più libertà dentro un
+            movimento.
           </p>
           <p className="cover-overlay-paragraph">
-            Negli anni il mio percorso ha incontrato anche lo studio della forza e il calisthenics. Da qui nasce una
-            parte importante del mio modo di insegnare: credo che la forza non sia qualcosa di separato dallo yoga, ma
-            uno degli strumenti che possiamo utilizzare per muoverci con maggiore consapevolezza, controllo e libertà.
-          </p>
-          <p className="cover-overlay-paragraph">
-            Le mie lezioni sono principalmente ispirate al Vinyasa Flow. Mi piace costruire sequenze con
-            un&apos;intenzione precisa e spesso lavorare nel tempo intorno a un&apos;asana, non tanto come traguardo da
-            raggiungere, quanto come occasione per capire quali strumenti servono per arrivarci.
-          </p>
-          <p className="cover-overlay-paragraph">
-            In questo lavoro il respiro e l&apos;attenzione restano sempre il punto di riferimento. Anche quando la
-            pratica diventa intensa, quello che mi interessa non è semplicemente riuscire a fare qualcosa, ma osservare
-            come ci muoviamo, dove troviamo resistenza e cosa cambia quando impariamo a usare il corpo in modo diverso.
-          </p>
-          <p className="cover-overlay-paragraph">
-            È questo il tipo di pratica che cerco di costruire nelle mie lezioni: un luogo in cui sperimentare,
-            sviluppare forza e mobilità, ma anche imparare ad ascoltare quello che succede mentre ci muoviamo.
+            Le mie lezioni si ispirano al Vinyasa Flow. Costruisco ogni sequenza intorno a un’intenzione e spesso torno
+            sulla stessa asana per più lezioni. Una posizione offre molte cose da studiare. Possiamo cambiare un
+            appoggio, lavorare sulla mobilità o soffermarci su una transizione. Il respiro mi accompagna anche nei
+            passaggi più intensi e mi aiuta a osservare come cambia il movimento sotto sforzo.
           </p>
 
           <DueVolti />
