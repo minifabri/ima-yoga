@@ -93,6 +93,13 @@ const MIN_PALETTE_WIDTH = 220;
 const MAX_PALETTE_WIDTH = 480;
 const MAX_UNDO_STEPS = 20;
 
+type SequenceVisibility = "private" | "catalog" | "showcase";
+const VISIBILITY_OPTIONS: { value: SequenceVisibility; label: string; hint: string }[] = [
+  { value: "private", label: "Privata", hint: "La vedono solo gli allievi a cui la assegni." },
+  { value: "catalog", label: "Catalogo iscritti", hint: "Visibile a tutti gli iscritti nel catalogo dell'area riservata." },
+  { value: "showcase", label: "In vetrina", hint: "Nel catalogo iscritti e mostrata in anteprima in copertina (sezione Lezioni) anche a chi non è registrato: titolo, tipo, numero di posizioni e alcune miniature." },
+];
+
 // --- Drag-and-drop -----------------------------------------------------------
 // Sezioni, blocchi, voci e pose del catalogo condividono un unico DndContext.
 // Niente "sortable" con le righe che si scostano: il punto di rilascio è
@@ -397,7 +404,11 @@ export function SequenceEditor({
   const [description, setDescription] = useState(sequence?.description ?? "");
   const [clientIds, setClientIds] = useState<string[]>(sequence?.clientIds ?? []);
   const [guestName, setGuestName] = useState(sequence?.guestName ?? "");
-  const [isPublic, setIsPublic] = useState(sequence?.isPublic ?? false);
+  // Tre livelli: privata, nel catalogo degli iscritti, o anche in vetrina
+  // sulla copertina pubblica (che implica il catalogo).
+  const [visibility, setVisibility] = useState<SequenceVisibility>(
+    sequence?.isShowcase ? "showcase" : sequence?.isPublic ? "catalog" : "private"
+  );
   const [notifyEmail, setNotifyEmail] = useState(false);
   const [notifySiteNotice, setNotifySiteNotice] = useState(false);
   const [excludedNotifyIds, setExcludedNotifyIds] = useState<string[]>([]);
@@ -924,7 +935,8 @@ export function SequenceEditor({
         guestName: clientIds.length > 0 ? "" : guestName.trim(),
         name: name.trim() || "Sequenza senza nome",
         description: description.trim(),
-        isPublic,
+        isPublic: visibility !== "private",
+        isShowcase: visibility === "showcase",
         sections: sections.map((s, sIdx) => {
           const blocks: { tempId: string; reps: number | null; position: number; repeatOtherSide: boolean }[] = [];
           const items: {
@@ -1132,9 +1144,28 @@ export function SequenceEditor({
       </div>
 
       <div className="flex items-start gap-3 mb-4 p-3 rounded-lg" style={{ background: COLORS.subtle }}>
-        <Switch checked={isPublic} onChange={setIsPublic} label="Visibile a tutti nel catalogo" onText="Pubblica" offText="Privata" />
-        <div style={{ fontSize: 11.5, color: COLORS.inkSoft, lineHeight: 1.4 }}>
-          Indipendente dall&apos;assegnazione: puoi tenerla privata, assegnarla a uno o più allievi, renderla pubblica nel catalogo, o entrambe le cose.
+        <div className="flex-1 min-w-0">
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: COLORS.ink }} className="mb-1.5">
+            Visibilità
+          </div>
+          <div className="inline-flex rounded-lg overflow-hidden mb-1.5 flex-wrap" style={{ border: `1px solid ${COLORS.border}` }} role="radiogroup" aria-label="Visibilità">
+            {VISIBILITY_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                role="radio"
+                aria-checked={visibility === o.value}
+                onClick={() => setVisibility(o.value)}
+                className="px-3 py-1.5 text-xs font-medium"
+                style={{ background: visibility === o.value ? COLORS.primary : COLORS.card, color: visibility === o.value ? "#fff" : COLORS.ink }}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 11.5, color: COLORS.inkSoft, lineHeight: 1.4 }}>
+            {VISIBILITY_OPTIONS.find((o) => o.value === visibility)?.hint} Indipendente dall&apos;assegnazione agli allievi.
+          </div>
         </div>
       </div>
 

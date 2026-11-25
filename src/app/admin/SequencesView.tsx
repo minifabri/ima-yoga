@@ -192,7 +192,7 @@ export function SequencesView({ supabase, clients, classTypes }: { supabase: Sup
                     <div className="flex items-center gap-1.5 flex-wrap mb-1">
                       <span style={{ fontSize: 14, fontWeight: 600 }}>{s.name || "Sequenza senza nome"}</span>
                       <Badge color={type?.color ?? COLORS.inkSoft}>{type?.name ?? "Altro"}</Badge>
-                      {s.isPublic && <Badge color={COLORS.gold}>Catalogo</Badge>}
+                      {s.isShowcase ? <Badge color={COLORS.primary}>Vetrina</Badge> : s.isPublic && <Badge color={COLORS.gold}>Catalogo</Badge>}
                     </div>
                     <div className="flex items-center gap-1" style={{ fontSize: 12, color: COLORS.inkSoft }}>
                       <User size={11} /> {personLabel} · {activeCount} posizioni attive

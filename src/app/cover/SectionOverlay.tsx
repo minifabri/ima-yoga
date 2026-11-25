@@ -3,11 +3,12 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { X, AtSign, MessageCircle, Mail } from "lucide-react";
-import type { CardSection, CoverEvent } from "./data";
+import type { CardSection, CoverEvent, CoverSequence } from "./data";
 import { CONTACT } from "./data";
 import { ContactForm } from "./ContactForm";
 import { SectionCard } from "./SectionCard";
 import { CoverEvents } from "./CoverEvents";
+import { CoverSequences } from "./CoverSequences";
 import { Logo } from "./Logo";
 
 const isInternal = (href: string) => href.startsWith("/");
@@ -15,11 +16,13 @@ const isInternal = (href: string) => href.startsWith("/");
 export function SectionOverlay({
   section,
   events,
+  sequences,
   phase,
   onClose,
 }: {
   section: CardSection;
   events: CoverEvent[];
+  sequences: CoverSequence[];
   phase: "open" | "closing";
   onClose: () => void;
 }) {
@@ -102,6 +105,7 @@ export function SectionOverlay({
             )}
 
             {section.id === "eventi" && <CoverEvents events={events} />}
+            {section.id === "lezioni" && <CoverSequences sequences={sequences} />}
 
             {section.id === "contatti" && (
               <>

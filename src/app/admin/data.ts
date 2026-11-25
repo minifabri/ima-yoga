@@ -1583,6 +1583,7 @@ type SequenceRow = {
   name: string;
   description: string | null;
   is_public: boolean;
+  is_showcase: boolean;
   created_at: string;
   updated_at: string;
   sequence_clients: { client_id: string }[];
@@ -1629,6 +1630,7 @@ function mapSequence(row: SequenceRow): Sequence {
     name: row.name,
     description: row.description || "",
     isPublic: row.is_public,
+    isShowcase: row.is_showcase,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     sections: (row.sequence_sections || [])
@@ -1706,6 +1708,7 @@ export async function saveSequence(
     name: string;
     description: string;
     isPublic: boolean;
+    isShowcase: boolean;
     sections: {
       kind: SectionKind;
       label: string;
@@ -1735,7 +1738,8 @@ export async function saveSequence(
     guest_name: sequence.guestName || null,
     name: sequence.name,
     description: sequence.description || null,
-    is_public: sequence.isPublic,
+    is_public: sequence.isPublic || sequence.isShowcase,
+    is_showcase: sequence.isShowcase,
   };
 
   // Le relazioni con gli allievi vanno sincronizzate prima della query di
@@ -1850,6 +1854,7 @@ export async function duplicateSequence(supabase: DB, sequence: Sequence): Promi
     name: `${sequence.name || "Sequenza"} (copia)`,
     description: sequence.description,
     isPublic: false,
+    isShowcase: false,
     sections,
   });
 }

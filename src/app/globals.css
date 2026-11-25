@@ -701,6 +701,73 @@ div.cover-card {
     font-size: 19px;
   }
 }
+/* Sequenze in vetrina nella sezione "Lezioni": stessa riga degli eventi,
+   con le miniature delle prime posizioni al posto della data */
+.cover-sequences-block {
+  margin: 18px 0 26px;
+  max-width: 60ch;
+}
+.cover-sequences-heading {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold-text);
+  margin: 0 0 4px;
+}
+.cover-sequences {
+  margin: 10px 0 12px;
+}
+.cover-sequence {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.cover-sequence-thumbs {
+  display: grid;
+  grid-template-columns: repeat(2, 30px);
+  grid-auto-rows: 30px;
+  gap: 4px;
+}
+.cover-sequence-thumb {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  display: block;
+}
+.cover-sequence-thumb-empty {
+  grid-column: span 2;
+  grid-row: span 2;
+  width: 64px;
+  height: 64px;
+}
+.cover-sequences-note {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  margin: 0;
+}
+.cover-sequences-note a {
+  color: var(--gold-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 599px) {
+  .cover-sequence-thumbs {
+    grid-template-columns: repeat(2, 24px);
+    grid-auto-rows: 24px;
+    gap: 3px;
+  }
+  .cover-sequence-thumb {
+    width: 24px;
+    height: 24px;
+  }
+  .cover-sequence-thumb-empty {
+    width: 51px;
+    height: 51px;
+  }
+}
 .cover-events-empty {
   font-size: 15px;
   line-height: 1.7;

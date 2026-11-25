@@ -460,6 +460,8 @@ export type Sequence = {
   name: string;
   description: string;
   isPublic: boolean;
+  // In vetrina: mostrata anche in copertina ai visitatori (implica isPublic).
+  isShowcase: boolean;
   sections: SequenceSection[];
   createdAt: string;
   updatedAt: string;
