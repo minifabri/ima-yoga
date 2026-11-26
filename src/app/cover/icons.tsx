@@ -45,6 +45,18 @@ export function CalendarioIcon() {
   );
 }
 
+// Tre punti uniti da un filo: le posizioni di una sequenza, una dopo l'altra.
+export function SequenzeIcon() {
+  return (
+    <IconFrame>
+      <circle cx="68" cy="113" r="11" />
+      <circle cx="115" cy="113" r="11" />
+      <circle cx="162" cy="113" r="11" />
+      <path d="M79 113 H104 M126 113 H151" />
+    </IconFrame>
+  );
+}
+
 // Un sentiero che si apre: le occasioni fuori dal calendario abituale.
 export function EventiIcon() {
   return (

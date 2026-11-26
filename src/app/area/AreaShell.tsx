@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
-  AtSign,
   Bell,
   Bug,
   CalendarCheck,
@@ -63,6 +62,7 @@ import type {
   PublicEvent,
 } from "./types";
 import type { PoseCatalogItem, Sequence } from "@/app/admin/types";
+import { InstagramIcon } from "@/app/cover/InstagramIcon";
 
 const DISMISSED_ANNOUNCEMENTS_KEY = "ima-yoga-dismissed-announcements";
 
@@ -669,7 +669,7 @@ export function AreaShell({
                   <ArrowLeft size={16} />
                 </Link>
               )}
-              <Logo kicker={`Ciao ${fullName.split(" ")[0]}`} />
+              <Logo kicker={`Ciao ${fullName.split(" ")[0]}`} href="/area" />
             </div>
             <div className="flex items-center gap-2">
               <div className="hidden md:flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
@@ -986,7 +986,7 @@ export function AreaShell({
               className="inline-flex items-center gap-1.5"
               style={{ fontSize: 13, fontWeight: 600, color: COLORS.inkSoft }}
             >
-              <AtSign size={16} /> Instagram
+              <InstagramIcon size={16} /> Instagram
             </a>
             <a
               href="https://chat.whatsapp.com/E3P9O46soqKDiUqgd3YOaf"

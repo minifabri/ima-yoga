@@ -2,63 +2,18 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { InterestCallout } from "../cover/InterestCallout";
 import { getSection } from "../cover/data";
+import { ClassList } from "../cover/ClassList";
 import { SectionCard } from "../cover/SectionCard";
 import { Logo } from "../cover/Logo";
 
-const CLASSES = [
-  {
-    name: "Yoga Flow",
-    description:
-      "Una pratica fluida e dinamica in cui respiro e movimento si incontrano. Sequenze costruite intorno a un focus o a un'asana da esplorare e sviluppare nel tempo.",
-  },
-  {
-    name: "Full Strength Flow",
-    description:
-      "Una pratica più intensa dedicata alla costruzione della forza, con elementi di preparazione fisica funzionali alle asana e al movimento.",
-  },
-  {
-    name: "Flexibility Flow",
-    description:
-      "Mobilità e flessibilità attiva incontrano il flow. Un lavoro progressivo per ampliare il movimento senza perdere controllo, forza e ascolto.",
-  },
-  {
-    name: "Slow Flow",
-    description:
-      "Un ritmo più lento, meno transizioni e più tempo dentro le posizioni. Una pratica per sentire, respirare e lasciare spazio alla consapevolezza.",
-  },
-  {
-    name: "Yoga Foundation",
-    description:
-      "Un percorso dedicato a chi inizia o vuole tornare alle basi. Posizioni fondamentali, respiro e principi del movimento vengono esplorati con calma e progressione.",
-  },
-  {
-    name: "Ashtanga",
-    description:
-      "Una pratica guidata ispirata alla Prima Serie dell'Ashtanga, per lavorare su continuità, respiro, forza e familiarità con la sequenza.",
-  },
-];
-
-const MODES = [
-  {
-    name: "Piccoli gruppi",
-    description:
-      "Classi con pochi partecipanti, per mantenere l'energia della pratica condivisa senza perdere attenzione e cura individuale.",
-  },
-  {
-    name: "Lezioni individuali",
-    description:
-      "Una pratica costruita intorno a te, ai tuoi obiettivi e al punto in cui ti trovi, con un percorso e una progressione personalizzati.",
-  },
-];
-
 export default function ClassiPage() {
-  const section = getSection("lezioni");
+  const section = getSection("classi");
 
   return (
     <div className="static-page cover-theme">
       <div className="cover-overlay-top">
         <Logo />
-        <Link href="/#lezioni" className="static-page-back">
+        <Link href="/#classi" className="static-page-back">
           <ArrowLeft size={15} /> Indietro
         </Link>
       </div>
@@ -81,25 +36,7 @@ export default function ClassiPage() {
             spazio anche a ciò che accade oltre la forma.
           </p>
 
-          <h2 className="static-page-section-title">Le classi</h2>
-          <div className="class-grid">
-            {CLASSES.map((c) => (
-              <div key={c.name} className="class-card">
-                <h3>{c.name}</h3>
-                <p>{c.description}</p>
-              </div>
-            ))}
-          </div>
-
-          <h2 className="static-page-section-title">Come si pratica</h2>
-          <div className="practice-modes">
-            {MODES.map((m) => (
-              <div key={m.name} className="mode-card">
-                <h3>{m.name}</h3>
-                <p>{m.description}</p>
-              </div>
-            ))}
-          </div>
+          <ClassList />
 
           <InterestCallout source="classi" />
 

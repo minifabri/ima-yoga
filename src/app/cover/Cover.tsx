@@ -6,14 +6,14 @@ import { Hero } from "./Hero";
 import { SectionOverlay } from "./SectionOverlay";
 import { Footer } from "./Footer";
 import { InterestCallout } from "./InterestCallout";
-import { DonationCallout } from "./DonationCallout";
 import { getSection, type CoverAccess, type CoverEvent, type CoverSequence } from "./data";
 
 const CLOSE_DURATION = 320;
 
 // In anteprima admin i link "Accedi" riportano al gestionale invece che al login.
-const LOGIN_ACCESS: CoverAccess = { href: "/login", label: "Accedi" };
-const ADMIN_ACCESS: CoverAccess = { href: "/admin", label: "Gestionale" };
+// Il logo in anteprima admin deve restare sulla copertina: "/" porterebbe al gestionale.
+const LOGIN_ACCESS: CoverAccess = { href: "/login", label: "Accedi", home: "/" };
+const ADMIN_ACCESS: CoverAccess = { href: "/admin", label: "Gestionale", home: "/?anteprima=1" };
 
 export function Cover({
   events,
@@ -53,21 +53,33 @@ export function Cover({
     }, CLOSE_DURATION);
   }
 
+  // Clic sul logo: chiude la sezione eventualmente aperta e torna in cima.
+  function goHome() {
+    if (selectedId) closeSection();
+    else history.replaceState(null, "", window.location.pathname + window.location.search);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   const section = getSection(selectedId);
 
   return (
     <main className="cover-root cover-theme">
-      <Header onOpenSection={openSection} access={access} />
-      <Hero onOpenSection={openSection} />
+      <Header onOpenSection={openSection} onHome={goHome} access={access} />
+      <Hero onOpenSection={openSection} aside={<InterestCallout source="home" />} />
 
-      <section className="cover-interest-section">
-        <InterestCallout source="home" />
-        <DonationCallout />
-      </section>
+      <Footer access={access} onHome={goHome} />
 
-      <Footer access={access} />
-
-      {section && <SectionOverlay section={section} events={events} sequences={sequences} phase={phase} onClose={closeSection} />}
+      {section && (
+        <SectionOverlay
+          section={section}
+          events={events}
+          sequences={sequences}
+          phase={phase}
+          onClose={closeSection}
+          onHome={goHome}
+          homeHref={access.home}
+        />
+      )}
     </main>
   );
 }

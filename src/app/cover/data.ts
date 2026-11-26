@@ -1,12 +1,5 @@
 import type { ReactNode } from "react";
-import {
-  ChiSonoIcon,
-  LezioniIcon,
-  MeditazioneIcon,
-  CalendarioIcon,
-  ContattiIcon,
-  EventiIcon,
-} from "./icons";
+import { ChiSonoIcon, LezioniIcon, MeditazioneIcon, SequenzeIcon, ContattiIcon, EventiIcon } from "./icons";
 
 // Struttura dati delle carte: aggiungere o rimuovere una sezione significa
 // aggiungere o rimuovere una voce qui, senza toccare il resto del sito.
@@ -26,22 +19,32 @@ export type CardSection = {
 
 export const CARD_SECTIONS: CardSection[] = [
   {
-    id: "lezioni",
+    id: "classi",
     order: 0,
-    label: "Lezioni",
-    title: "Lezioni",
+    label: "Classi",
+    title: "Una pratica, diversi modi di esplorarla.",
     kicker: "Pratica",
     Icon: LezioniIcon,
-    intro: "Lezioni di yoga in piccoli gruppi e individuali.",
-    paragraphs: [
-      "Pratiche ispirate al Vinyasa, tra movimento, forza e consapevolezza.",
-      "Ogni classe ha un focus diverso, per costruire la pratica nel tempo ed esplorarne aspetti e possibilità differenti.",
-    ],
-    cta: { label: "Scopri le classi", href: "/classi" },
+    intro: "Lezioni di yoga in piccoli gruppi e individuali, ispirate al Vinyasa.",
+    paragraphs: ["Ogni classe ha un focus diverso, per costruire la pratica nel tempo ed esplorarne aspetti e possibilità differenti."],
+    // Sotto ai testi compare l'elenco delle classi con la descrizione (ClassList).
+    cta: { label: "Vai al calendario", href: "/calendario" },
+  },
+  {
+    id: "sequenze",
+    order: 1,
+    label: "Sequenze",
+    title: "Sequenze",
+    kicker: "Da praticare a casa",
+    Icon: SequenzeIcon,
+    intro: "Le sequenze delle lezioni, posizione per posizione.",
+    paragraphs: ["Per ripassare quello che abbiamo fatto insieme, ricordare l'ordine delle posizioni e praticare in autonomia."],
+    // Sotto ai testi compare l'anteprima delle sequenze in vetrina (CoverSequences).
+    cta: { label: "Registrati per vederle tutte", href: "/signup?next=/area/sequenze" },
   },
   {
     id: "meditazione",
-    order: 1,
+    order: 2,
     label: "Meditazione",
     title: "Meditazione",
     kicker: "Presenza",
@@ -49,17 +52,6 @@ export const CARD_SECTIONS: CardSection[] = [
     intro: "Pratiche guidate per rallentare, ascoltare e tornare al centro.",
     paragraphs: ["Meditazioni guidate, mindfulness e incontri a tema per calmare la mente e aprire il cuore. Torna al centro. Sempre."],
     cta: { label: "Scopri la meditazione", href: "/calendario" },
-  },
-  {
-    id: "calendario",
-    order: 2,
-    label: "Calendario",
-    title: "Calendario",
-    kicker: "Prossimi appuntamenti",
-    Icon: CalendarioIcon,
-    intro: "Scopri gli eventi e le pratiche in programma.",
-    paragraphs: ["Lezioni, workshop, meditazioni e ritiri: il calendario completo, sempre aggiornato, con la possibilità di prenotare il tuo posto."],
-    cta: { label: "Vai al calendario", href: "/calendario" },
   },
   {
     id: "eventi",
@@ -102,7 +94,7 @@ export const CARD_SECTIONS: CardSection[] = [
 
 // Evento mostrato nella sezione "Eventi" della copertina (RPC cover_events).
 // Destinazione dei link "Accedi" della copertina (login, o gestionale in anteprima admin).
-export type CoverAccess = { href: string; label: string };
+export type CoverAccess = { href: string; label: string; home: string };
 
 export type CoverEvent = {
   slug: string;
@@ -115,7 +107,7 @@ export type CoverEvent = {
   bookingsOpen: boolean;
 };
 
-// Sequenza "in vetrina" mostrata nella sezione "Lezioni" (RPC cover_sequences):
+// Sequenza "in vetrina" mostrata nella sezione "Sequenze" (RPC cover_sequences):
 // solo un'anteprima, il contenuto completo resta per gli iscritti.
 export type CoverSequence = {
   id: string;
@@ -127,9 +119,61 @@ export type CoverSequence = {
   thumbnails: string[];
 };
 
+// Vecchi indirizzi delle sezioni (link già condivisi): /#lezioni ora apre "Classi".
+const SECTION_ALIASES: Record<string, string> = { lezioni: "classi" };
+
 export function getSection(id: string | null): CardSection | undefined {
-  return CARD_SECTIONS.find((s) => s.id === id);
+  const key = id ? (SECTION_ALIASES[id] ?? id) : id;
+  return CARD_SECTIONS.find((s) => s.id === key);
 }
+
+// Le classi, con la loro descrizione: usate nella sezione "Classi" della
+// copertina e nella pagina /classi.
+export const CLASSES = [
+  {
+    name: "Yoga Flow",
+    description:
+      "Una pratica fluida e dinamica in cui respiro e movimento si incontrano. Sequenze costruite intorno a un focus o a un'asana da esplorare e sviluppare nel tempo.",
+  },
+  {
+    name: "Full Strength Flow",
+    description:
+      "Una pratica più intensa dedicata alla costruzione della forza, con elementi di preparazione fisica funzionali alle asana e al movimento.",
+  },
+  {
+    name: "Flexibility Flow",
+    description:
+      "Mobilità e flessibilità attiva incontrano il flow. Un lavoro progressivo per ampliare il movimento senza perdere controllo, forza e ascolto.",
+  },
+  {
+    name: "Slow Flow",
+    description:
+      "Un ritmo più lento, meno transizioni e più tempo dentro le posizioni. Una pratica per sentire, respirare e lasciare spazio alla consapevolezza.",
+  },
+  {
+    name: "Yoga Foundation",
+    description:
+      "Un percorso dedicato a chi inizia o vuole tornare alle basi. Posizioni fondamentali, respiro e principi del movimento vengono esplorati con calma e progressione.",
+  },
+  {
+    name: "Ashtanga",
+    description:
+      "Una pratica guidata ispirata alla Prima Serie dell'Ashtanga, per lavorare su continuità, respiro, forza e familiarità con la sequenza.",
+  },
+];
+
+export const PRACTICE_MODES = [
+  {
+    name: "Piccoli gruppi",
+    description:
+      "Classi con pochi partecipanti, per mantenere l'energia della pratica condivisa senza perdere attenzione e cura individuale.",
+  },
+  {
+    name: "Lezioni individuali",
+    description:
+      "Una pratica costruita intorno a te, ai tuoi obiettivi e al punto in cui ti trovi, con un percorso e una progressione personalizzati.",
+  },
+];
 
 // Dati di contatto — placeholder facilmente sostituibili con quelli reali.
 export const CONTACT = {

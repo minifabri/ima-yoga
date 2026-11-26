@@ -279,7 +279,38 @@ body {
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  padding: clamp(28px, 4vw, 48px) clamp(20px, 4.5vw, 56px) clamp(48px, 6vw, 88px);
+  padding: clamp(36px, 6vw, 96px) clamp(20px, 4.5vw, 56px) clamp(48px, 6vw, 88px);
+}
+
+/* Nota "anche da casa": sotto le carte a tutta larghezza... */
+.cover-hero-aside {
+  grid-column: 1 / -1;
+  min-width: 0;
+  max-width: 820px;
+}
+.cover-hero-aside .online-callout {
+  margin-top: clamp(8px, 2vw, 24px);
+}
+/* ...e, sugli schermi molto larghi, terza colonna accanto alle carte. */
+@media (min-width: 1500px) {
+  .cover-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 0.8fr);
+    gap: clamp(40px, 3vw, 64px);
+    max-width: 1840px;
+  }
+  .cover-hero .cover-hero-title {
+    font-size: clamp(48px, 3.6vw, 78px);
+  }
+  .cover-hero-aside {
+    grid-column: auto;
+  }
+  .cover-hero-aside .online-callout {
+    margin-top: 0;
+  }
+  .cover-hero-aside .online-callout-options {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 }
 
 .cover-hero-title {
@@ -870,14 +901,17 @@ div.cover-card {
 .cover-footer {
   position: relative;
   z-index: 5;
+  margin-top: auto;
+  padding: 22px clamp(16px, 4vw, 40px) 26px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.cover-footer-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 22px clamp(16px, 4vw, 40px) 26px;
-  border-top: 1px solid var(--border);
   flex-wrap: wrap;
-  background: var(--bg);
 }
 .cover-footer-links {
   display: flex;
@@ -1007,8 +1041,8 @@ div.cover-card {
   border: 1.5px solid var(--card-line);
   border-radius: 12px;
 }
-.class-card h3,
-.mode-card h3 {
+.class-card :is(h3, h4),
+.mode-card :is(h3, h4) {
   font-family: var(--font-display);
   font-weight: 500;
   font-size: 22px;
@@ -1021,27 +1055,6 @@ div.cover-card {
   font-size: 14px;
   line-height: 1.65;
   color: var(--ink-soft);
-}
-
-/* Note in fondo alla copertina ("anche da casa", donazioni): volutamente
-   discrete, senza riquadro — solo una linea sottile sopra e testo piccolo. */
-.cover-interest-section {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 40px;
-  width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 16px clamp(20px, 4.5vw, 56px) 72px;
-}
-@media (min-width: 860px) {
-  .cover-interest-section {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 56px;
-  }
-}
-.cover-interest-section .online-callout {
-  margin-top: 0;
 }
 
 .online-callout {
@@ -1141,11 +1154,16 @@ div.cover-card {
   opacity: 0.6;
   cursor: default;
 }
-/* Nota donazioni: ancora più sommessa delle altre — una riga, niente titolo. */
-.online-callout.donation-note p {
+/* Nota donazioni in cima al footer: una riga sommessa, niente titolo. */
+.donation-note {
+  margin-bottom: 18px;
+  text-align: center;
+}
+.donation-note p {
   margin: 0;
-  font-size: 12.5px;
-  color: color-mix(in srgb, var(--ink-soft) 85%, transparent);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-soft);
 }
 .donation-note a {
   color: inherit;
@@ -1379,4 +1397,9 @@ input[type="time"]::-webkit-date-and-time-value {
   .modal-page textarea {
     font-size: 16px !important;
   }
+}
+
+/* Sezione "Classi" della copertina: respiro tra l'elenco e il pulsante. */
+.cover-overlay-content .practice-modes + .cover-btn {
+  margin-top: 32px;
 }

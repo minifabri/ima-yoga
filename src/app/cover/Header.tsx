@@ -10,17 +10,26 @@ import { CARD_SECTIONS, type CoverAccess } from "./data";
 type NavLink = { label: string; kind: "href"; href: string } | { label: string; kind: "section"; sectionId: string };
 
 const NAV_LINKS: NavLink[] = [
-  { label: "Lezioni", kind: "href", href: "/classi" },
+  { label: "Classi", kind: "section", sectionId: "classi" },
+  { label: "Sequenze", kind: "section", sectionId: "sequenze" },
   { label: "Calendario", kind: "href", href: "/calendario" },
   { label: "Contatti", kind: "section", sectionId: "contatti" },
 ];
 
-export function Header({ onOpenSection, access }: { onOpenSection: (id: string) => void; access: CoverAccess }) {
+export function Header({
+  onOpenSection,
+  onHome,
+  access,
+}: {
+  onOpenSection: (id: string) => void;
+  onHome: () => void;
+  access: CoverAccess;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <header className="cover-header">
-      <Logo />
+      <Logo href={access.home} onHome={onHome} />
 
       <nav className="cover-nav" aria-label="Sezioni principali">
         {NAV_LINKS.map((link) =>
@@ -79,7 +88,7 @@ export function Header({ onOpenSection, access }: { onOpenSection: (id: string) 
             )
           )}
           <div className="cover-mobile-divider" />
-          {CARD_SECTIONS.map((s) => (
+          {CARD_SECTIONS.filter((s) => !NAV_LINKS.some((l) => l.kind === "section" && l.sectionId === s.id)).map((s) => (
             <button
               key={s.id}
               type="button"

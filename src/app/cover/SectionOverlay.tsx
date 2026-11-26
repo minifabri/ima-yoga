@@ -2,7 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { X, AtSign, MessageCircle, Mail } from "lucide-react";
+import { X, MessageCircle, Mail } from "lucide-react";
+import { InstagramIcon } from "./InstagramIcon";
+import { ClassList } from "./ClassList";
 import type { CardSection, CoverEvent, CoverSequence } from "./data";
 import { CONTACT } from "./data";
 import { ContactForm } from "./ContactForm";
@@ -19,12 +21,16 @@ export function SectionOverlay({
   sequences,
   phase,
   onClose,
+  onHome,
+  homeHref,
 }: {
   section: CardSection;
   events: CoverEvent[];
   sequences: CoverSequence[];
   phase: "open" | "closing";
   onClose: () => void;
+  onHome: () => void;
+  homeHref: string;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -72,7 +78,7 @@ export function SectionOverlay({
       ref={dialogRef}
     >
       <div className="cover-overlay-top">
-        <Logo />
+        <Logo href={homeHref} onHome={onHome} />
         <button type="button" className="cover-overlay-close" onClick={onClose} aria-label="Chiudi sezione" ref={closeRef}>
           <X size={18} />
         </button>
@@ -105,14 +111,15 @@ export function SectionOverlay({
             )}
 
             {section.id === "eventi" && <CoverEvents events={events} />}
-            {section.id === "lezioni" && <CoverSequences sequences={sequences} />}
+            {section.id === "classi" && <ClassList level={3} />}
+            {section.id === "sequenze" && <CoverSequences sequences={sequences} />}
 
             {section.id === "contatti" && (
               <>
                 <ContactForm />
                 <div className="cover-overlay-socials">
                   <a href={CONTACT.instagramUrl} className="cover-social" aria-label="Instagram">
-                    <AtSign size={16} />
+                    <InstagramIcon size={16} />
                   </a>
                   <a href={CONTACT.whatsappUrl} className="cover-social" aria-label="WhatsApp">
                     <MessageCircle size={16} />
