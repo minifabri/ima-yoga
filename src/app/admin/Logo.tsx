@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { COLORS } from "./colors";
 
 // Simbolo: mezzaluna + scintilla dorata che "respira". Placeholder disegnato
@@ -21,14 +22,22 @@ export function LogoMark({ size }: { size: number }) {
 // Blocco logo condiviso da header gestionale e area cliente: simbolo +
 // etichetta contestuale (es. "Gestionale" o "Ciao Fabrizia") + wordmark
 // "ima yoga". `kicker` distingue il contesto senza duplicare lo stile.
-export function Logo({ kicker, size = 36 }: { kicker: string; size?: number }) {
-  return (
-    <div className="flex items-center gap-3">
+// `href`: il logo diventa il link alla home di quel contesto (/admin, /area).
+export function Logo({ kicker, size = 36, href }: { kicker: string; size?: number; href?: string }) {
+  const content = (
+    <>
       <LogoMark size={size} />
       <div>
         <div style={{ fontWeight: 700, fontSize: 10, letterSpacing: 2.5, color: COLORS.goldText, textTransform: "uppercase" }}>{kicker}</div>
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 500, fontSize: 26, lineHeight: 1, color: COLORS.heading }}>ima yoga</div>
       </div>
-    </div>
+    </>
+  );
+  return href ? (
+    <Link href={href} className="flex items-center gap-3" style={{ textDecoration: "none" }} aria-label="ima yoga — home">
+      {content}
+    </Link>
+  ) : (
+    <div className="flex items-center gap-3">{content}</div>
   );
 }

@@ -672,7 +672,7 @@ export function AdminShell({ initial, children }: { initial: AdminData; children
         <PushOwnershipSync audience="admin" />
         <div className="p-5" style={{ maxWidth: 980, margin: "0 auto" }}>
           <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-            <Logo kicker="Gestionale" />
+            <Logo kicker="Gestionale" href="/admin" />
 
             <div className="flex items-center gap-1.5 flex-wrap justify-end">
               <div className="hidden md:flex rounded-lg overflow-hidden" style={{ border: `1px solid ${COLORS.border}` }}>
