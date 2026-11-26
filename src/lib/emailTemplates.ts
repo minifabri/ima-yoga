@@ -6,12 +6,61 @@ const FOOTER_SPAN = `<span style="font-size:11px; color:#867CA0;">ima yoga</span
 
 // Email non legate a una prenotazione (nuove classi, inviti a eventi e sondaggi): per legge
 // ognuna deve permettere di disiscriversi, con un link nel piè di pagina.
-export function withUnsubscribeFooter(html: string, unsubscribeUrl: string | null | undefined): string {
+export const UNSUBSCRIBE_LABEL_CLIENT = "Non voglio più ricevere email su nuove classi, eventi e sondaggi";
+export const UNSUBSCRIBE_LABEL_NEWSLETTER = "Disiscriviti dalla newsletter";
+
+export function withUnsubscribeFooter(
+  html: string,
+  unsubscribeUrl: string | null | undefined,
+  label: string = UNSUBSCRIBE_LABEL_CLIENT
+): string {
   if (!unsubscribeUrl) return html;
   return html.replace(
     FOOTER_SPAN,
-    `${FOOTER_SPAN}<br /><a href="${unsubscribeUrl}" style="font-size:11px; color:#867CA0; text-decoration:underline;">Non voglio più ricevere email su nuove classi, eventi e sondaggi</a>`
+    `${FOOTER_SPAN}<br /><a href="${unsubscribeUrl}" style="font-size:11px; color:#867CA0; text-decoration:underline;">${label}</a>`
   );
+}
+
+// Conferma dell'iscrizione alla newsletter (doppio opt-in): finché non si
+// clicca, l'indirizzo resta "in attesa" e non riceve nulla.
+export function newsletterConfirmEmailHtml(details: { confirmUrl: string }): string {
+  return `
+    <div style="background-color:#FAF7F2; padding:40px 16px; font-family:Helvetica, Arial, sans-serif;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:420px; margin:0 auto; background:#FFFFFF; border-radius:18px; overflow:hidden; border:1px solid #E4DAF0;">
+        <tr>
+          <td style="padding:36px 32px 28px 32px; text-align:center;">
+            <div style="font-family:Georgia,'Times New Roman',serif; font-size:30px; color:#4A3A73; margin-bottom:4px;">
+              ima yoga
+            </div>
+            <div style="font-size:11px; letter-spacing:2px; text-transform:uppercase; color:#D6B36A; font-weight:700; margin-bottom:28px;">
+              Newsletter
+            </div>
+
+            <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 8px 0; text-align:left;">
+              Ciao!
+            </p>
+            <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 28px 0; text-align:left;">
+              Manca solo un passo: conferma che vuoi ricevere le novità di ima yoga — nuove classi, eventi e sequenze.
+            </p>
+
+            <a href="${details.confirmUrl}"
+               style="display:inline-block; background:#8E72C7; color:#FFFFFF; text-decoration:none; font-size:14px; font-weight:600; padding:12px 28px; border-radius:10px;">
+              Conferma l'iscrizione
+            </a>
+
+            <p style="font-size:13px; line-height:1.6; color:#867CA0; margin:28px 0 0 0; text-align:left;">
+              Se non sei stata/o tu a iscriverti, ignora questa email: senza conferma non ti scriveremo.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:18px 32px; background:#F2EDF9; text-align:center;">
+            <span style="font-size:11px; color:#867CA0;">ima yoga</span>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
 }
 
 export function surveyPublishedEmailHtml(details: { fullName: string; surveyTitle: string; surveyUrl: string }): string {
@@ -228,7 +277,8 @@ export function newClassesEmailHtml(details: {
   classes: { dateLabel: string; time: string; name: string }[];
   calendarUrl: string;
 }): string {
-  const firstName = details.fullName.split(" ")[0] || "!";
+  const firstName = details.fullName.split(" ")[0];
+  const greeting = firstName ? `Ciao ${firstName}!` : "Ciao!";
   const MAX_ROWS = 12;
   const shown = details.classes.slice(0, MAX_ROWS);
   const hidden = details.classes.length - shown.length;
@@ -260,7 +310,7 @@ export function newClassesEmailHtml(details: {
             </div>
 
             <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 8px 0; text-align:left;">
-              Ciao ${firstName}!
+              ${greeting}
             </p>
             <p style="font-size:15px; line-height:1.6; color:#362D4A; margin:0 0 12px 0; text-align:left;">
               ${intro}

@@ -15,7 +15,7 @@ export default function PrivacyPage() {
           Informativa Privacy
         </div>
         <p className="mt-1 mb-6" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-          Ultimo aggiornamento: 14 ottobre 2026
+          Ultimo aggiornamento: 26 novembre 2026
         </p>
 
         <div className="flex flex-col gap-5" style={{ fontSize: 14, lineHeight: 1.6, color: "var(--ink)" }}>
@@ -36,6 +36,7 @@ export default function PrivacyPage() {
             <p><strong>Sondaggi.</strong> Se rispondi a un sondaggio con il tuo account, le risposte sono collegate al tuo profilo. Senza account puoi lasciare il tuo nome oppure rispondere in forma anonima.</p>
             <p><strong>Sequenze personalizzate e informazioni sulla salute.</strong> La tua insegnante può preparare per te sequenze di pratica personalizzate. Se le racconti di infortuni, dolori, gravidanza o altre condizioni fisiche, può annotarle per adattare la pratica. Sono dati particolari (art. 9 GDPR): li usiamo solo se dai il consenso dalla tua area, alla voce «Privacy e consensi». Sono visibili solo a te e alla tua insegnante, non vengono mai condivisi con altri allievi e puoi revocare il consenso in qualsiasi momento.</p>
             <p><strong>Email su nuove classi, eventi e sondaggi.</strong> Solo se lo scegli (alla registrazione o in «Privacy e consensi») ti scriviamo quando pubblichiamo nuove classi e per invitarti a nuovi eventi e sondaggi. Ogni email contiene un link per non riceverle più. Le email legate alle tue prenotazioni (conferme, promemoria delle lezioni) fanno parte del servizio e arrivano comunque.</p>
+            <p><strong>Newsletter.</strong> Se ti iscrivi dal sito lasciando la tua email, ti mandiamo prima un&apos;email per confermare l&apos;iscrizione; solo dopo la conferma ti scriviamo con le novità (nuove classi, eventi, sequenze). Salviamo l&apos;indirizzo, lo stato dell&apos;iscrizione e le date di richiesta, conferma ed eventuale disiscrizione. Ogni email contiene un link per disiscriversi.</p>
             <p><strong>Notifiche push.</strong> Solo se le attivi tu dal telefono: salviamo l&apos;indirizzo tecnico che il browser ci fornisce per recapitarle. Puoi disattivarle quando vuoi.</p>
             <p><strong>Log di sicurezza.</strong> Per accessi e operazioni sull&apos;account registriamo indirizzo IP e user agent del browser, a scopo di sicurezza e prevenzione di abusi.</p>
             <p><strong>Statistiche di utilizzo.</strong> Un identificativo casuale salvato nel tuo browser (localStorage, non un cookie di profilazione, non ti segue su altri siti e non viene collegato al tuo account) ci aiuta a contare le visite. Usiamo anche Vercel Analytics, che raccoglie statistiche aggregate sulle pagine visitate senza cookie e senza identificare le singole persone.</p>
@@ -45,7 +46,7 @@ export default function PrivacyPage() {
           <Section title="3. Base giuridica del trattamento">
             <ul className="list-disc pl-5 flex flex-col gap-1">
               <li><strong>Esecuzione del servizio</strong> (art. 6.1.b GDPR): account, prenotazioni, email di servizio, richieste, sondaggi.</li>
-              <li><strong>Consenso</strong> (art. 6.1.a e 9.2.a GDPR): email su nuove classi, eventi e sondaggi, informazioni sulla salute, notifiche push. Puoi revocarlo in qualsiasi momento, senza conseguenze sul resto del servizio.</li>
+              <li><strong>Consenso</strong> (art. 6.1.a e 9.2.a GDPR): email su nuove classi, eventi e sondaggi, newsletter, informazioni sulla salute, notifiche push. Puoi revocarlo in qualsiasi momento, senza conseguenze sul resto del servizio.</li>
               <li><strong>Legittimo interesse</strong> (art. 6.1.f GDPR): sicurezza del servizio (log) e statistiche anonime di utilizzo.</li>
             </ul>
           </Section>
@@ -68,6 +69,7 @@ export default function PrivacyPage() {
               <li><strong>Account e prenotazioni:</strong> finché l&apos;account resta attivo. Se elimini l&apos;account, cancelliamo l&apos;accesso, nome, telefono, note e consensi; lo storico delle lezioni svolte resta solo in forma anonima.</li>
               <li><strong>Informazioni sulla salute:</strong> finché il consenso è attivo; alla revoca o alla cancellazione dell&apos;account smettiamo di usarle e le eliminiamo.</li>
               <li><strong>Prenotazioni senza account e risposte ai sondaggi:</strong> per il tempo necessario a gestire l&apos;evento o il sondaggio; puoi chiederne la cancellazione quando vuoi.</li>
+              <li><strong>Newsletter:</strong> finché resti iscritta/o. Le richieste mai confermate e gli indirizzi disiscritti li conserviamo solo per il tempo necessario a dimostrare il consenso o la revoca, e puoi chiederne la cancellazione quando vuoi.</li>
               <li><strong>Messaggi dal form contatti:</strong> nella casella email dell&apos;insegnante, per il tempo necessario a risponderti.</li>
               <li><strong>IP e user agent dei log di sicurezza:</strong> 12 mesi, poi vengono cancellati automaticamente.</li>
               <li><strong>Statistiche delle visite:</strong> 25 mesi, poi vengono cancellate automaticamente.</li>

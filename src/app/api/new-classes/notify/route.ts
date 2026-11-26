@@ -1,7 +1,8 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { after, NextResponse } from "next/server";
 import { sendNewClassesEmail } from "@/lib/notifications";
-import { unsubscribeUrl } from "@/lib/unsubscribe";
+import { newsletterUnsubscribeUrl, unsubscribeUrl } from "@/lib/unsubscribe";
+import { UNSUBSCRIBE_LABEL_NEWSLETTER } from "@/lib/emailTemplates";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -13,7 +14,8 @@ const SEND_GAP_MS = 600;
 // Chiamata dal database (via pg_net, dentro announce_new_classes) quando parte
 // l'avviso riepilogativo delle nuove classi: l'avviso in-app e il push li fa
 // già il database, qui si mandano solo le email, e solo a chi ha acconsentito
-// alle email non transazionali (profiles.marketing_emails).
+// alle email non transazionali (profiles.marketing_emails) e agli iscritti
+// confermati alla newsletter (senza doppioni se un indirizzo è in entrambe).
 // Stesso segreto del webhook dei push (vedi app/api/push/notify).
 export async function POST(request: Request) {
   const secret = process.env.PUSH_WEBHOOK_SECRET;
@@ -71,10 +73,12 @@ export async function POST(request: Request) {
 
     let sent = 0;
     let attempted = 0;
+    const reached = new Set<string>();
     for (const profile of profiles ?? []) {
       const { data: userData } = await adminClient.auth.admin.getUserById(profile.auth_user_id!);
       const email = userData?.user?.email;
       if (!email) continue;
+      reached.add(email.toLowerCase());
       if (attempted++ > 0) await new Promise((r) => setTimeout(r, SEND_GAP_MS));
       const ok = await sendNewClassesEmail({
         to: email,
@@ -86,11 +90,32 @@ export async function POST(request: Request) {
       if (ok) sent++;
     }
 
+    const { data: subscribers, error: subsErr } = await adminClient
+      .from("newsletter_subscribers")
+      .select("id, email")
+      .eq("status", "confirmed");
+    if (subsErr) console.error("[new-classes] newsletter:", subsErr.message);
+    let subscribersSent = 0;
+    for (const sub of subscribers ?? []) {
+      if (reached.has(sub.email.toLowerCase())) continue;
+      reached.add(sub.email.toLowerCase());
+      if (attempted++ > 0) await new Promise((r) => setTimeout(r, SEND_GAP_MS));
+      const ok = await sendNewClassesEmail({
+        to: sub.email,
+        fullName: "",
+        classes,
+        calendarUrl: `${origin}/calendario`,
+        unsubscribeUrl: newsletterUnsubscribeUrl(origin, sub.id),
+        unsubscribeLabel: UNSUBSCRIBE_LABEL_NEWSLETTER,
+      });
+      if (ok) subscribersSent++;
+    }
+
     await adminClient.rpc("log_work", {
       p_action: "notify_new_classes_email",
       p_table: "classes",
       p_entity_id: null,
-      p_description: `Email nuove classi (${classes.length}) inviate: ${sent} su ${profiles?.length ?? 0} clienti con consenso.`,
+      p_description: `Email nuove classi (${classes.length}) inviate: ${sent} su ${profiles?.length ?? 0} clienti con consenso, ${subscribersSent} iscritti alla newsletter.`,
     });
   });
 

@@ -3,11 +3,13 @@ import { Mail, MessageCircle } from "lucide-react";
 import { Logo } from "./Logo";
 import { InstagramIcon } from "./InstagramIcon";
 import { DonationCallout } from "./DonationCallout";
+import { NewsletterForm } from "./NewsletterForm";
 import { CONTACT, type CoverAccess } from "./data";
 
 export function Footer({ access, onHome }: { access: CoverAccess; onHome: () => void }) {
   return (
     <footer id="contatti" className="cover-footer">
+      <NewsletterForm />
       <DonationCallout />
       <div className="cover-footer-row">
         <Logo compact href={access.home} onHome={onHome} />

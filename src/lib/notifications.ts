@@ -4,6 +4,7 @@ import {
   eventReminderEmailHtml,
   individualClassRejectedEmailHtml,
   newClassesEmailHtml,
+  newsletterConfirmEmailHtml,
   sequenceAssignedEmailHtml,
   surveyPublishedEmailHtml,
   surveyReminderEmailHtml,
@@ -312,6 +313,7 @@ export async function sendNewClassesEmail(details: {
   classes: { date: string; time: string; name: string }[]; // date yyyy-mm-dd, time HH:mm
   calendarUrl: string;
   unsubscribeUrl?: string | null;
+  unsubscribeLabel?: string;
 }): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !details.to || details.classes.length === 0) return false;
@@ -342,7 +344,8 @@ export async function sendNewClassesEmail(details: {
         subject,
         html: withUnsubscribeFooter(
           newClassesEmailHtml({ fullName: details.fullName, classes, calendarUrl: details.calendarUrl }),
-          details.unsubscribeUrl
+          details.unsubscribeUrl,
+          details.unsubscribeLabel
         ),
       }),
     });
@@ -561,6 +564,28 @@ export async function sendClassReminderEmail(details: {
             </table>
           </div>
         `,
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Email di conferma dell'iscrizione alla newsletter (doppio opt-in), vedi
+// app/api/newsletter/subscribe.
+export async function sendNewsletterConfirmationEmail(details: { to: string; confirmUrl: string }): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !details.to) return false;
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...commonEmailFields(),
+        to: details.to,
+        subject: "Conferma la tua iscrizione alla newsletter di ima yoga",
+        html: newsletterConfirmEmailHtml({ confirmUrl: details.confirmUrl }),
       }),
     });
     return res.ok;

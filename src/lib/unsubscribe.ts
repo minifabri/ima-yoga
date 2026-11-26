@@ -27,3 +27,25 @@ export function unsubscribeUrl(origin: string, profileId: string): string | null
   if (!token) return null;
   return `${origin}/api/unsubscribe?u=${encodeURIComponent(profileId)}&t=${encodeURIComponent(token)}`;
 }
+
+// Iscritti alla newsletter senza account: stesso meccanismo, ma firmato su
+// "newsletter:<id>" così un token non vale mai per l'altra lista.
+function newsletterToken(subscriberId: string): string | null {
+  const s = secret();
+  if (!s) return null;
+  return createHmac("sha256", s).update(`newsletter:${subscriberId}`).digest("base64url");
+}
+
+export function verifyNewsletterUnsubscribeToken(subscriberId: string, token: string): boolean {
+  const expected = newsletterToken(subscriberId);
+  if (!expected) return false;
+  const a = Buffer.from(expected);
+  const b = Buffer.from(token);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export function newsletterUnsubscribeUrl(origin: string, subscriberId: string): string | null {
+  const token = newsletterToken(subscriberId);
+  if (!token) return null;
+  return `${origin}/api/unsubscribe?n=${encodeURIComponent(subscriberId)}&t=${encodeURIComponent(token)}`;
+}

@@ -179,7 +179,8 @@ export type NotificationType =
   | "interest"
   | "survey_response"
   | "individual_class_request"
-  | "class_full";
+  | "class_full"
+  | "newsletter";
 
 export type NotificationItem = {
   id: string;
